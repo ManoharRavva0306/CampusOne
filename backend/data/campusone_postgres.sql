@@ -1,0 +1,216 @@
+-- =========================================================================
+-- CampusOne PostgreSQL Enterprise Production Database
+-- Target: PostgreSQL 14+, Neon, Supabase, AWS RDS, ElephantSQL
+-- Contains: 100 Students, 5 Class Advisors, 4 Dept Heads, 1 Overall Admin
+-- =========================================================================
+
+DROP TABLE IF EXISTS comments CASCADE;
+DROP TABLE IF EXISTS ticket_votes CASCADE;
+DROP TABLE IF EXISTS tickets CASCADE;
+DROP TABLE IF EXISTS users CASCADE;
+
+-- -------------------------------------------------------------------------
+-- 1. USERS TABLE
+-- -------------------------------------------------------------------------
+CREATE TABLE users (
+    id VARCHAR(64) PRIMARY KEY,
+    name VARCHAR(128) NOT NULL,
+    role VARCHAR(32) NOT NULL CHECK (role IN ('student', 'faculty_advisor', 'domain_admin', 'central_admin')),
+    roll_no VARCHAR(32) UNIQUE NOT NULL,
+    email VARCHAR(128) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    department VARCHAR(64) NOT NULL,
+    class_section VARCHAR(64),
+    hostel VARCHAR(64),
+    room VARCHAR(16),
+    designation VARCHAR(128),
+    domain VARCHAR(64),
+    avatar_url TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX idx_users_roll_no ON users(roll_no);
+CREATE INDEX idx_users_role ON users(role);
+
+-- -------------------------------------------------------------------------
+-- 2. TICKETS TABLE
+-- -------------------------------------------------------------------------
+CREATE TABLE tickets (
+    id VARCHAR(32) PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    description TEXT NOT NULL,
+    scope VARCHAR(32) NOT NULL CHECK (scope IN ('class', 'room', 'department', 'hostel_generic', 'campus')),
+    class_section VARCHAR(64),
+    department VARCHAR(64) NOT NULL,
+    hostel VARCHAR(64),
+    room VARCHAR(16),
+    location VARCHAR(255) NOT NULL,
+    category VARCHAR(64) NOT NULL,
+    domain VARCHAR(64) NOT NULL,
+    raised_by_id VARCHAR(64) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    status VARCHAR(32) NOT NULL DEFAULT 'reported' 
+        CHECK (status IN ('reported', 'acknowledged', 'in_progress', 'awaiting_verification', 'resolved')),
+    priority_score INTEGER DEFAULT 50 CHECK (priority_score BETWEEN 0 AND 100),
+    advisor_notified BOOLEAN DEFAULT FALSE,
+    advisor_endorsed BOOLEAN DEFAULT FALSE,
+    assigned_to VARCHAR(128) DEFAULT 'Pending Assignment',
+    eta VARCHAR(128) DEFAULT 'Awaiting triage',
+    admin_note TEXT DEFAULT '',
+    image_url TEXT
+);
+
+CREATE INDEX idx_tickets_status ON tickets(status);
+CREATE INDEX idx_tickets_scope ON tickets(scope);
+CREATE INDEX idx_tickets_domain ON tickets(domain);
+CREATE INDEX idx_tickets_raised_by ON tickets(raised_by_id);
+
+-- -------------------------------------------------------------------------
+-- 3. TICKET VOTES TABLE
+-- -------------------------------------------------------------------------
+CREATE TABLE ticket_votes (
+    ticket_id VARCHAR(32) NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
+    user_id VARCHAR(64) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    vote_type VARCHAR(8) NOT NULL CHECK (vote_type IN ('up', 'down')),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (ticket_id, user_id)
+);
+
+-- -------------------------------------------------------------------------
+-- 4. COMMENTS TABLE
+-- -------------------------------------------------------------------------
+CREATE TABLE comments (
+    id VARCHAR(64) PRIMARY KEY,
+    ticket_id VARCHAR(32) NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
+    user_id VARCHAR(64) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    text TEXT NOT NULL,
+    is_official BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_comments_ticket_id ON comments(ticket_id);
+
+-- -------------------------------------------------------------------------
+-- 5. SEED USERS (100 Students, 5 Class Advisors, 4 Dept Admins, 1 Overall Admin)
+-- -------------------------------------------------------------------------
+INSERT INTO users (id, name, role, roll_no, email, password_hash, department, class_section, hostel, room, designation, domain, avatar_url) VALUES
+('user_dean', 'Dr. K. Subramanian', 'central_admin', 'DIR.AMRITA.01', 'admin@cb.amrita.edu', 'admin123', 'Central Administration', NULL, NULL, NULL, NULL, NULL, 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'),
+('hod_cse', 'Dr. S. N. Rao (HOD CSE)', 'domain_admin', 'HOD.CSE.01', 'hod.cse@cb.amrita.edu', 'admin123', 'Computer Science & Engineering', NULL, NULL, NULL, NULL, 'it_av', 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80'),
+('hod_infra', 'Kishore V. (Estate Lead)', 'domain_admin', 'ADM.EST.104', 'admin.infra@cb.amrita.edu', 'admin123', 'Estate Maintenance', NULL, NULL, NULL, NULL, 'electrical_av', 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80'),
+('hod_civil', 'Suresh Babu (Civil Lead)', 'domain_admin', 'ADM.CIV.202', 'admin.civil@cb.amrita.edu', 'admin123', 'Civil Works', NULL, NULL, NULL, NULL, 'carpentry_civil', 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&auto=format&fit=crop&q=80'),
+('hod_hostel', 'Mrs. Malathi (Chief Warden)', 'domain_admin', 'ADM.HST.303', 'admin.hostel@cb.amrita.edu', 'admin123', 'Student Housing', NULL, NULL, NULL, NULL, 'hostel_mess', 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150&auto=format&fit=crop&q=80'),
+('adv_cseb', 'Dr. Ramesh Kumar', 'faculty_advisor', 'FAC.CSE.8821', 'advisor.cseb@cb.amrita.edu', 'advisor123', 'CSE', 'CSE-B 3rd Year', NULL, NULL, 'Associate Professor & Class Advisor CSE-B', NULL, 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&auto=format&fit=crop&q=80'),
+('adv_csea', 'Dr. M. Senthil Nathan', 'faculty_advisor', 'FAC.CSE.8822', 'advisor.csea@cb.amrita.edu', 'advisor123', 'CSE', 'CSE-A 3rd Year', NULL, NULL, 'Associate Professor & Class Advisor CSE-A', NULL, 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80'),
+('adv_mecha', 'Dr. Priya Sharma', 'faculty_advisor', 'FAC.MECH.4412', 'advisor.mecha@cb.amrita.edu', 'advisor123', 'MECH', 'MECH-A 3rd Year', NULL, NULL, 'Assistant Professor & Class Advisor MECH-A', NULL, 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150&auto=format&fit=crop&q=80'),
+('adv_ecea', 'Dr. Anand Padmanabhan', 'faculty_advisor', 'FAC.ECE.3129', 'advisor.ecea@cb.amrita.edu', 'advisor123', 'ECE', 'ECE-A 3rd Year', NULL, NULL, 'Associate Professor & Class Advisor ECE-A', NULL, 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80'),
+('adv_aiea', 'Dr. Bindu K. R.', 'faculty_advisor', 'FAC.AIE.5510', 'advisor.aiea@cb.amrita.edu', 'advisor123', 'AIE', 'AIE-A 3rd Year', NULL, NULL, 'Professor & Class Advisor AI & Data Science', NULL, 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80'),
+('student_1', 'Aarav Sharma', 'student', 'CB.EN.U4CSE23100', 'aarav.sharma@cb.amrita.edu', 'student123', 'CSE', 'CSE-A 3rd Year', 'Vashistha Bhavan', '101', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_2', 'Vivaan Sharma', 'student', 'CB.EN.U4ECE23101', 'vivaan.sharma@cb.amrita.edu', 'student123', 'ECE', 'ECE-B 3rd Year', 'Gargi Bhavan', '102', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_3', 'Aditya Sharma', 'student', 'CB.EN.U4MECH23102', 'aditya.sharma@cb.amrita.edu', 'student123', 'MECH', 'MECH-A 3rd Year', 'Agastya Bhavan', '103', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_4', 'Vihaan Sharma', 'student', 'CB.EN.U4EEE23103', 'vihaan.sharma@cb.amrita.edu', 'student123', 'EEE', 'EEE-B 3rd Year', 'Maitreyi Bhavan', '104', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_5', 'Arjun Sharma', 'student', 'CB.EN.U4AIE23104', 'arjun.sharma@cb.amrita.edu', 'student123', 'AIE', 'AIE-A 3rd Year', 'Vyasa Bhavan', '105', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_6', 'Sai Sharma', 'student', 'CB.EN.U4CYS23105', 'sai.sharma@cb.amrita.edu', 'student123', 'CYS', 'CYS-B 3rd Year', 'Vashistha Bhavan', '106', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_7', 'Reyansh Sharma', 'student', 'CB.EN.U4CSE23106', 'reyansh.sharma@cb.amrita.edu', 'student123', 'CSE', 'CSE-A 3rd Year', 'Gargi Bhavan', '107', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_8', 'Ayaan Sharma', 'student', 'CB.EN.U4ECE23107', 'ayaan.sharma@cb.amrita.edu', 'student123', 'ECE', 'ECE-B 3rd Year', 'Agastya Bhavan', '108', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_9', 'Krishna Sharma', 'student', 'CB.EN.U4MECH23108', 'krishna.sharma@cb.amrita.edu', 'student123', 'MECH', 'MECH-A 3rd Year', 'Maitreyi Bhavan', '109', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_10', 'Ishaan Sharma', 'student', 'CB.EN.U4EEE23109', 'ishaan.sharma@cb.amrita.edu', 'student123', 'EEE', 'EEE-B 3rd Year', 'Vyasa Bhavan', '110', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_11', 'Dhruv Sharma', 'student', 'CB.EN.U4AIE23110', 'dhruv.sharma@cb.amrita.edu', 'student123', 'AIE', 'AIE-A 3rd Year', 'Vashistha Bhavan', '111', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_12', 'Kabir Sharma', 'student', 'CB.EN.U4CYS23111', 'kabir.sharma@cb.amrita.edu', 'student123', 'CYS', 'CYS-B 3rd Year', 'Gargi Bhavan', '112', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_13', 'Ananya Sharma', 'student', 'CB.EN.U4CSE23112', 'ananya.sharma@cb.amrita.edu', 'student123', 'CSE', 'CSE-A 3rd Year', 'Agastya Bhavan', '113', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_14', 'Diya Sharma', 'student', 'CB.EN.U4ECE23113', 'diya.sharma@cb.amrita.edu', 'student123', 'ECE', 'ECE-B 3rd Year', 'Maitreyi Bhavan', '114', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_15', 'Gauri Sharma', 'student', 'CB.EN.U4MECH23114', 'gauri.sharma@cb.amrita.edu', 'student123', 'MECH', 'MECH-A 3rd Year', 'Vyasa Bhavan', '115', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_16', 'Aanya Sharma', 'student', 'CB.EN.U4EEE23115', 'aanya.sharma@cb.amrita.edu', 'student123', 'EEE', 'EEE-B 3rd Year', 'Vashistha Bhavan', '116', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_17', 'Saanvi Sharma', 'student', 'CB.EN.U4AIE23116', 'saanvi.sharma@cb.amrita.edu', 'student123', 'AIE', 'AIE-A 3rd Year', 'Gargi Bhavan', '117', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_18', 'Aadhya Sharma', 'student', 'CB.EN.U4CYS23117', 'aadhya.sharma@cb.amrita.edu', 'student123', 'CYS', 'CYS-B 3rd Year', 'Agastya Bhavan', '118', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_19', 'Pari Sharma', 'student', 'CB.EN.U4CSE23118', 'pari.sharma@cb.amrita.edu', 'student123', 'CSE', 'CSE-A 3rd Year', 'Maitreyi Bhavan', '119', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_20', 'Anika Sharma', 'student', 'CB.EN.U4ECE23119', 'anika.sharma@cb.amrita.edu', 'student123', 'ECE', 'ECE-B 3rd Year', 'Vyasa Bhavan', '120', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_21', 'Navya Sharma', 'student', 'CB.EN.U4MECH23120', 'navya.sharma@cb.amrita.edu', 'student123', 'MECH', 'MECH-A 3rd Year', 'Vashistha Bhavan', '121', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_22', 'Angel Sharma', 'student', 'CB.EN.U4EEE23121', 'angel.sharma@cb.amrita.edu', 'student123', 'EEE', 'EEE-B 3rd Year', 'Gargi Bhavan', '122', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_23', 'Riya Sharma', 'student', 'CB.EN.U4AIE23122', 'riya.sharma@cb.amrita.edu', 'student123', 'AIE', 'AIE-A 3rd Year', 'Agastya Bhavan', '123', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_24', 'Myra Sharma', 'student', 'CB.EN.U4CYS23123', 'myra.sharma@cb.amrita.edu', 'student123', 'CYS', 'CYS-B 3rd Year', 'Maitreyi Bhavan', '124', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_25', 'Sara Sharma', 'student', 'CB.EN.U4CSE23124', 'sara.sharma@cb.amrita.edu', 'student123', 'CSE', 'CSE-A 3rd Year', 'Vyasa Bhavan', '125', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_26', 'Ira Sharma', 'student', 'CB.EN.U4ECE23125', 'ira.sharma@cb.amrita.edu', 'student123', 'ECE', 'ECE-B 3rd Year', 'Vashistha Bhavan', '126', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_27', 'Avani Sharma', 'student', 'CB.EN.U4MECH23126', 'avani.sharma@cb.amrita.edu', 'student123', 'MECH', 'MECH-A 3rd Year', 'Gargi Bhavan', '127', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_28', 'Prisha Sharma', 'student', 'CB.EN.U4EEE23127', 'prisha.sharma@cb.amrita.edu', 'student123', 'EEE', 'EEE-B 3rd Year', 'Agastya Bhavan', '128', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_29', 'Rohan Sharma', 'student', 'CB.EN.U4AIE23128', 'rohan.sharma@cb.amrita.edu', 'student123', 'AIE', 'AIE-A 3rd Year', 'Maitreyi Bhavan', '129', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_30', 'Karan Sharma', 'student', 'CB.EN.U4CYS23129', 'karan.sharma@cb.amrita.edu', 'student123', 'CYS', 'CYS-B 3rd Year', 'Vyasa Bhavan', '130', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_31', 'Siddharth Sharma', 'student', 'CB.EN.U4CSE23130', 'siddharth.sharma@cb.amrita.edu', 'student123', 'CSE', 'CSE-A 3rd Year', 'Vashistha Bhavan', '101', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_32', 'Nikhil Sharma', 'student', 'CB.EN.U4ECE23131', 'nikhil.sharma@cb.amrita.edu', 'student123', 'ECE', 'ECE-B 3rd Year', 'Gargi Bhavan', '102', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_33', 'Varun Sharma', 'student', 'CB.EN.U4MECH23132', 'varun.sharma@cb.amrita.edu', 'student123', 'MECH', 'MECH-A 3rd Year', 'Agastya Bhavan', '103', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_34', 'Tarun Sharma', 'student', 'CB.EN.U4EEE23133', 'tarun.sharma@cb.amrita.edu', 'student123', 'EEE', 'EEE-B 3rd Year', 'Maitreyi Bhavan', '104', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_35', 'Harsh Sharma', 'student', 'CB.EN.U4AIE23134', 'harsh.sharma@cb.amrita.edu', 'student123', 'AIE', 'AIE-A 3rd Year', 'Vyasa Bhavan', '105', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_36', 'Manish Sharma', 'student', 'CB.EN.U4CYS23135', 'manish.sharma@cb.amrita.edu', 'student123', 'CYS', 'CYS-B 3rd Year', 'Vashistha Bhavan', '106', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_37', 'Kunal Sharma', 'student', 'CB.EN.U4CSE23136', 'kunal.sharma@cb.amrita.edu', 'student123', 'CSE', 'CSE-A 3rd Year', 'Gargi Bhavan', '107', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_38', 'Rahul Sharma', 'student', 'CB.EN.U4ECE23137', 'rahul.sharma@cb.amrita.edu', 'student123', 'ECE', 'ECE-B 3rd Year', 'Agastya Bhavan', '108', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_39', 'Abhishek Sharma', 'student', 'CB.EN.U4MECH23138', 'abhishek.sharma@cb.amrita.edu', 'student123', 'MECH', 'MECH-A 3rd Year', 'Maitreyi Bhavan', '109', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_40', 'Akash Sharma', 'student', 'CB.EN.U4EEE23139', 'akash.sharma@cb.amrita.edu', 'student123', 'EEE', 'EEE-B 3rd Year', 'Vyasa Bhavan', '110', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_41', 'Pooja Sharma', 'student', 'CB.EN.U4AIE23140', 'pooja.sharma@cb.amrita.edu', 'student123', 'AIE', 'AIE-A 3rd Year', 'Vashistha Bhavan', '111', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_42', 'Neha Sharma', 'student', 'CB.EN.U4CYS23141', 'neha.sharma@cb.amrita.edu', 'student123', 'CYS', 'CYS-B 3rd Year', 'Gargi Bhavan', '112', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_43', 'Sneha Sharma', 'student', 'CB.EN.U4CSE23142', 'sneha.sharma@cb.amrita.edu', 'student123', 'CSE', 'CSE-A 3rd Year', 'Agastya Bhavan', '113', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_44', 'Swati Sharma', 'student', 'CB.EN.U4ECE23143', 'swati.sharma@cb.amrita.edu', 'student123', 'ECE', 'ECE-B 3rd Year', 'Maitreyi Bhavan', '114', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_45', 'Priya Sharma', 'student', 'CB.EN.U4MECH23144', 'priya.sharma@cb.amrita.edu', 'student123', 'MECH', 'MECH-A 3rd Year', 'Vyasa Bhavan', '115', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_46', 'Kavya Sharma', 'student', 'CB.EN.U4EEE23145', 'kavya.sharma@cb.amrita.edu', 'student123', 'EEE', 'EEE-B 3rd Year', 'Vashistha Bhavan', '116', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_47', 'Divya Sharma', 'student', 'CB.EN.U4AIE23146', 'divya.sharma@cb.amrita.edu', 'student123', 'AIE', 'AIE-A 3rd Year', 'Gargi Bhavan', '117', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_48', 'Deepika Sharma', 'student', 'CB.EN.U4CYS23147', 'deepika.sharma@cb.amrita.edu', 'student123', 'CYS', 'CYS-B 3rd Year', 'Agastya Bhavan', '118', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_49', 'Meera Sharma', 'student', 'CB.EN.U4CSE23148', 'meera.sharma@cb.amrita.edu', 'student123', 'CSE', 'CSE-A 3rd Year', 'Maitreyi Bhavan', '119', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_50', 'Shreya Sharma', 'student', 'CB.EN.U4ECE23149', 'shreya.sharma@cb.amrita.edu', 'student123', 'ECE', 'ECE-B 3rd Year', 'Vyasa Bhavan', '120', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_51', 'Aarav Verma', 'student', 'CB.EN.U4MECH23150', 'aarav.verma51@cb.amrita.edu', 'student123', 'MECH', 'MECH-A 3rd Year', 'Vashistha Bhavan', '121', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_52', 'Vivaan Verma', 'student', 'CB.EN.U4EEE23151', 'vivaan.verma52@cb.amrita.edu', 'student123', 'EEE', 'EEE-B 3rd Year', 'Gargi Bhavan', '122', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_53', 'Aditya Verma', 'student', 'CB.EN.U4AIE23152', 'aditya.verma53@cb.amrita.edu', 'student123', 'AIE', 'AIE-A 3rd Year', 'Agastya Bhavan', '123', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_54', 'Vihaan Verma', 'student', 'CB.EN.U4CYS23153', 'vihaan.verma54@cb.amrita.edu', 'student123', 'CYS', 'CYS-B 3rd Year', 'Maitreyi Bhavan', '124', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_55', 'Arjun Verma', 'student', 'CB.EN.U4CSE23154', 'arjun.verma55@cb.amrita.edu', 'student123', 'CSE', 'CSE-A 3rd Year', 'Vyasa Bhavan', '125', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_56', 'Sai Verma', 'student', 'CB.EN.U4ECE23155', 'sai.verma56@cb.amrita.edu', 'student123', 'ECE', 'ECE-B 3rd Year', 'Vashistha Bhavan', '126', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_57', 'Reyansh Verma', 'student', 'CB.EN.U4MECH23156', 'reyansh.verma57@cb.amrita.edu', 'student123', 'MECH', 'MECH-A 3rd Year', 'Gargi Bhavan', '127', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_58', 'Ayaan Verma', 'student', 'CB.EN.U4EEE23157', 'ayaan.verma58@cb.amrita.edu', 'student123', 'EEE', 'EEE-B 3rd Year', 'Agastya Bhavan', '128', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_59', 'Krishna Verma', 'student', 'CB.EN.U4AIE23158', 'krishna.verma59@cb.amrita.edu', 'student123', 'AIE', 'AIE-A 3rd Year', 'Maitreyi Bhavan', '129', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_60', 'Ishaan Verma', 'student', 'CB.EN.U4CYS23159', 'ishaan.verma60@cb.amrita.edu', 'student123', 'CYS', 'CYS-B 3rd Year', 'Vyasa Bhavan', '130', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_61', 'Dhruv Verma', 'student', 'CB.EN.U4CSE23160', 'dhruv.verma61@cb.amrita.edu', 'student123', 'CSE', 'CSE-A 3rd Year', 'Vashistha Bhavan', '101', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_62', 'Kabir Verma', 'student', 'CB.EN.U4ECE23161', 'kabir.verma62@cb.amrita.edu', 'student123', 'ECE', 'ECE-B 3rd Year', 'Gargi Bhavan', '102', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_63', 'Ananya Verma', 'student', 'CB.EN.U4MECH23162', 'ananya.verma63@cb.amrita.edu', 'student123', 'MECH', 'MECH-A 3rd Year', 'Agastya Bhavan', '103', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_64', 'Diya Verma', 'student', 'CB.EN.U4EEE23163', 'diya.verma64@cb.amrita.edu', 'student123', 'EEE', 'EEE-B 3rd Year', 'Maitreyi Bhavan', '104', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_65', 'Gauri Verma', 'student', 'CB.EN.U4AIE23164', 'gauri.verma65@cb.amrita.edu', 'student123', 'AIE', 'AIE-A 3rd Year', 'Vyasa Bhavan', '105', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_66', 'Aanya Verma', 'student', 'CB.EN.U4CYS23165', 'aanya.verma66@cb.amrita.edu', 'student123', 'CYS', 'CYS-B 3rd Year', 'Vashistha Bhavan', '106', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_67', 'Saanvi Verma', 'student', 'CB.EN.U4CSE23166', 'saanvi.verma67@cb.amrita.edu', 'student123', 'CSE', 'CSE-A 3rd Year', 'Gargi Bhavan', '107', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_68', 'Aadhya Verma', 'student', 'CB.EN.U4ECE23167', 'aadhya.verma68@cb.amrita.edu', 'student123', 'ECE', 'ECE-B 3rd Year', 'Agastya Bhavan', '108', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_69', 'Pari Verma', 'student', 'CB.EN.U4MECH23168', 'pari.verma69@cb.amrita.edu', 'student123', 'MECH', 'MECH-A 3rd Year', 'Maitreyi Bhavan', '109', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_70', 'Anika Verma', 'student', 'CB.EN.U4EEE23169', 'anika.verma70@cb.amrita.edu', 'student123', 'EEE', 'EEE-B 3rd Year', 'Vyasa Bhavan', '110', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_71', 'Navya Verma', 'student', 'CB.EN.U4AIE23170', 'navya.verma71@cb.amrita.edu', 'student123', 'AIE', 'AIE-A 3rd Year', 'Vashistha Bhavan', '111', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_72', 'Angel Verma', 'student', 'CB.EN.U4CYS23171', 'angel.verma72@cb.amrita.edu', 'student123', 'CYS', 'CYS-B 3rd Year', 'Gargi Bhavan', '112', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_73', 'Riya Verma', 'student', 'CB.EN.U4CSE23172', 'riya.verma73@cb.amrita.edu', 'student123', 'CSE', 'CSE-A 3rd Year', 'Agastya Bhavan', '113', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_74', 'Myra Verma', 'student', 'CB.EN.U4ECE23173', 'myra.verma74@cb.amrita.edu', 'student123', 'ECE', 'ECE-B 3rd Year', 'Maitreyi Bhavan', '114', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_75', 'Sara Verma', 'student', 'CB.EN.U4MECH23174', 'sara.verma75@cb.amrita.edu', 'student123', 'MECH', 'MECH-A 3rd Year', 'Vyasa Bhavan', '115', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_76', 'Ira Verma', 'student', 'CB.EN.U4EEE23175', 'ira.verma76@cb.amrita.edu', 'student123', 'EEE', 'EEE-B 3rd Year', 'Vashistha Bhavan', '116', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_77', 'Avani Verma', 'student', 'CB.EN.U4AIE23176', 'avani.verma77@cb.amrita.edu', 'student123', 'AIE', 'AIE-A 3rd Year', 'Gargi Bhavan', '117', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_78', 'Prisha Verma', 'student', 'CB.EN.U4CYS23177', 'prisha.verma78@cb.amrita.edu', 'student123', 'CYS', 'CYS-B 3rd Year', 'Agastya Bhavan', '118', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_79', 'Rohan Verma', 'student', 'CB.EN.U4CSE23178', 'rohan.verma79@cb.amrita.edu', 'student123', 'CSE', 'CSE-A 3rd Year', 'Maitreyi Bhavan', '119', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_80', 'Karan Verma', 'student', 'CB.EN.U4ECE23179', 'karan.verma80@cb.amrita.edu', 'student123', 'ECE', 'ECE-B 3rd Year', 'Vyasa Bhavan', '120', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_81', 'Siddharth Verma', 'student', 'CB.EN.U4MECH23180', 'siddharth.verma81@cb.amrita.edu', 'student123', 'MECH', 'MECH-A 3rd Year', 'Vashistha Bhavan', '121', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_82', 'Nikhil Verma', 'student', 'CB.EN.U4EEE23181', 'nikhil.verma82@cb.amrita.edu', 'student123', 'EEE', 'EEE-B 3rd Year', 'Gargi Bhavan', '122', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_83', 'Varun Verma', 'student', 'CB.EN.U4AIE23182', 'varun.verma83@cb.amrita.edu', 'student123', 'AIE', 'AIE-A 3rd Year', 'Agastya Bhavan', '123', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_84', 'Tarun Verma', 'student', 'CB.EN.U4CYS23183', 'tarun.verma84@cb.amrita.edu', 'student123', 'CYS', 'CYS-B 3rd Year', 'Maitreyi Bhavan', '124', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_85', 'Harsh Verma', 'student', 'CB.EN.U4CSE23184', 'harsh.verma85@cb.amrita.edu', 'student123', 'CSE', 'CSE-A 3rd Year', 'Vyasa Bhavan', '125', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_86', 'Manish Verma', 'student', 'CB.EN.U4ECE23185', 'manish.verma86@cb.amrita.edu', 'student123', 'ECE', 'ECE-B 3rd Year', 'Vashistha Bhavan', '126', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_87', 'Kunal Verma', 'student', 'CB.EN.U4MECH23186', 'kunal.verma87@cb.amrita.edu', 'student123', 'MECH', 'MECH-A 3rd Year', 'Gargi Bhavan', '127', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_88', 'Rahul Verma', 'student', 'CB.EN.U4EEE23187', 'rahul.verma88@cb.amrita.edu', 'student123', 'EEE', 'EEE-B 3rd Year', 'Agastya Bhavan', '128', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_89', 'Abhishek Verma', 'student', 'CB.EN.U4AIE23188', 'abhishek.verma89@cb.amrita.edu', 'student123', 'AIE', 'AIE-A 3rd Year', 'Maitreyi Bhavan', '129', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_90', 'Akash Verma', 'student', 'CB.EN.U4CYS23189', 'akash.verma90@cb.amrita.edu', 'student123', 'CYS', 'CYS-B 3rd Year', 'Vyasa Bhavan', '130', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_91', 'Pooja Verma', 'student', 'CB.EN.U4CSE23190', 'pooja.verma91@cb.amrita.edu', 'student123', 'CSE', 'CSE-A 3rd Year', 'Vashistha Bhavan', '101', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_92', 'Neha Verma', 'student', 'CB.EN.U4ECE23191', 'neha.verma92@cb.amrita.edu', 'student123', 'ECE', 'ECE-B 3rd Year', 'Gargi Bhavan', '102', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_93', 'Sneha Verma', 'student', 'CB.EN.U4MECH23192', 'sneha.verma93@cb.amrita.edu', 'student123', 'MECH', 'MECH-A 3rd Year', 'Agastya Bhavan', '103', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_94', 'Swati Verma', 'student', 'CB.EN.U4EEE23193', 'swati.verma94@cb.amrita.edu', 'student123', 'EEE', 'EEE-B 3rd Year', 'Maitreyi Bhavan', '104', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_95', 'Priya Verma', 'student', 'CB.EN.U4AIE23194', 'priya.verma95@cb.amrita.edu', 'student123', 'AIE', 'AIE-A 3rd Year', 'Vyasa Bhavan', '105', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_96', 'Kavya Verma', 'student', 'CB.EN.U4CYS23195', 'kavya.verma96@cb.amrita.edu', 'student123', 'CYS', 'CYS-B 3rd Year', 'Vashistha Bhavan', '106', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_97', 'Divya Verma', 'student', 'CB.EN.U4CSE23196', 'divya.verma97@cb.amrita.edu', 'student123', 'CSE', 'CSE-A 3rd Year', 'Gargi Bhavan', '107', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_98', 'Deepika Verma', 'student', 'CB.EN.U4ECE23197', 'deepika.verma98@cb.amrita.edu', 'student123', 'ECE', 'ECE-B 3rd Year', 'Agastya Bhavan', '108', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_99', 'Meera Verma', 'student', 'CB.EN.U4MECH23198', 'meera.verma99@cb.amrita.edu', 'student123', 'MECH', 'MECH-A 3rd Year', 'Maitreyi Bhavan', '109', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'),
+('student_100', 'Shreya Verma', 'student', 'CB.EN.U4EEE23199', 'shreya.verma100@cb.amrita.edu', 'student123', 'EEE', 'EEE-B 3rd Year', 'Vyasa Bhavan', '110', NULL, NULL, 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80');
+
+-- -------------------------------------------------------------------------
+-- 6. SEED ACTIVE GRIEVANCE TICKETS
+-- -------------------------------------------------------------------------
+INSERT INTO tickets (id, title, description, scope, class_section, department, location, category, domain, raised_by_id, status, priority_score, assigned_to, eta, admin_note, image_url) VALUES
+('TICK-101', 'Ceiling Projector HDMI Flickering & Purple Tint in Room 302', 'During Operating Systems lecture, the main EPSON projector kept resetting and flickering with severe magenta color distortion. Slides are impossible to read from middle & back rows.', 'class', 'CSE-B 3rd Year', 'CSE', 'Academic Block 1 - Room 302 (CSE-B Classroom)', 'it_av', 'electrical_av', 'user_arjun', 'in_progress', 88, 'Kishore V. (AV Lead)', 'Today, 4:30 PM (Before Evening Lab)', 'Technician Vignesh dispatched with 15m optical HDMI cable and replacement splitter.', 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=800&auto=format&fit=crop&q=80'),
+('TICK-102', 'Ceiling Fan Regulator Stuck at Speed 1 — Humming Noise', 'The ceiling fan in Room 304 cannot be turned to higher speeds. Regulator knob spins loose and motor makes a loud buzzing vibration.', 'room', NULL, 'CSE', 'Vashistha Bhavan, 3rd Floor, Room 304', 'electrical', 'electrical_av', 'user_arjun', 'awaiting_verification', 72, 'Electrical Maintenance Shift-B', 'Completed Today 2:10 PM', 'Replaced fan step-regulator module and lubricated bearing. Marked as fixed. Please test and confirm on app!', 'https://images.unsplash.com/photo-1590725140246-20acbe44865e?w=800&auto=format&fit=crop&q=80'),
+('TICK-103', '⚠️ High-Voltage Exposed Wire Hanging Near Pathway Puddle', 'Behind RadhaKrishna CIR Hall leading to Academic Block 2, a severed conduit is resting in water puddle after noon rain. High electric hazard for pedestrians.', 'campus', NULL, 'CSE', 'Walkway between RadhaKrishna Hall (CIR) and Academic Block 2', 'safety', 'electrical_av', 'user_rohit', 'in_progress', 99, 'Campus High-Voltage Emergency Squad', 'Immediate / Within 30 Mins', 'Emergency barricading placed. Power breaker 4 isolated. Cable being re-routed underground.', 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=800&auto=format&fit=crop&q=80');

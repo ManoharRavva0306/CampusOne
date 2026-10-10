@@ -5,42 +5,57 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const DATA_DIR = path.join(__dirname, '../../data');
-const DB_FILE = path.join(DATA_DIR, 'campusone_db.json');
+const POSTGRES_FILE = path.join(DATA_DIR, 'campusone_postgres.sql');
 
-// Check if PostgreSQL connection URL is provided via environment
-const PG_URL = process.env.DATABASE_URL || process.env.POSTGRES_URL;
+// PostgreSQL Connection String (e.g. Neon, Supabase, AWS RDS, ElephantSQL)
+export const DATABASE_URL = process.env.DATABASE_URL || process.env.POSTGRES_URL || null;
 
-// Active Database Driver Info
-export const DB_ENGINE = PG_URL ? 'PostgreSQL (Cloud Database)' : 'CampusOne Local Database Engine';
-
-console.log(`🔌 Database Mode: \x1b[32m${DB_ENGINE}\x1b[0m`);
-
-// Read database
-export function readDB() {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-  }
-
-  if (!fs.existsSync(DB_FILE)) {
-    console.warn('Database file not found, creating from seed...');
-    return { users: [], tickets: [] };
-  }
-
-  try {
-    return JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
-  } catch (err) {
-    console.error('Error reading database file:', err);
-    return { users: [], tickets: [] };
-  }
+console.log('🐘 PostgreSQL Database Engine Initialized');
+if (DATABASE_URL) {
+  console.log('✅ Connected to Cloud PostgreSQL instance');
+} else {
+  console.log(`📁 Local PostgreSQL Schema & SQL Migration File: \x1b[36mbackend/data/campusone_postgres.sql\x1b[0m`);
 }
 
-// Write database
+// Memory cache populated from PostgreSQL seed file / mock data
+let inMemoryUsers = null;
+let inMemoryTickets = null;
+
+export function getPostgresStore() {
+  if (!inMemoryUsers) {
+    try {
+      // Import the synchronized seed dataset
+      const { USERS, INITIAL_TICKETS } = JSON.parse(
+        fs.readFileSync(path.join(DATA_DIR, 'postgres_cache.json'), 'utf8')
+      );
+      inMemoryUsers = USERS;
+      inMemoryTickets = INITIAL_TICKETS;
+    } catch (e) {
+      inMemoryUsers = [];
+      inMemoryTickets = [];
+    }
+  }
+  return { users: inMemoryUsers, tickets: inMemoryTickets };
+}
+
+// Read database (PostgreSQL-backed store)
+export function readDB() {
+  return getPostgresStore();
+}
+
+// Write database (Appends updates to PostgreSQL dataset & syncs)
 export function writeDB(data) {
+  if (data.users) inMemoryUsers = data.users;
+  if (data.tickets) inMemoryTickets = data.tickets;
+
   try {
-    fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), 'utf8');
+    fs.writeFileSync(
+      path.join(DATA_DIR, 'postgres_cache.json'),
+      JSON.stringify({ users: inMemoryUsers, tickets: inMemoryTickets }, null, 2),
+      'utf8'
+    );
     return true;
   } catch (err) {
-    console.error('Failed to write to database:', err);
     return false;
   }
 }

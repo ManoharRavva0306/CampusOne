@@ -1,5 +1,5 @@
 {
-  "users": [
+  "USERS": [
     {
       "id": "user_dean",
       "name": "Dr. K. Subramanian",
@@ -1529,7 +1529,7 @@
       "description": "Student — EEE (EEE-B 3rd Year) & Vyasa Bhavan Rm 110"
     }
   ],
-  "tickets": [
+  "INITIAL_TICKETS": [
     {
       "id": "TICK-101",
       "title": "Ceiling Projector HDMI Flickering & Purple Tint in Room 302",
@@ -1648,6 +1648,5 @@
       "imageUrl": "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=800&auto=format&fit=crop&q=80",
       "comments": []
     }
-  ],
-  "createdAt": "2026-10-10T16:28:26.054Z"
+  ]
 }
