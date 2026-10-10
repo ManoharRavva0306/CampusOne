@@ -19,7 +19,8 @@ import {
   TrendingUp,
   Building2,
   Lock,
-  Home
+  Home,
+  Wrench
 } from 'lucide-react';
 import StudentVerificationBanner from '../verification/StudentVerificationBanner';
 
