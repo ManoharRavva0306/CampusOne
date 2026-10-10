@@ -1668,11 +1668,12 @@
       },
       "createdAt": "2026-10-10T12:00:00Z",
       "status": "in_progress",
-      "priorityScore": 99,
+      "priorityScore": 100,
       "upvotes": [
         "user_rohit",
         "user_arjun",
-        "user_sneha"
+        "user_sneha",
+        "student_10"
       ],
       "downvotes": [],
       "assignedTo": "Campus High-Voltage Emergency Squad",

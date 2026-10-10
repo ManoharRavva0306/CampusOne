@@ -296,11 +296,16 @@ export function AppProvider({ children }) {
       comments: []
     };
 
+    // Add optimistic ticket immediately
     setTickets(prev => [newTicket, ...prev]);
     showNotification(`Problem ticket #${newId} logged successfully!`, 'success');
 
-    // Persist to real backend database
-    api.createTicket(ticketData, currentUser.id).catch(err => console.warn('DB async persist error:', err));
+    // Persist to real backend database and sync with server response
+    api.createTicket(ticketData, currentUser.id).then(res => {
+      if (res && res.success && res.ticket) {
+        setTickets(prev => prev.map(t => t.id === newId ? res.ticket : t));
+      }
+    }).catch(err => console.warn('DB async persist error:', err));
 
     return newTicket;
   };
@@ -481,31 +486,26 @@ export function AppProvider({ children }) {
   // Scope-based visibility check for current user
   const isTicketVisibleToUser = (ticket, user = currentUser) => {
     if (!user) {
-      return ticket.scope === 'campus';
+      return true; // Public feed visible to all campus guests and users
     }
 
-    // Admins see all tickets relevant to their scope or whole campus
+    // Admins see all tickets
     if (user.role === 'central_admin') return true;
     if (user.role === 'domain_admin') {
-      return ticket.domain === user.domain || user.domain === 'all';
+      return ticket.domain === user.domain || user.domain === 'all' || true;
     }
     if (user.role === 'faculty_advisor') {
-      // Advisors see their class, their dept, and campus wide
-      if (ticket.scope === 'class' && ticket.classSection === user.classSection) return true;
-      if (ticket.scope === 'department' && ticket.department === user.department) return true;
-      if (ticket.scope === 'campus') return true;
-      return false;
+      return true; // Advisors can supervise and endorse any ticket
     }
 
-    // Student scope visibility rules
-    if (ticket.scope === 'campus') return true;
-    if (ticket.scope === 'department' && ticket.department === user.department) return true;
-    if (ticket.scope === 'class' && ticket.classSection === user.classSection) return true;
-    if (ticket.scope === 'room' && ticket.hostel === user.hostel && ticket.room === user.room) return true;
-    if (ticket.scope === 'hostel_generic') return true; // Visible to hostel residents
+    // Student scope visibility:
+    // Individual private room tickets visible to room resident, but other requests across class, dept, campus, and hostel are open to all peers!
+    if (ticket.scope === 'room') {
+      return ticket.raisedBy?.id === user.id || (ticket.hostel === user.hostel && ticket.room === user.room);
+    }
 
-    // Otherwise hidden from unrelated classes
-    return false;
+    // Every other student request is completely visible so peers can discover and vote!
+    return true;
   };
 
   return (
