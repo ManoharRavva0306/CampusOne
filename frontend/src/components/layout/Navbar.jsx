@@ -15,7 +15,8 @@ import {
   Film,
   CheckCircle2,
   Clock,
-  X
+  X,
+  Home
 } from 'lucide-react';
 import RoleSwitcherModal from './RoleSwitcherModal';
 
@@ -85,25 +86,34 @@ export default function Navbar({ onToggleLanding }) {
             </div>
 
             {/* Navigation Tabs */}
-            <nav className="hidden md:flex items-center space-x-1">
+            <nav className="hidden md:flex items-center space-x-1.5">
+              <button
+                onClick={onToggleLanding}
+                className="px-3.5 py-2 rounded-xl text-xs font-semibold transition-all flex items-center space-x-1.5 text-[#192822] hover:text-[#092d25] hover:bg-[#eef2ec]"
+                title="Go to Home"
+              >
+                <Home className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Home</span>
+              </button>
+
               <button
                 onClick={() => setActiveTab('feed')}
-                className={`px-3.5 py-2 rounded-lg text-xs font-semibold transition-all flex items-center space-x-1.5 ${
+                className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all flex items-center space-x-1.5 ${
                   activeTab === 'feed'
-                    ? 'bg-forest-900 text-white shadow-sm'
-                    : 'text-charcoal-700 hover:text-forest-950 hover:bg-ivory-200'
+                    ? 'bg-[#092d25] text-white shadow-md'
+                    : 'text-[#192822] hover:text-[#092d25] hover:bg-[#eef2ec]'
                 }`}
               >
-                <Layers className="w-3.5 h-3.5" />
+                <Layers className={`w-3.5 h-3.5 ${activeTab === 'feed' ? 'text-mint-300' : 'text-charcoal-500'}`} />
                 <span>Issue Feed</span>
               </button>
 
               <button
                 onClick={() => setActiveTab('raise')}
-                className={`px-3.5 py-2 rounded-lg text-xs font-semibold transition-all flex items-center space-x-1.5 ${
+                className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all flex items-center space-x-1.5 ${
                   activeTab === 'raise'
-                    ? 'bg-emerald-600 text-white shadow-sm'
-                    : 'text-emerald-700 hover:bg-emerald-50'
+                    ? 'bg-[#13a879] text-white shadow-md'
+                    : 'text-[#0e6e52] hover:bg-[#e6faf2] border border-emerald-300/60'
                 }`}
               >
                 <PlusCircle className="w-3.5 h-3.5" />
@@ -112,53 +122,43 @@ export default function Navbar({ onToggleLanding }) {
 
               <button
                 onClick={() => setActiveTab('admin')}
-                className={`px-3.5 py-2 rounded-lg text-xs font-semibold transition-all flex items-center space-x-1.5 ${
+                className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all flex items-center space-x-1.5 ${
                   activeTab === 'admin'
-                    ? 'bg-forest-900 text-white shadow-sm'
-                    : 'text-charcoal-700 hover:text-forest-950 hover:bg-ivory-200'
+                    ? 'bg-[#092d25] text-white shadow-md'
+                    : 'text-[#192822] hover:text-[#092d25] hover:bg-[#eef2ec]'
                 }`}
               >
-                <Wrench className="w-3.5 h-3.5 text-amber-600" />
+                <Wrench className={`w-3.5 h-3.5 ${activeTab === 'admin' ? 'text-amber-400' : 'text-amber-600'}`} />
                 <span>Domain Console</span>
               </button>
 
               <button
                 onClick={() => setActiveTab('advisor')}
-                className={`px-3.5 py-2 rounded-lg text-xs font-semibold transition-all flex items-center space-x-1.5 ${
+                className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all flex items-center space-x-1.5 ${
                   activeTab === 'advisor'
-                    ? 'bg-forest-900 text-white shadow-sm'
-                    : 'text-charcoal-700 hover:text-forest-950 hover:bg-ivory-200'
+                    ? 'bg-[#092d25] text-white shadow-md'
+                    : 'text-[#192822] hover:text-[#092d25] hover:bg-[#eef2ec]'
                 }`}
               >
-                <GraduationCap className="w-3.5 h-3.5 text-emerald-600" />
+                <GraduationCap className={`w-3.5 h-3.5 ${activeTab === 'advisor' ? 'text-mint-300' : 'text-emerald-700'}`} />
                 <span>Advisor Desk</span>
               </button>
 
               <button
                 onClick={() => setActiveTab('analytics')}
-                className={`px-3.5 py-2 rounded-lg text-xs font-semibold transition-all flex items-center space-x-1.5 ${
+                className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all flex items-center space-x-1.5 ${
                   activeTab === 'analytics'
-                    ? 'bg-forest-900 text-white shadow-sm'
-                    : 'text-charcoal-700 hover:text-forest-950 hover:bg-ivory-200'
+                    ? 'bg-[#092d25] text-white shadow-md'
+                    : 'text-[#192822] hover:text-[#092d25] hover:bg-[#eef2ec]'
                 }`}
               >
-                <BarChart3 className="w-3.5 h-3.5 text-blue-600" />
+                <BarChart3 className={`w-3.5 h-3.5 ${activeTab === 'analytics' ? 'text-mint-300' : 'text-blue-600'}`} />
                 <span>SLA Metrics</span>
               </button>
             </nav>
 
-            {/* Right Tools: Story Mode, Notification, Persona Switcher */}
+            {/* Right Tools: Notification, Persona Switcher */}
             <div className="flex items-center space-x-2">
-              
-              {/* Toggle Landing / Storytelling */}
-              <button
-                onClick={onToggleLanding}
-                title="View Cinematic Story"
-                className="p-2 rounded-xl text-charcoal-700 hover:text-forest-950 hover:bg-ivory-200 transition-colors hidden sm:flex items-center space-x-1 text-xs font-medium"
-              >
-                <Film className="w-4 h-4 text-emerald-600" />
-                <span className="hidden lg:inline">Story</span>
-              </button>
 
               {/* Reset Demo button */}
               <button 
@@ -252,6 +252,13 @@ export default function Navbar({ onToggleLanding }) {
 
           {/* Mobile Bottom Sub-nav */}
           <div className="flex md:hidden items-center justify-around py-2 border-t border-ivory-200 text-xs bg-white">
+            <button
+              onClick={onToggleLanding}
+              className="flex flex-col items-center py-1 text-charcoal-500 hover:text-forest-950"
+            >
+              <Home className="w-4 h-4 text-emerald-600" />
+              <span>Home</span>
+            </button>
             <button
               onClick={() => setActiveTab('feed')}
               className={`flex flex-col items-center py-1 ${activeTab === 'feed' ? 'text-forest-900 font-bold' : 'text-charcoal-500'}`}

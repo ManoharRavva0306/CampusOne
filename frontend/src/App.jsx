@@ -61,7 +61,7 @@ function MainContent() {
 
       {/* Main Role-Based Workspaces */}
       <main className="flex-1 animate-fade-in">
-        {activeTab === 'feed' && <SwipeCardFeed />}
+        {(activeTab === 'feed' || activeTab === 'raise') && <SwipeCardFeed />}
         {activeTab === 'admin' && <AdminDashboard />}
         {activeTab === 'advisor' && <AdvisorDashboard />}
         {activeTab === 'analytics' && <CampusAnalytics />}
@@ -84,10 +84,11 @@ function MainContent() {
       {activeTab !== 'raise' && (
         <button
           onClick={() => setActiveTab('raise')}
-          className="fixed bottom-6 left-6 z-30 flex items-center space-x-2 px-5 py-3 rounded-2xl bg-forest-900 hover:bg-forest-850 text-white font-bold text-xs shadow-2xl button-glow transition-all"
+          className="fixed bottom-6 left-6 z-30 flex items-center space-x-2.5 px-5 py-3 rounded-2xl bg-[#092d25] hover:bg-[#061c18] text-white font-bold text-xs shadow-2xl button-glow transition-all border border-[#0e3b31]"
+          style={{ backgroundColor: '#092d25', color: '#ffffff' }}
         >
           <PlusCircle className="w-4 h-4 text-mint-300" />
-          <span>Report an Issue (Wizard)</span>
+          <span className="text-white font-bold">Report an Issue (Wizard)</span>
         </button>
       )}
 

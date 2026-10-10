@@ -78,7 +78,25 @@
   100% { transform: scale(1) rotate(0deg); opacity: 1; }
 }
 
+@keyframes swipeRight {
+  0% { transform: translateX(0) rotate(0deg); opacity: 1; }
+  100% { transform: translateX(120%) rotate(14deg); opacity: 0; }
+}
+
+@keyframes swipeLeft {
+  0% { transform: translateX(0) rotate(0deg); opacity: 1; }
+  100% { transform: translateX(-120%) rotate(-14deg); opacity: 0; }
+}
+
 /* Motion Utilities */
+.animate-swipe-right {
+  animation: swipeRight 320ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-swipe-left {
+  animation: swipeLeft 320ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
 .animate-fade-in {
   animation: fadeIn 350ms var(--ease-smooth) forwards;
 }

@@ -122,7 +122,7 @@ export default function AdvisorDashboard() {
 
                   <div className="flex items-center space-x-3 text-xs text-charcoal-500 pt-1">
                     <span>📍 {ticket.location}</span>
-                    <span>👤 Reported by: {ticket.raisedBy.name}</span>
+                    <span>👤 Reported by: {ticket.raisedBy?.name || 'Student'}</span>
                     <span className="text-emerald-700 font-semibold">👍 {ticket.upvotes?.length || 0} confirmations</span>
                   </div>
                 </div>

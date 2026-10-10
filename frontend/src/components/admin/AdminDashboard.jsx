@@ -112,19 +112,27 @@ export default function AdminDashboard() {
 
         {/* Domain Selection Tabs */}
         <div className="flex items-center space-x-2 overflow-x-auto mt-6 pt-4 border-t border-ivory-200">
-          {DOMAINS.map(dom => (
-            <button
-              key={dom.id}
-              onClick={() => setSelectedDomain(dom.id)}
-              className={`px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
-                selectedDomain === dom.id
-                  ? 'bg-forest-900 text-white shadow-sm'
-                  : 'bg-ivory-100 text-charcoal-700 hover:text-forest-950 hover:bg-ivory-200 border border-ivory-200'
-              }`}
-            >
-              {dom.label}
-            </button>
-          ))}
+          {DOMAINS.map(dom => {
+            const isSelected = selectedDomain === dom.id;
+            return (
+              <button
+                key={dom.id}
+                onClick={() => setSelectedDomain(dom.id)}
+                className={`px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+                  isSelected
+                    ? 'bg-[#092d25] text-white shadow-md border border-[#092d25]'
+                    : 'bg-white text-[#192822] hover:text-[#092d25] hover:bg-[#eef2ec] border border-ivory-300'
+                }`}
+                style={
+                  isSelected
+                    ? { backgroundColor: '#092d25', color: '#ffffff' }
+                    : { backgroundColor: '#ffffff', color: '#192822' }
+                }
+              >
+                {dom.label}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -132,19 +140,27 @@ export default function AdminDashboard() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center space-x-1.5 text-xs">
           <span className="text-charcoal-500 font-semibold">Status:</span>
-          {['all', 'reported', 'in_progress', 'awaiting_verification', 'resolved'].map(st => (
-            <button
-              key={st}
-              onClick={() => setStatusFilter(st)}
-              className={`px-2.5 py-1 rounded-lg capitalize transition-all ${
-                statusFilter === st
-                  ? 'bg-emerald-600 text-white font-bold'
-                  : 'bg-white text-charcoal-600 hover:text-forest-950 border border-ivory-300'
-              }`}
-            >
-              {st.replace('_', ' ')}
-            </button>
-          ))}
+          {['all', 'reported', 'in_progress', 'awaiting_verification', 'resolved'].map(st => {
+            const isSelected = statusFilter === st;
+            return (
+              <button
+                key={st}
+                onClick={() => setStatusFilter(st)}
+                className={`px-2.5 py-1 rounded-lg capitalize transition-all ${
+                  isSelected
+                    ? 'bg-[#0f8e65] text-white font-bold shadow-xs border border-[#0f8e65]'
+                    : 'bg-white text-[#192822] hover:text-[#092d25] hover:bg-[#eef2ec] border border-ivory-300'
+                }`}
+                style={
+                  isSelected
+                    ? { backgroundColor: '#0f8e65', color: '#ffffff' }
+                    : { backgroundColor: '#ffffff', color: '#192822' }
+                }
+              >
+                {st.replace('_', ' ')}
+              </button>
+            );
+          })}
         </div>
 
         <div className="text-xs text-charcoal-500 font-mono">
@@ -215,7 +231,7 @@ export default function AdminDashboard() {
 
                   <div className="flex flex-wrap items-center gap-3 text-xs text-charcoal-500 pt-1">
                     <span>📍 {ticket.location}</span>
-                    <span>👤 {ticket.raisedBy.name}</span>
+                    <span>👤 {ticket.raisedBy?.name || 'Student'}</span>
                     <span className="text-emerald-700 font-semibold">👍 {ticket.upvotes?.length || 0} student confirmations</span>
                     {ticket.assignedTo && (
                       <span className="text-amber-800 font-semibold">🔧 Tech: {ticket.assignedTo}</span>
@@ -314,7 +330,7 @@ export default function AdminDashboard() {
                 </div>
                 {editStatus === 'awaiting_verification' && (
                   <p className="text-[11px] text-emerald-700 mt-1.5 font-medium">
-                    ⚡ This dispatches an on-site inspection notice to {editingTicket.raisedBy.name}. The ticket will only fully close once they confirm!
+                    ⚡ This dispatches an on-site inspection notice to {editingTicket?.raisedBy?.name || 'the reporting student'}. The ticket will only fully close once they confirm!
                   </p>
                 )}
               </div>

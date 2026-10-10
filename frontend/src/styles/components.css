@@ -134,3 +134,18 @@
 .input-field::placeholder {
   color: var(--color-text-muted);
 }
+
+/* Bulletproof Solid Utility Classes (Prevents white-on-white text) */
+.bg-forest-900, [class*="bg-forest-900"] {
+  background-color: #092d25 !important;
+  color: #ffffff;
+}
+
+.bg-forest-950, [class*="bg-forest-950"] {
+  background-color: #061c18 !important;
+}
+
+.bg-forest-850, [class*="bg-forest-850"] {
+  background-color: #0b342b !important;
+}
+

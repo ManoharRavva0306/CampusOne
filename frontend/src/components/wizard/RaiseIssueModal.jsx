@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { CATEGORIES } from '../../data/mockData';
 import { 
@@ -17,7 +17,12 @@ import {
   Zap, 
   Lock, 
   X,
-  ShieldAlert
+  ShieldAlert,
+  Upload,
+  Trash2,
+  RefreshCw,
+  Video,
+  Check
 } from 'lucide-react';
 
 export default function RaiseIssueModal({ onClose }) {
@@ -43,6 +48,135 @@ export default function RaiseIssueModal({ onClose }) {
   const [location, setLocation] = useState('');
   const [urgency, setUrgency] = useState('medium');
   const [selectedPhoto, setSelectedPhoto] = useState('https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=800&auto=format&fit=crop&q=80');
+  const [isCameraActive, setIsCameraActive] = useState(false);
+  const [cameraError, setCameraError] = useState(null);
+
+  const videoRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const nativeCameraInputRef = useRef(null);
+  const mediaStreamRef = useRef(null);
+
+  // Stop camera media stream
+  const stopCamera = () => {
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach(track => {
+        try { track.stop(); } catch (err) {}
+      });
+      mediaStreamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    setIsCameraActive(false);
+  };
+
+  // Launch live webcam or mobile camera
+  const startCamera = async () => {
+    setCameraError(null);
+    setIsCameraActive(true);
+    try {
+      if (!navigator?.mediaDevices?.getUserMedia) {
+        throw new Error('Camera API is not supported in this browser environment.');
+      }
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { 
+          facingMode: { ideal: 'environment' },
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        },
+        audio: false
+      });
+      mediaStreamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play().catch(e => console.warn('Video playback warning:', e));
+      }
+    } catch (err) {
+      console.warn('Camera stream error:', err);
+      setCameraError('Direct camera stream unavailable or permission denied. You can upload an image or launch your phone camera app.');
+      if (nativeCameraInputRef.current) {
+        nativeCameraInputRef.current.click();
+      }
+    }
+  };
+
+  // Snap photo frame from live camera stream
+  const capturePhoto = () => {
+    if (!videoRef.current) return;
+    const video = videoRef.current;
+    const maxDim = 800;
+    let w = video.videoWidth || 640;
+    let h = video.videoHeight || 480;
+    if (w > maxDim || h > maxDim) {
+      if (w > h) {
+        h = Math.round((h * maxDim) / w);
+        w = maxDim;
+      } else {
+        w = Math.round((w * maxDim) / h);
+        h = maxDim;
+      }
+    }
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, w, h);
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+    setSelectedPhoto(dataUrl);
+    stopCamera();
+  };
+
+  // Process uploaded or camera file with client-side scaling
+  const processImageFile = (file) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new window.Image();
+      img.onload = () => {
+        const maxDim = 800;
+        let w = img.width;
+        let h = img.height;
+        if (w > maxDim || h > maxDim) {
+          if (w > h) {
+            h = Math.round((h * maxDim) / w);
+            w = maxDim;
+          } else {
+            w = Math.round((w * maxDim) / h);
+            h = maxDim;
+          }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        setSelectedPhoto(canvas.toDataURL('image/jpeg', 0.85));
+        stopCamera();
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      processImageFile(file);
+    }
+  };
+
+  // Cleanup on unmount or step changes
+  useEffect(() => {
+    return () => {
+      stopCamera();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (step !== 3) {
+      stopCamera();
+    }
+  }, [step]);
 
   // Photo presets for testing/demo
   const PHOTO_PRESETS = [
@@ -88,10 +222,16 @@ export default function RaiseIssueModal({ onClose }) {
     setStep(Math.max(1, step - 1));
   };
 
+  const handleModalClose = () => {
+    stopCamera();
+    onClose();
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!title.trim() || !description.trim()) return;
 
+    stopCamera();
     const matchedCat = CATEGORIES.find(c => c.id === category);
 
     const ticketData = {
@@ -110,7 +250,7 @@ export default function RaiseIssueModal({ onClose }) {
       ),
       category: category,
       domain: matchedCat ? matchedCat.domain : 'electrical_av',
-      imageUrl: selectedPhoto,
+      imageUrl: selectedPhoto || 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=800&auto=format&fit=crop&q=80',
       priorityScore: urgency === 'emergency' ? 95 : urgency === 'high' ? 80 : 65
     };
 
@@ -144,18 +284,22 @@ export default function RaiseIssueModal({ onClose }) {
                   key={s}
                   className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold transition-all ${
                     step === s 
-                      ? 'bg-forest-900 text-white shadow-sm'
+                      ? 'bg-[#092d25] text-white shadow-sm'
                       : step > s 
-                      ? 'bg-emerald-600 text-white' 
+                      ? 'bg-[#0f8e65] text-white' 
                       : 'bg-ivory-200 text-charcoal-400'
                   }`}
+                  style={
+                    step === s ? { backgroundColor: '#092d25', color: '#ffffff' } :
+                    step > s ? { backgroundColor: '#0f8e65', color: '#ffffff' } : {}
+                  }
                 >
                   {step > s ? '✓' : s}
                 </div>
               ))}
             </div>
 
-            <button onClick={onClose} className="p-1 text-charcoal-400 hover:text-forest-950">
+            <button onClick={handleModalClose} className="p-1 text-charcoal-400 hover:text-forest-950">
               <X className="w-5 h-5" />
             </button>
           </div>
@@ -377,43 +521,186 @@ export default function RaiseIssueModal({ onClose }) {
                 />
               </div>
 
-              {/* Photo Evidence */}
-              <div>
+              {/* Photo Evidence (Live Camera + Device Upload + Demo Presets) */}
+              <div className="pt-1">
                 <label className="block text-xs font-bold text-forest-950 mb-1.5 flex items-center justify-between">
                   <span className="flex items-center space-x-1.5">
                     <Camera className="w-4 h-4 text-emerald-700" />
-                    <span>Attach Evidence Photo</span>
+                    <span>Evidence Photo (Camera or Upload)</span>
                   </span>
                   <span className="text-[10px] text-charcoal-500">Accelerates on-site verification</span>
                 </label>
 
-                <div className="flex items-center space-x-2 overflow-x-auto pb-1">
-                  {PHOTO_PRESETS.map((preset, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => setSelectedPhoto(preset.url)}
-                      className={`text-[10px] px-2.5 py-1 rounded-lg border whitespace-nowrap transition-all ${
-                        selectedPhoto === preset.url
-                          ? 'bg-forest-900 text-white border-forest-900'
-                          : 'bg-white text-charcoal-700 border-ivory-300 hover:bg-ivory-100'
-                      }`}
-                    >
-                      {preset.label}
-                    </button>
-                  ))}
-                </div>
+                {/* Hidden File Inputs for PC file selector and native phone camera */}
+                <input
+                  type="file"
+                  accept="image/*"
+                  ref={fileInputRef}
+                  onChange={handleFileChange}
+                  className="hidden"
+                />
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  ref={nativeCameraInputRef}
+                  onChange={handleFileChange}
+                  className="hidden"
+                />
 
-                <div className="relative mt-2 rounded-2xl overflow-hidden h-28 border border-ivory-300">
-                  <img
-                    src={selectedPhoto}
-                    alt="Evidence Preview"
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-forest-950/80 via-transparent to-transparent flex items-end p-2.5">
-                    <span className="text-[10px] text-mint-300 font-medium">✓ Geotagged evidence attached</span>
+                {/* Live Camera Viewfinder (when camera active) */}
+                {isCameraActive ? (
+                  <div className="rounded-2xl border-2 border-emerald-500 bg-black overflow-hidden relative p-2 space-y-2 animate-fade-in shadow-xl">
+                    <div className="relative rounded-xl overflow-hidden bg-black flex items-center justify-center min-h-[200px]">
+                      <video
+                        ref={videoRef}
+                        autoPlay
+                        playsInline
+                        muted
+                        className="w-full h-56 object-cover rounded-xl"
+                      />
+                      <div className="absolute top-2 left-2 flex items-center space-x-1.5 bg-black/75 backdrop-blur-md px-2.5 py-1 rounded-full text-[10px] text-rose-400 font-bold border border-rose-500/40">
+                        <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+                        <span>LIVE CAMERA</span>
+                      </div>
+                    </div>
+
+                    {cameraError && (
+                      <div className="p-2 rounded-lg bg-rose-950/80 border border-rose-500/40 text-[11px] text-rose-200">
+                        {cameraError}
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-between pt-1 px-1">
+                      <button
+                        type="button"
+                        onClick={stopCamera}
+                        className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-semibold transition-colors"
+                      >
+                        Cancel
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={capturePhoto}
+                        className="btn-primary py-2 px-5 text-xs font-bold flex items-center space-x-2 shadow-lg ring-2 ring-emerald-400"
+                      >
+                        <Camera className="w-4 h-4" />
+                        <span>Capture Photo</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => nativeCameraInputRef.current?.click()}
+                        className="px-2.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-mint-300 text-[11px] font-medium transition-colors"
+                        title="Open device camera application"
+                      >
+                        Native App
+                      </button>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="space-y-2.5">
+                    {/* Primary Two Action Buttons: Take Photo (Camera) & Upload Image */}
+                    <div className="grid grid-cols-2 gap-2.5">
+                      <button
+                        type="button"
+                        onClick={startCamera}
+                        className="flex items-center justify-center space-x-2.5 p-3 rounded-2xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-950 font-bold text-xs transition-all shadow-subtle group"
+                      >
+                        <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center group-hover:scale-105 transition-transform shadow-sm">
+                          <Camera className="w-4 h-4" />
+                        </div>
+                        <div className="text-left">
+                          <div className="font-bold text-xs text-emerald-950">Take Photo</div>
+                          <div className="text-[10px] text-emerald-700 font-normal">Use Live Camera</div>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="flex items-center justify-center space-x-2.5 p-3 rounded-2xl bg-white hover:bg-ivory-100 border border-ivory-300 text-forest-950 font-bold text-xs transition-all shadow-subtle group"
+                      >
+                        <div className="w-8 h-8 rounded-xl bg-forest-900 text-mint-300 flex items-center justify-center group-hover:scale-105 transition-transform shadow-sm">
+                          <Upload className="w-4 h-4" />
+                        </div>
+                        <div className="text-left">
+                          <div className="font-bold text-xs text-forest-950">Upload Image</div>
+                          <div className="text-[10px] text-charcoal-500 font-normal">From Phone or PC</div>
+                        </div>
+                      </button>
+                    </div>
+
+                    {/* Preview Box */}
+                    {selectedPhoto ? (
+                      <div className="relative rounded-2xl overflow-hidden h-32 border border-ivory-300 group shadow-sm bg-black">
+                        <img
+                          src={selectedPhoto}
+                          alt="Evidence Preview"
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-forest-950/85 via-forest-950/20 to-transparent flex items-end justify-between p-3">
+                          <span className="text-[11px] text-mint-300 font-semibold flex items-center space-x-1">
+                            <Check className="w-3.5 h-3.5" />
+                            <span>Evidence photo attached</span>
+                          </span>
+                          <div className="flex items-center space-x-1.5">
+                            <button
+                              type="button"
+                              onClick={() => fileInputRef.current?.click()}
+                              className="px-2.5 py-1 rounded-lg bg-white/20 hover:bg-white/30 text-white text-[10px] font-semibold backdrop-blur-sm transition-all"
+                            >
+                              Change
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedPhoto(null)}
+                              className="p-1.5 rounded-lg bg-rose-500/80 hover:bg-rose-600 text-white text-[10px] backdrop-blur-sm transition-all"
+                              title="Remove photo"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="border border-dashed border-ivory-300 rounded-2xl p-3 text-center bg-ivory-50/50">
+                        <p className="text-xs text-charcoal-500">
+                          No photo attached yet. Capture with camera or upload from device.
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Quick Demo Presets */}
+                    <div className="pt-0.5">
+                      <span className="text-[10px] font-semibold text-charcoal-500 block mb-1">
+                        Or pick a sample photo for presentation:
+                      </span>
+                      <div className="flex items-center space-x-1.5 overflow-x-auto pb-1">
+                        {PHOTO_PRESETS.map((preset, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => setSelectedPhoto(preset.url)}
+                            className={`text-[10px] px-2.5 py-1 rounded-lg border whitespace-nowrap transition-all ${
+                              selectedPhoto === preset.url
+                                ? 'bg-[#092d25] text-white border-[#092d25] font-bold shadow-xs'
+                                : 'bg-white text-charcoal-700 border-ivory-300 hover:bg-ivory-100'
+                            }`}
+                            style={
+                              selectedPhoto === preset.url
+                                ? { backgroundColor: '#092d25', color: '#ffffff' }
+                                : { backgroundColor: '#ffffff', color: '#192822' }
+                            }
+                          >
+                            {preset.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
             </div>
@@ -553,7 +840,7 @@ export default function RaiseIssueModal({ onClose }) {
           ) : (
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleModalClose}
               className="text-xs text-charcoal-500 hover:text-charcoal-800"
             >
               Cancel
