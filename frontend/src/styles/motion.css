@@ -1,0 +1,172 @@
+/* ==========================================================================
+   CampusOne (CMRS) — Motion System
+   Fluid, Hardware-Accelerated 60fps Transitions & Micro-Interactions
+   ========================================================================== */
+
+/* Keyframe Definitions */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    box-shadow: 0 0 12px rgba(19, 168, 121, 0.25);
+  }
+  50% {
+    box-shadow: 0 0 24px rgba(19, 168, 121, 0.5);
+  }
+}
+
+@keyframes amberPulse {
+  0%, 100% {
+    box-shadow: 0 0 8px rgba(231, 168, 62, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(231, 168, 62, 0.45);
+  }
+}
+
+@keyframes ambientDrift {
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(20px, -15px) scale(1.05);
+  }
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+}
+
+@keyframes checkmarkPop {
+  0% { transform: scale(0.6) rotate(-20deg); opacity: 0; }
+  60% { transform: scale(1.15) rotate(4deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
+/* Motion Utilities */
+.animate-fade-in {
+  animation: fadeIn 350ms var(--ease-smooth) forwards;
+}
+
+.animate-fade-up {
+  animation: fadeUp 450ms var(--ease-smooth) forwards;
+}
+
+.animate-scale-in {
+  animation: scaleIn 300ms var(--ease-smooth) forwards;
+}
+
+.animate-slide-in {
+  animation: slideInRight 350ms var(--ease-smooth) forwards;
+}
+
+.animate-ambient {
+  animation: ambientDrift 14s ease-in-out infinite;
+}
+
+.animate-pulse-glow {
+  animation: pulseGlow 2.4s ease-in-out infinite;
+}
+
+.animate-amber-pulse {
+  animation: amberPulse 2.2s ease-in-out infinite;
+}
+
+.animate-check-pop {
+  animation: checkmarkPop 400ms var(--ease-smooth) forwards;
+}
+
+/* Interactive Card & Button Hover Physics */
+.interactive-card {
+  transition: transform 250ms var(--ease-smooth), box-shadow 250ms var(--ease-smooth), border-color 200ms ease;
+}
+
+.interactive-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-card-hover);
+  border-color: #cbdad0;
+}
+
+.button-glow {
+  position: relative;
+  transition: transform 200ms var(--ease-smooth), box-shadow 200ms var(--ease-smooth), background-color 150ms ease;
+}
+
+.button-glow:hover {
+  transform: translateY(-1.5px);
+  box-shadow: var(--shadow-emerald-glow);
+}
+
+.button-glow:active {
+  transform: translateY(0.5px);
+}
+
+/* Status Indicator Pulse Dot */
+.status-pulse {
+  position: relative;
+}
+
+.status-pulse::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  animation: pulseGlow 2s infinite;
+  pointer-events: none;
+}
+
+/* Staggered Child Entry Delays */
+.stagger-1 { animation-delay: 50ms; }
+.stagger-2 { animation-delay: 100ms; }
+.stagger-3 { animation-delay: 150ms; }
+.stagger-4 { animation-delay: 200ms; }
+.stagger-5 { animation-delay: 250ms; }
+
+/* Accessibility: Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
