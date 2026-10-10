@@ -1,4 +1,4 @@
-const API_BASE = 'http://localhost:5000/api';
+const API_BASE = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' && window.location.hostname !== 'localhost' ? '/api' : 'http://localhost:5000/api');
 
 export const api = {
   // Fetch tickets with user scope isolation
@@ -100,7 +100,22 @@ export const api = {
     }
   },
 
-  // Faculty Advisor Endorsement
+  // Faculty Advisor or Hostel Resident Warden Review (Approve / Reject)
+  async reviewTicketByPanel(ticketId, payload) {
+    try {
+      const res = await fetch(`${API_BASE}/tickets/${ticketId}/review`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      return await res.json();
+    } catch (err) {
+      console.warn('API reviewTicketByPanel offline:', err.message);
+      return null;
+    }
+  },
+
+  // Faculty Advisor Endorsement (compatibility helper)
   async endorseTicket(ticketId) {
     try {
       const res = await fetch(`${API_BASE}/tickets/${ticketId}/endorse`, {
@@ -109,6 +124,22 @@ export const api = {
       return await res.json();
     } catch (err) {
       console.warn('API endorseTicket offline:', err.message);
+      return null;
+    }
+  },
+
+  // Delete Ticket (Student removes own request or Admin deletes)
+  async deleteTicket(ticketId, userId) {
+    try {
+      const res = await fetch(`${API_BASE}/tickets/${ticketId}`, {
+        method: 'DELETE',
+        headers: {
+          'x-user-id': userId || 'user_arjun'
+        }
+      });
+      return await res.json();
+    } catch (err) {
+      console.warn('API deleteTicket offline:', err.message);
       return null;
     }
   },
@@ -128,7 +159,7 @@ export const api = {
     }
   },
 
-  // Overall Admin Provisions / Adds Student to Database
+  // Overall Admin Provisions / Adds Single User to Database
   async createUser(userData) {
     try {
       const res = await fetch(`${API_BASE}/auth/users`, {
@@ -139,6 +170,79 @@ export const api = {
       return await res.json();
     } catch (err) {
       console.warn('API createUser offline:', err.message);
+      return null;
+    }
+  },
+
+  // Multi-User Import from Excel / CSV
+  async bulkImportUsers(users) {
+    try {
+      const res = await fetch(`${API_BASE}/auth/users/bulk-import`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ users })
+      });
+      return await res.json();
+    } catch (err) {
+      console.warn('API bulkImportUsers offline:', err.message);
+      return null;
+    }
+  },
+
+  // Update Single User Details / Credentials
+  async updateUser(userId, updates) {
+    try {
+      const res = await fetch(`${API_BASE}/auth/users/${userId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates)
+      });
+      return await res.json();
+    } catch (err) {
+      console.warn('API updateUser offline:', err.message);
+      return null;
+    }
+  },
+
+  // Bulk Update Multiple Users (e.g. Change Hostel / Section / Dept / Role for a group of students)
+  async bulkUpdateUsers(userIds, updates) {
+    try {
+      const res = await fetch(`${API_BASE}/auth/users/bulk-update`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userIds, updates })
+      });
+      return await res.json();
+    } catch (err) {
+      console.warn('API bulkUpdateUsers offline:', err.message);
+      return null;
+    }
+  },
+
+  // Delete Single User
+  async deleteUser(userId) {
+    try {
+      const res = await fetch(`${API_BASE}/auth/users/${userId}`, {
+        method: 'DELETE'
+      });
+      return await res.json();
+    } catch (err) {
+      console.warn('API deleteUser offline:', err.message);
+      return null;
+    }
+  },
+
+  // Bulk Delete Multiple Users
+  async bulkDeleteUsers(userIds) {
+    try {
+      const res = await fetch(`${API_BASE}/auth/users/bulk-delete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userIds })
+      });
+      return await res.json();
+    } catch (err) {
+      console.warn('API bulkDeleteUsers offline:', err.message);
       return null;
     }
   },

@@ -2,7 +2,8 @@ import {
   getUsersFromDB, 
   getTicketsFromDB, 
   addTicketToDB, 
-  updateTicketInDB 
+  updateTicketInDB,
+  deleteTicketFromDB
 } from '../models/ticketModel.js';
 import { calculatePriorityScore } from '../services/priorityService.js';
 import { findDuplicateTickets } from '../services/aiDuplicateService.js';
@@ -27,38 +28,57 @@ export function checkDuplicates(req, res) {
   res.json({ success: true, count: duplicates.length, duplicates });
 }
 
-// Create new ticket via Decision Tree
+// Create new ticket via Decision Tree or Panel Member (Advisor / Warden)
 export function createTicket(req, res) {
   const users = getUsersFromDB();
   const userId = req.headers['x-user-id'] || 'user_arjun';
   const user = users.find(u => u.id === userId) || users[0];
   const data = req.body;
 
+  const isAdvisor = user.role === 'faculty_advisor';
+  const isWarden = user.role === 'hostel_warden';
+  const scope = data.scope || (isWarden ? 'hostel_generic' : 'class');
+  const isHostelIssue = scope === 'room' || scope === 'hostel_generic';
+  const isCollegeIssue = scope === 'class' || scope === 'department';
+
   const newTicket = {
-    id: `TICK-${Math.floor(100 + Math.random() * 900)}`,
+    id: data.id || `TICK-${Math.floor(100 + Math.random() * 900)}`,
     title: data.title,
     description: data.description,
-    scope: data.scope,
-    classSection: data.scope === 'class' ? user.classSection : null,
-    department: user.department,
-    hostel: data.scope === 'room' || data.scope === 'hostel_generic' ? user.hostel : null,
-    room: data.scope === 'room' ? user.room : null,
+    scope,
+    classSection: data.classSection || user.classSection || null,
+    department: data.department || user.department || 'CSE',
+    hostel: data.hostel || user.hostel || null,
+    room: data.room || user.room || null,
     location: data.location || 'Campus Academic Area',
-    category: data.category,
+    category: data.category || 'electrical',
     domain: data.domain || 'electrical_av',
     raisedBy: {
       id: user.id,
       name: user.name,
-      rollNo: user.rollNo || 'FACULTY',
+      role: user.role,
+      rollNo: user.rollNo || 'STAFF',
+      classSection: user.classSection || null,
+      hostel: user.hostel || null,
+      room: user.room || null,
       avatar: user.avatar
     },
+    raisedByPanel: isAdvisor ? 'advisor' : isWarden ? 'warden' : null,
     createdAt: new Date().toISOString(),
     status: 'reported',
     priorityScore: data.urgency === 'emergency' ? 95 : 65,
     upvotes: [user.id],
     downvotes: [],
-    advisorNotified: data.scope === 'class',
-    advisorEndorsed: false,
+    // Routing & Stage-1 Approval Metadata
+    advisorNotified: isCollegeIssue || isAdvisor,
+    advisorEndorsed: isAdvisor ? true : false,
+    advisorApprovalStatus: isAdvisor ? 'approved' : (isCollegeIssue ? 'pending' : 'not_applicable'),
+    advisorNote: isAdvisor ? 'Directly filed by Class Advisor for section priority resolution.' : '',
+    wardenNotified: isHostelIssue || isWarden,
+    wardenEndorsed: isWarden ? true : false,
+    wardenApprovalStatus: isWarden ? 'approved' : (isHostelIssue ? 'pending' : 'not_applicable'),
+    wardenNote: isWarden ? 'Directly filed by Hostel Resident Warden for Bhavan resolution.' : '',
+    forwardedToAdmin: isAdvisor || isWarden || scope === 'campus',
     assignedTo: 'Pending Assignment',
     eta: 'Awaiting triage',
     adminNote: '',
@@ -66,7 +86,7 @@ export function createTicket(req, res) {
     comments: []
   };
 
-  newTicket.priorityScore = calculatePriorityScore(newTicket);
+  newTicket.priorityScore = calculatePriorityScore(newTicket, users);
   addTicketToDB(newTicket);
 
   res.status(201).json({ success: true, ticket: newTicket });
@@ -75,8 +95,9 @@ export function createTicket(req, res) {
 // Swipe Vote (Upvote / Downvote)
 export function voteTicket(req, res) {
   const { id } = req.params;
-  const { voteType } = req.body; // 'up' | 'down'
-  const userId = req.headers['x-user-id'] || 'user_arjun';
+  const { voteType, userId: bodyUserId } = req.body; // 'up' | 'down'
+  const userId = bodyUserId || req.headers['x-user-id'] || 'user_arjun';
+  const users = getUsersFromDB();
 
   const updatedTicket = updateTicketInDB(id, (ticket) => {
     let upvotes = [...(ticket.upvotes || [])];
@@ -100,7 +121,7 @@ export function voteTicket(req, res) {
 
     ticket.upvotes = upvotes;
     ticket.downvotes = downvotes;
-    ticket.priorityScore = calculatePriorityScore(ticket);
+    ticket.priorityScore = calculatePriorityScore(ticket, users);
     return ticket;
   });
 
@@ -108,7 +129,7 @@ export function voteTicket(req, res) {
   res.json({ success: true, ticket: updatedTicket });
 }
 
-// Domain Admin Updates (Status, ETA, Technician, Note)
+// Main Admin / Domain Admin Updates (Status, ETA, Technician, Note)
 export function updateTicketAdmin(req, res) {
   const { id } = req.params;
   const { status, eta, adminNote, assignedTo } = req.body;
@@ -146,18 +167,64 @@ export function verifyResolution(req, res) {
   res.json({ success: true, ticket: updatedTicket });
 }
 
-// Faculty Advisor Endorsement
-export function endorseTicket(req, res) {
+// Faculty Advisor or Hostel Warden Approval / Rejection Review
+export function reviewTicketByPanel(req, res) {
   const { id } = req.params;
+  const { panelType, decision, note, reviewerName, reviewerAvatar } = req.body;
+  const users = getUsersFromDB();
 
   const updatedTicket = updateTicketInDB(id, (ticket) => {
-    ticket.advisorEndorsed = true;
-    ticket.priorityScore = calculatePriorityScore(ticket);
+    const isApproved = decision !== 'rejected';
+    const isWarden = panelType === 'warden';
+
+    if (isWarden) {
+      ticket.wardenApprovalStatus = isApproved ? 'approved' : 'rejected';
+      ticket.wardenEndorsed = isApproved;
+      if (note) ticket.wardenNote = note;
+    } else {
+      ticket.advisorApprovalStatus = isApproved ? 'approved' : 'rejected';
+      ticket.advisorEndorsed = isApproved;
+      if (note) ticket.advisorNote = note;
+    }
+
+    if (isApproved) {
+      ticket.forwardedToAdmin = true;
+      if (ticket.status === 'declined') ticket.status = 'reported';
+    } else {
+      ticket.forwardedToAdmin = false;
+      ticket.status = 'declined';
+    }
+
+    const roleLabel = isWarden ? 'Hostel Resident Warden' : 'Class Advisor';
+    const commentText = isApproved
+      ? `✅ Official ${roleLabel} Approval (+20 Weightage): ${note || 'Verified and forwarded to Main Admin for priority resolution.'}`
+      : `❌ Declined by ${roleLabel}: ${note || 'Did not meet verification criteria for escalation.'}`;
+
+    ticket.comments = [
+      ...(ticket.comments || []),
+      {
+        id: `c_review_${Date.now()}`,
+        userName: reviewerName || roleLabel,
+        userRole: roleLabel,
+        avatar: reviewerAvatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&auto=format&fit=crop&q=80',
+        text: commentText,
+        timestamp: 'Just now',
+        isOfficial: true
+      }
+    ];
+
+    ticket.priorityScore = calculatePriorityScore(ticket, users);
     return ticket;
   });
 
   if (!updatedTicket) return res.status(404).json({ success: false, message: 'Ticket not found' });
   res.json({ success: true, ticket: updatedTicket });
+}
+
+// Legacy / Direct Endorse endpoint
+export function endorseTicket(req, res) {
+  req.body = { ...req.body, panelType: req.body?.panelType || 'advisor', decision: 'approved' };
+  return reviewTicketByPanel(req, res);
 }
 
 // Add Comment
@@ -186,4 +253,37 @@ export function addComment(req, res) {
 
   if (!updatedTicket) return res.status(404).json({ success: false, message: 'Ticket not found' });
   res.status(201).json({ success: true, comment, ticket: updatedTicket });
+}
+
+// Delete Ticket (Student can delete own ticket, or central/domain admin)
+export function deleteTicket(req, res) {
+  const { id } = req.params;
+  const users = getUsersFromDB();
+  const userId = req.headers['x-user-id'] || req.body?.userId;
+  const user = users.find(u => u.id === userId) || users.find(u => u.rollNo === userId);
+
+  const tickets = getTicketsFromDB();
+  const ticket = tickets.find(t => t.id === id);
+
+  if (!ticket) {
+    return res.status(404).json({ success: false, message: 'Ticket not found' });
+  }
+
+  // Permission check: student who raised it or admin
+  const isOwner = ticket.raisedBy?.id === userId || (user && ticket.raisedBy?.id === user.id);
+  const isAdmin = user && (user.role === 'central_admin' || user.role === 'domain_admin');
+
+  if (!isOwner && !isAdmin) {
+    return res.status(403).json({ 
+      success: false, 
+      message: 'Unauthorized: Only the student who raised this request or an administrator can delete it.' 
+    });
+  }
+
+  const success = deleteTicketFromDB(id);
+  if (!success) {
+    return res.status(500).json({ success: false, message: 'Failed to delete ticket from database.' });
+  }
+
+  res.json({ success: true, message: `Ticket #${id} deleted successfully.`, ticketId: id });
 }

@@ -13,7 +13,8 @@ import {
   Wrench, 
   RotateCcw,
   Sparkles,
-  AlertCircle
+  AlertCircle,
+  Trash2
 } from 'lucide-react';
 
 export default function TicketDetailModal({ ticket, onClose }) {
@@ -21,7 +22,10 @@ export default function TicketDetailModal({ ticket, onClose }) {
     currentUser, 
     voteTicket, 
     addComment, 
-    verifyResolution, 
+    verifyResolution,
+    deleteTicket,
+    canViewStudentDetails,
+    reviewTicketByPanel,
     tickets 
   } = useApp();
 
@@ -31,6 +35,7 @@ export default function TicketDetailModal({ ticket, onClose }) {
   const hasConfirmed = currentTicket.upvotes?.includes(currentUser?.id);
   const isReporter = currentTicket.raisedBy?.id === currentUser?.id;
   const isAwaitingVerification = currentTicket.status === 'awaiting_verification';
+  const showPrivateIdentity = canViewStudentDetails(currentTicket.raisedBy) || Boolean(currentTicket.raisedByPanelRole);
 
   const handleSendComment = (e) => {
     e.preventDefault();
@@ -41,24 +46,21 @@ export default function TicketDetailModal({ ticket, onClose }) {
 
   const steps = [
     { key: 'reported', label: 'Reported' },
-    { key: 'triage', label: 'Under Review' },
-    { key: 'in_progress', label: 'In Progress' },
+    { key: 'triage', label: 'Advisor/Warden Approved' },
+    { key: 'in_progress', label: 'Main Admin Dispatched' },
     { key: 'awaiting_verification', label: 'Awaiting Sign-off' },
     { key: 'resolved', label: 'Verified & Closed' }
   ];
 
-  const getStepIndex = (status) => {
-    switch (status) {
-      case 'reported': return 0;
-      case 'acknowledged': return 1;
-      case 'in_progress': return 2;
-      case 'awaiting_verification': return 3;
-      case 'resolved': return 4;
-      default: return 0;
-    }
+  const getStepIndex = (t) => {
+    if (t.status === 'resolved') return 4;
+    if (t.status === 'awaiting_verification') return 3;
+    if (t.status === 'in_progress') return 2;
+    if (t.status === 'acknowledged' || t.forwardedToMainAdmin || t.advisorEndorsed || t.wardenEndorsed) return 1;
+    return 0;
   };
 
-  const currentStepIdx = getStepIndex(currentTicket.status);
+  const currentStepIdx = getStepIndex(currentTicket);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-forest-950/70 backdrop-blur-sm animate-fade-in">
@@ -66,13 +68,23 @@ export default function TicketDetailModal({ ticket, onClose }) {
         
         {/* Header */}
         <div className="flex items-center justify-between pb-4 border-b border-ivory-200">
-          <div className="flex items-center space-x-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs font-mono font-bold text-forest-950 px-2.5 py-0.5 rounded-full bg-ivory-200 border border-ivory-300">
               #{currentTicket.id}
             </span>
             <span className="text-xs text-charcoal-500">
-              Scope: <strong className="text-forest-950 capitalize">{currentTicket.scope}</strong>
+              Scope: <strong className="text-forest-950 capitalize">{currentTicket.scope?.replace('_', ' ')}</strong>
             </span>
+            {(currentTicket.advisorEndorsed || currentTicket.advisorApprovalStatus === 'approved') && (
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                ✓ Advisor Approved (+20 Priority)
+              </span>
+            )}
+            {(currentTicket.wardenEndorsed || currentTicket.wardenApprovalStatus === 'approved') && (
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                ✓ Warden Approved (+20 Priority)
+              </span>
+            )}
           </div>
 
           <button
@@ -89,7 +101,7 @@ export default function TicketDetailModal({ ticket, onClose }) {
           {/* Lifecycle Stepper */}
           <div className="bg-ivory-100/80 p-4 rounded-2xl border border-ivory-200">
             <div className="text-[10px] font-bold uppercase tracking-wider text-charcoal-500 mb-3 flex items-center justify-between">
-              <span>Resolution Lifecycle</span>
+              <span>2-Stage Governance & Resolution Lifecycle</span>
               <span className="text-emerald-700 font-mono font-bold">
                 {currentTicket.status.replace('_', ' ').toUpperCase()}
               </span>
@@ -111,7 +123,7 @@ export default function TicketDetailModal({ ticket, onClose }) {
                   }`}>
                     {i < currentStepIdx ? '✓' : i + 1}
                   </div>
-                  <span className={`text-[10px] mt-1 font-semibold ${i <= currentStepIdx ? 'text-forest-950' : 'text-charcoal-400'}`}>
+                  <span className={`text-[10px] mt-1 font-semibold text-center ${i <= currentStepIdx ? 'text-forest-950' : 'text-charcoal-400'}`}>
                     {st.label}
                   </span>
                 </div>
@@ -149,7 +161,7 @@ export default function TicketDetailModal({ ticket, onClose }) {
             </div>
           )}
 
-          {/* Title, Details, & Evidence */}
+          {/* Title, Details, & Confidential Reporter Identity */}
           <div className="space-y-3">
             <h2 className="text-xl font-bold text-forest-950 leading-snug">
               {currentTicket.title}
@@ -161,12 +173,38 @@ export default function TicketDetailModal({ ticket, onClose }) {
                 <span>{currentTicket.location}</span>
               </span>
               <span>•</span>
-              <span>Reported by <strong>{currentTicket.raisedBy.name}</strong></span>
-              <span>•</span>
               <span className="text-emerald-700 font-bold flex items-center space-x-1">
                 <Flame className="w-3.5 h-3.5 fill-emerald-600" />
-                <span>Priority Score: {currentTicket.priorityScore}</span>
+                <span>Priority Score: {currentTicket.priorityScore}/100</span>
               </span>
+            </div>
+
+            {/* Strict Student Privacy Card */}
+            <div className={`p-3.5 rounded-2xl border text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2 ${
+              showPrivateIdentity
+                ? 'bg-emerald-50/70 border-emerald-200 text-emerald-950'
+                : 'bg-ivory-100 border-ivory-300 text-charcoal-600'
+            }`}>
+              {showPrivateIdentity ? (
+                <div>
+                  <div className="font-bold text-forest-950 flex items-center space-x-1.5">
+                    <ShieldCheck className="w-4 h-4 text-emerald-700" />
+                    <span>Confidential Reporter Identity (Authorized View): {currentTicket.raisedBy?.name}</span>
+                  </div>
+                  <div className="text-[11px] text-charcoal-700 font-mono mt-0.5">
+                    ID: {currentTicket.raisedBy?.rollNo || 'N/A'}
+                    {currentTicket.raisedBy?.classSection ? ` • Section: ${currentTicket.raisedBy.classSection}` : ''}
+                    {currentTicket.raisedBy?.hostel ? ` • Hostel: ${currentTicket.raisedBy.hostel} (Rm ${currentTicket.raisedBy.room || '-'})` : ''}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center space-x-2">
+                  <ShieldCheck className="w-4 h-4 text-charcoal-500" />
+                  <span>
+                    <strong>Student Identity Protected:</strong> Personal details (Roll No, Section, Hostel Room) are restricted exclusively to the student's Class Advisor, Hostel Resident Warden, and Main Admin.
+                  </span>
+                </div>
+              )}
             </div>
 
             <div className="rounded-2xl overflow-hidden h-60 border border-ivory-300 bg-ivory-100">
@@ -182,16 +220,32 @@ export default function TicketDetailModal({ ticket, onClose }) {
             </p>
           </div>
 
-          {/* Department Progress Notes & Public ETA */}
-          {currentTicket.adminNote && (
-            <div className="p-4 rounded-2xl bg-ivory-100 border border-ivory-200 space-y-1">
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-bold text-forest-950 uppercase tracking-wide">
-                  {currentTicket.assignedTo ? `Assigned to ${currentTicket.assignedTo}` : 'Domain Maintenance Update'}
-                </span>
-                <span className="font-mono text-emerald-700 font-bold">ETA: {currentTicket.eta}</span>
-              </div>
-              <p className="text-xs text-charcoal-700">{currentTicket.adminNote}</p>
+          {/* Stage-1 Advisor / Warden Remarks & Main Admin Response */}
+          {(currentTicket.advisorRemarks || currentTicket.wardenRemarks || currentTicket.adminNote) && (
+            <div className="space-y-2.5">
+              {currentTicket.advisorRemarks && (
+                <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs">
+                  <div className="font-bold text-emerald-950">Class Advisor Review Note ({currentTicket.classSection}):</div>
+                  <p className="text-emerald-900 mt-0.5">{currentTicket.advisorRemarks}</p>
+                </div>
+              )}
+              {currentTicket.wardenRemarks && (
+                <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-xs">
+                  <div className="font-bold text-amber-950">Hostel Resident Warden Review Note ({currentTicket.hostel}):</div>
+                  <p className="text-amber-900 mt-0.5">{currentTicket.wardenRemarks}</p>
+                </div>
+              )}
+              {currentTicket.adminNote && (
+                <div className="p-4 rounded-2xl bg-ivory-100 border border-ivory-200 space-y-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-bold text-forest-950 uppercase tracking-wide">
+                      {currentTicket.assignedTo ? `Main Admin Dispatch (${currentTicket.assignedTo})` : 'Main Admin / Domain Update'}
+                    </span>
+                    <span className="font-mono text-emerald-700 font-bold">ETA: {currentTicket.eta}</span>
+                  </div>
+                  <p className="text-xs text-charcoal-700">{currentTicket.adminNote}</p>
+                </div>
+              )}
             </div>
           )}
 
@@ -273,7 +327,21 @@ export default function TicketDetailModal({ ticket, onClose }) {
         </div>
 
         {/* Footer */}
-        <div className="pt-4 border-t border-ivory-200 flex justify-end">
+        <div className="pt-4 border-t border-ivory-200 flex items-center justify-between">
+          <div>
+            {(isReporter || currentUser?.role === 'central_admin' || currentUser?.role === 'super_admin') && (
+              <button
+                onClick={() => {
+                  deleteTicket(currentTicket.id);
+                  onClose();
+                }}
+                className="px-3.5 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold flex items-center space-x-1.5 transition-colors"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Delete This Request</span>
+              </button>
+            )}
+          </div>
           <button
             onClick={onClose}
             className="btn-secondary text-xs py-2 px-4"

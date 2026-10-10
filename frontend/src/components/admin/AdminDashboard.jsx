@@ -31,7 +31,8 @@ export default function AdminDashboard() {
     tickets, 
     currentUser, 
     updateTicketAdmin, 
-    setSelectedTicketForDetail 
+    setSelectedTicketForDetail,
+    canViewStudentDetails
   } = useApp();
 
   if (!currentUser) return null;
@@ -53,9 +54,11 @@ export default function AdminDashboard() {
   const [adminCopilotData, setAdminCopilotData] = useState(null);
   const [isGeneratingCopilot, setIsGeneratingCopilot] = useState(false);
 
+  // Domain operations only receive tickets after Stage-1 approval (or direct panel/campus emergency)
   const domainTickets = tickets.filter(t => {
     if (selectedDomain !== 'all' && t.domain !== selectedDomain) return false;
     if (statusFilter !== 'all' && t.status !== statusFilter) return false;
+    if (t.advisorApprovalStatus === 'rejected' || t.wardenApprovalStatus === 'rejected') return false;
     return true;
   }).sort((a, b) => b.priorityScore - a.priorityScore);
 
@@ -132,7 +135,7 @@ export default function AdminDashboard() {
                 </span>
               </div>
               <p className="text-xs text-charcoal-600 mt-1">
-                Triage tickets by dynamic severity score, assign technicians, convey public ETAs, and trigger on-site student sign-offs.
+                Triage tickets by dynamic severity score, assign technicians, convey public ETAs, and trigger on-site student sign-offs. Student identities are masked for intermediate maintenance staff.
               </p>
             </div>
           </div>
@@ -226,7 +229,7 @@ export default function AdminDashboard() {
                     <span className="text-xs font-mono text-charcoal-500 font-bold">{ticket.id}</span>
                     
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-800 border border-blue-200">
-                      Scope: {ticket.scope.toUpperCase()} {ticket.classSection ? `(${ticket.classSection})` : ''}
+                      Scope: {ticket.scope.toUpperCase()} {ticket.classSection ? `(${ticket.classSection})` : ticket.hostel ? `(${ticket.hostel})` : ''}
                     </span>
 
                     {ticket.status === 'awaiting_verification' ? (
@@ -247,9 +250,15 @@ export default function AdminDashboard() {
                       </span>
                     )}
 
-                    {ticket.advisorNotified && (
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 font-mono font-bold border border-purple-200">
-                        Advisor Alerted
+                    {(ticket.advisorEndorsed || ticket.advisorApprovalStatus === 'approved') && (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 font-mono font-bold border border-emerald-200">
+                        ✓ Advisor Approved (+20)
+                      </span>
+                    )}
+
+                    {(ticket.wardenEndorsed || ticket.wardenApprovalStatus === 'approved') && (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 font-mono font-bold border border-amber-200">
+                        ✓ Warden Approved (+20)
                       </span>
                     )}
                   </div>
@@ -267,7 +276,12 @@ export default function AdminDashboard() {
 
                   <div className="flex flex-wrap items-center gap-3 text-xs text-charcoal-500 pt-1">
                     <span>📍 {ticket.location}</span>
-                    <span>👤 {ticket.raisedBy?.name || 'Student'}</span>
+                    <span>
+                      👤{' '}
+                      {canViewStudentDetails(ticket.raisedBy) || ticket.raisedByPanelRole
+                        ? ticket.raisedBy?.name
+                        : 'Protected Campus Member (Identity Masked)'}
+                    </span>
                     <span className="text-emerald-700 font-semibold">👍 {ticket.upvotes?.length || 0} student confirmations</span>
                     {ticket.assignedTo && (
                       <span className="text-amber-800 font-semibold">🔧 Tech: {ticket.assignedTo}</span>

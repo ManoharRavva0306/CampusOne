@@ -19,7 +19,8 @@ import {
   Home,
   LogIn,
   LogOut,
-  User
+  User,
+  Shield
 } from 'lucide-react';
 
 export default function Navbar({ onToggleLanding }) {
@@ -41,29 +42,49 @@ export default function Navbar({ onToggleLanding }) {
     t => t.raisedBy?.id === currentUser?.id && t.status === 'awaiting_verification'
   ).length : 0;
 
+  // Pending advisor approvals count
+  const pendingAdvisorCount = tickets.filter(t => {
+    const isCollegeScope = t.scope === 'class' || t.scope === 'department';
+    const matchesSection = currentUser?.role === 'faculty_advisor'
+      ? (t.classSection === currentUser.classSection || t.raisedBy?.classSection === currentUser.classSection)
+      : true;
+    const isPending = t.advisorApprovalStatus === 'pending' || (!t.advisorApprovalStatus && !t.advisorEndorsed && !t.raisedByPanelRole);
+    return isCollegeScope && matchesSection && isPending;
+  }).length;
+
+  // Pending warden approvals count
+  const pendingWardenCount = tickets.filter(t => {
+    const isHostelScope = t.scope === 'room' || t.scope === 'hostel_generic';
+    const matchesHostel = currentUser?.role === 'hostel_warden'
+      ? ((t.hostel || t.raisedBy?.hostel) === currentUser.hostel)
+      : true;
+    const isPending = t.wardenApprovalStatus === 'pending' || (!t.wardenApprovalStatus && !t.wardenEndorsed && !t.raisedByPanelRole);
+    return isHostelScope && matchesHostel && isPending;
+  }).length;
+
   // Recent activity / notifications
   const recentUpdates = [
     {
       id: 'n1',
-      title: 'Technician Assigned',
-      desc: 'Vignesh (AV Team) dispatched to Room 302 with optical HDMI cable.',
-      time: '25m ago',
-      type: 'assignment'
+      title: 'Advisor Strong Approval (+20)',
+      desc: 'Dr. Ramesh Kumar (CSE-B) approved #TICK-101 and escalated to Main Admin.',
+      time: '15m ago',
+      type: 'endorse'
     },
     {
       id: 'n2',
-      title: 'Verification Needed',
-      desc: 'Ceiling fan in Room 304 marked fixed. Please confirm on-site.',
-      time: '45m ago',
-      type: 'action',
-      urgent: pendingVerificationCount > 0
+      title: 'Warden Strong Approval (+20)',
+      desc: 'Dr. Raghavan Nair (Agastya Bhavan) approved #TICK-105 and escalated to Main Admin.',
+      time: '30m ago',
+      type: 'assignment'
     },
     {
       id: 'n3',
-      title: 'Advisor Endorsement',
-      desc: 'Dr. Ramesh Kumar endorsed ticket #TICK-101 (+20 priority).',
-      time: '1h ago',
-      type: 'endorse'
+      title: 'Verification Needed',
+      desc: 'Ceiling fan in Agastya Bhavan Rm 304 marked fixed. Please confirm on-site.',
+      time: '45m ago',
+      type: 'action',
+      urgent: pendingVerificationCount > 0
     }
   ];
 
@@ -74,30 +95,30 @@ export default function Navbar({ onToggleLanding }) {
           <div className="flex items-center justify-between h-16">
             
             {/* Logo & Platform Tag */}
-            <div className="flex items-center space-x-3 cursor-pointer" onClick={() => setActiveTab('feed')}>
+            <div className="flex items-center space-x-2.5 cursor-pointer shrink-0" onClick={() => setActiveTab('feed')}>
               <div className="w-9 h-9 rounded-xl bg-forest-900 flex items-center justify-center shadow-md font-bold text-mint-300 text-sm">
                 C1
               </div>
               <div>
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-1.5">
                   <span className="text-base font-bold tracking-tight text-forest-950">CampusOne</span>
-                  <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 font-semibold border border-emerald-500/20">
+                  <span className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 font-semibold border border-emerald-500/20 hidden xl:inline-block">
                     GENESIS'26
                   </span>
                 </div>
-                <p className="text-[11px] text-charcoal-500 hidden sm:block">Amrita Vishwa Vidyapeetham • CMRS Portal</p>
+                <p className="text-[10px] text-charcoal-500 hidden lg:block">Amrita CMRS Governance</p>
               </div>
             </div>
 
             {/* Navigation Tabs */}
-            <nav className="hidden md:flex items-center space-x-1.5">
+            <nav className="hidden md:flex items-center space-x-1 overflow-x-auto py-1">
               <button
                 onClick={onToggleLanding}
-                className="px-3.5 py-2 rounded-xl text-xs font-semibold transition-all flex items-center space-x-1.5 text-[#192822] hover:text-[#092d25] hover:bg-[#eef2ec]"
+                className="px-2.5 py-2 rounded-xl text-xs font-semibold transition-all flex items-center space-x-1 text-[#192822] hover:text-[#092d25] hover:bg-[#eef2ec] whitespace-nowrap"
                 title="Go to Home"
               >
                 <Home className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Home</span>
+                <span className="hidden xl:inline">Home</span>
               </button>
 
               <button
@@ -105,7 +126,7 @@ export default function Navbar({ onToggleLanding }) {
                   if (!currentUser) setShowLoginModal(true);
                   else setActiveTab('feed');
                 }}
-                className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all flex items-center space-x-1.5 ${
+                className={`px-3 py-2 rounded-xl text-xs font-semibold transition-all flex items-center space-x-1.5 whitespace-nowrap ${
                   activeTab === 'feed'
                     ? 'bg-[#092d25] text-white shadow-md'
                     : 'text-[#192822] hover:text-[#092d25] hover:bg-[#eef2ec]'
@@ -120,7 +141,7 @@ export default function Navbar({ onToggleLanding }) {
                   if (!currentUser) setShowLoginModal(true);
                   else setActiveTab('raise');
                 }}
-                className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all flex items-center space-x-1.5 ${
+                className={`px-3 py-2 rounded-xl text-xs font-semibold transition-all flex items-center space-x-1.5 whitespace-nowrap ${
                   activeTab === 'raise'
                     ? 'bg-[#13a879] text-white shadow-md'
                     : 'text-[#0e6e52] hover:bg-[#e6faf2] border border-emerald-300/60'
@@ -130,59 +151,103 @@ export default function Navbar({ onToggleLanding }) {
                 <span>Report Issue</span>
               </button>
 
-              <button
-                onClick={() => {
-                  if (!currentUser) setShowLoginModal(true);
-                  else setActiveTab('admin');
-                }}
-                className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all flex items-center space-x-1.5 ${
-                  activeTab === 'admin'
-                    ? 'bg-[#092d25] text-white shadow-md'
-                    : 'text-[#192822] hover:text-[#092d25] hover:bg-[#eef2ec]'
-                }`}
-              >
-                <Wrench className={`w-3.5 h-3.5 ${activeTab === 'admin' ? 'text-amber-400' : 'text-amber-600'}`} />
-                <span>Domain Console</span>
-              </button>
+              {/* Class Advisor Page (Visible to Class Advisor & Main Admin) */}
+              {(currentUser?.role === 'faculty_advisor' || currentUser?.role === 'central_admin') && (
+                <button
+                  onClick={() => setActiveTab('advisor')}
+                  className={`px-3 py-2 rounded-xl text-xs font-semibold transition-all flex items-center space-x-1.5 whitespace-nowrap ${
+                    activeTab === 'advisor'
+                      ? 'bg-[#092d25] text-white shadow-md'
+                      : 'text-[#192822] hover:text-[#092d25] hover:bg-[#eef2ec]'
+                  }`}
+                >
+                  <GraduationCap className={`w-3.5 h-3.5 ${activeTab === 'advisor' ? 'text-mint-300' : 'text-emerald-700'}`} />
+                  <span>Class Advisor</span>
+                  {pendingAdvisorCount > 0 && (
+                    <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                      activeTab === 'advisor' ? 'bg-amber-400 text-forest-950' : 'bg-amber-100 text-amber-800'
+                    }`}>
+                      {pendingAdvisorCount}
+                    </span>
+                  )}
+                </button>
+              )}
 
-              <button
-                onClick={() => {
-                  if (!currentUser) setShowLoginModal(true);
-                  else setActiveTab('advisor');
-                }}
-                className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all flex items-center space-x-1.5 ${
-                  activeTab === 'advisor'
-                    ? 'bg-[#092d25] text-white shadow-md'
-                    : 'text-[#192822] hover:text-[#092d25] hover:bg-[#eef2ec]'
-                }`}
-              >
-                <GraduationCap className={`w-3.5 h-3.5 ${activeTab === 'advisor' ? 'text-mint-300' : 'text-emerald-700'}`} />
-                <span>Advisor Desk</span>
-              </button>
+              {/* Hostel Resident Warden Page (Visible to Hostel Warden & Main Admin) */}
+              {(currentUser?.role === 'hostel_warden' || currentUser?.role === 'central_admin') && (
+                <button
+                  onClick={() => setActiveTab('warden')}
+                  className={`px-3 py-2 rounded-xl text-xs font-semibold transition-all flex items-center space-x-1.5 whitespace-nowrap ${
+                    activeTab === 'warden'
+                      ? 'bg-[#092d25] text-white shadow-md'
+                      : 'text-[#192822] hover:text-[#092d25] hover:bg-[#eef2ec]'
+                  }`}
+                >
+                  <Building2 className={`w-3.5 h-3.5 ${activeTab === 'warden' ? 'text-amber-300' : 'text-amber-700'}`} />
+                  <span>Hostel Warden</span>
+                  {pendingWardenCount > 0 && (
+                    <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                      activeTab === 'warden' ? 'bg-amber-400 text-forest-950' : 'bg-amber-100 text-amber-800'
+                    }`}>
+                      {pendingWardenCount}
+                    </span>
+                  )}
+                </button>
+              )}
 
-              <button
-                onClick={() => {
-                  if (!currentUser) setShowLoginModal(true);
-                  else setActiveTab('analytics');
-                }}
-                className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all flex items-center space-x-1.5 ${
-                  activeTab === 'analytics'
-                    ? 'bg-[#092d25] text-white shadow-md'
-                    : 'text-[#192822] hover:text-[#092d25] hover:bg-[#eef2ec]'
-                }`}
-              >
-                <BarChart3 className={`w-3.5 h-3.5 ${activeTab === 'analytics' ? 'text-mint-300' : 'text-blue-600'}`} />
-                <span>SLA Metrics</span>
-              </button>
+              {/* Main Admin Master Console (Visible to Main Admin) */}
+              {currentUser?.role === 'central_admin' && (
+                <button
+                  onClick={() => setActiveTab('super_admin')}
+                  className={`px-3 py-2 rounded-xl text-xs font-semibold transition-all flex items-center space-x-1.5 whitespace-nowrap ${
+                    activeTab === 'super_admin'
+                      ? 'bg-[#092d25] text-white shadow-md ring-2 ring-emerald-500/30'
+                      : 'text-[#192822] hover:text-[#092d25] hover:bg-[#eef2ec]'
+                  }`}
+                >
+                  <Shield className={`w-3.5 h-3.5 ${activeTab === 'super_admin' ? 'text-mint-300' : 'text-forest-900'}`} />
+                  <span>Main Admin</span>
+                </button>
+              )}
+
+              {/* Domain Console (Visible to Domain Admin & Main Admin) */}
+              {(currentUser?.role === 'domain_admin' || currentUser?.role === 'central_admin') && (
+                <button
+                  onClick={() => setActiveTab('admin')}
+                  className={`px-2.5 py-2 rounded-xl text-xs font-semibold transition-all flex items-center space-x-1.5 whitespace-nowrap ${
+                    activeTab === 'admin'
+                      ? 'bg-[#092d25] text-white shadow-md'
+                      : 'text-[#192822] hover:text-[#092d25] hover:bg-[#eef2ec]'
+                  }`}
+                >
+                  <Wrench className={`w-3.5 h-3.5 ${activeTab === 'admin' ? 'text-amber-400' : 'text-amber-600'}`} />
+                  <span className="hidden lg:inline">Domain Ops</span>
+                </button>
+              )}
+
+              {/* SLA Analytics (Visible to Admins, Advisors & Wardens) */}
+              {currentUser && currentUser.role !== 'student' && (
+                <button
+                  onClick={() => setActiveTab('analytics')}
+                  className={`px-2.5 py-2 rounded-xl text-xs font-semibold transition-all flex items-center space-x-1.5 whitespace-nowrap ${
+                    activeTab === 'analytics'
+                      ? 'bg-[#092d25] text-white shadow-md'
+                      : 'text-[#192822] hover:text-[#092d25] hover:bg-[#eef2ec]'
+                  }`}
+                >
+                  <BarChart3 className={`w-3.5 h-3.5 ${activeTab === 'analytics' ? 'text-mint-300' : 'text-blue-600'}`} />
+                  <span className="hidden xl:inline">SLA</span>
+                </button>
+              )}
             </nav>
 
             {/* Right Tools: Notification, Persona Switcher */}
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-1.5 shrink-0">
 
               {/* Reset Demo button */}
               <button 
                 onClick={resetDemoData}
-                title="Reset demo data"
+                title="Reset demo data to fresh state"
                 className="p-2 rounded-xl text-charcoal-500 hover:text-charcoal-900 hover:bg-ivory-200 transition-colors hidden xl:block"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
@@ -239,15 +304,15 @@ export default function Navbar({ onToggleLanding }) {
                 )}
               </div>
 
-              {/* User Authentication Pill / Sign In Button */}
+              {/* User Authentication Pill / Switch Persona Button */}
               {currentUser ? (
-                <div className="flex items-center space-x-1.5">
+                <div className="flex items-center space-x-1">
                   <button
                     onClick={() => setShowLoginModal(true)}
-                    className="flex items-center space-x-2 bg-ivory-100 hover:bg-ivory-200 border border-ivory-300 px-3 py-1.5 rounded-xl transition-all shadow-subtle"
-                    title="Account details or switch profile"
+                    className="flex items-center space-x-2 bg-ivory-100 hover:bg-emerald-50/80 border border-ivory-300 hover:border-emerald-300 px-2.5 py-1.5 rounded-xl transition-all shadow-subtle"
+                    title="Click to switch role / persona (Student, Class Advisor, Hostel Warden, Main Admin)"
                   >
-                    <div className="relative">
+                    <div className="relative shrink-0">
                       <img
                         src={currentUser.avatar}
                         alt={currentUser.name}
@@ -258,14 +323,22 @@ export default function Navbar({ onToggleLanding }) {
                       )}
                     </div>
                     <div className="text-left hidden sm:block">
-                      <div className="text-xs font-bold text-forest-950 flex items-center space-x-1">
-                        <span>{currentUser.name}</span>
+                      <div className="text-xs font-bold text-forest-950 flex items-center space-x-1 max-w-[130px] truncate">
+                        <span className="truncate">{currentUser.name}</span>
                       </div>
-                      <div className="text-[10px] text-charcoal-500 truncate max-w-[120px]">
-                        {currentUser.classSection || currentUser.domainTitle || currentUser.department}
+                      <div className="text-[10px] text-emerald-800 font-semibold truncate max-w-[130px]">
+                        {currentUser.role === 'hostel_warden'
+                          ? `Warden • ${currentUser.hostel}`
+                          : currentUser.role === 'faculty_advisor'
+                          ? `Advisor • ${currentUser.classSection}`
+                          : currentUser.role === 'central_admin'
+                          ? 'Main Admin • All Sections'
+                          : currentUser.classSection
+                          ? `${currentUser.classSection} • ${currentUser.hostel || ''}`
+                          : currentUser.domainTitle || currentUser.department}
                       </div>
                     </div>
-                    <ChevronDown className="w-3.5 h-3.5 text-charcoal-500" />
+                    <ChevronDown className="w-3.5 h-3.5 text-charcoal-500 shrink-0" />
                   </button>
 
                   <button
@@ -292,10 +365,10 @@ export default function Navbar({ onToggleLanding }) {
           </div>
 
           {/* Mobile Bottom Sub-nav */}
-          <div className="flex md:hidden items-center justify-around py-2 border-t border-ivory-200 text-xs bg-white">
+          <div className="flex md:hidden items-center justify-between overflow-x-auto py-2 px-1 border-t border-ivory-200 text-[11px] bg-white gap-2">
             <button
               onClick={onToggleLanding}
-              className="flex flex-col items-center py-1 text-charcoal-500 hover:text-forest-950"
+              className="flex flex-col items-center py-1 px-1.5 text-charcoal-500 hover:text-forest-950 shrink-0"
             >
               <Home className="w-4 h-4 text-emerald-600" />
               <span>Home</span>
@@ -305,7 +378,7 @@ export default function Navbar({ onToggleLanding }) {
                 if (!currentUser) setShowLoginModal(true);
                 else setActiveTab('feed');
               }}
-              className={`flex flex-col items-center py-1 ${activeTab === 'feed' ? 'text-forest-900 font-bold' : 'text-charcoal-500'}`}
+              className={`flex flex-col items-center py-1 px-1.5 shrink-0 ${activeTab === 'feed' ? 'text-forest-900 font-bold' : 'text-charcoal-500'}`}
             >
               <Layers className="w-4 h-4" />
               <span>Feed</span>
@@ -315,41 +388,47 @@ export default function Navbar({ onToggleLanding }) {
                 if (!currentUser) setShowLoginModal(true);
                 else setActiveTab('raise');
               }}
-              className={`flex flex-col items-center py-1 ${activeTab === 'raise' ? 'text-emerald-600 font-bold' : 'text-charcoal-500'}`}
+              className={`flex flex-col items-center py-1 px-1.5 shrink-0 ${activeTab === 'raise' ? 'text-emerald-600 font-bold' : 'text-charcoal-500'}`}
             >
               <PlusCircle className="w-4 h-4" />
               <span>Report</span>
             </button>
-            <button
-              onClick={() => {
-                if (!currentUser) setShowLoginModal(true);
-                else setActiveTab('admin');
-              }}
-              className={`flex flex-col items-center py-1 ${activeTab === 'admin' ? 'text-forest-900 font-bold' : 'text-charcoal-500'}`}
-            >
-              <Wrench className="w-4 h-4" />
-              <span>Admin</span>
-            </button>
-            <button
-              onClick={() => {
-                if (!currentUser) setShowLoginModal(true);
-                else setActiveTab('advisor');
-              }}
-              className={`flex flex-col items-center py-1 ${activeTab === 'advisor' ? 'text-forest-900 font-bold' : 'text-charcoal-500'}`}
-            >
-              <GraduationCap className="w-4 h-4" />
-              <span>Advisor</span>
-            </button>
-            <button
-              onClick={() => {
-                if (!currentUser) setShowLoginModal(true);
-                else setActiveTab('analytics');
-              }}
-              className={`flex flex-col items-center py-1 ${activeTab === 'analytics' ? 'text-forest-900 font-bold' : 'text-charcoal-500'}`}
-            >
-              <BarChart3 className="w-4 h-4" />
-              <span>SLA</span>
-            </button>
+            {(currentUser?.role === 'faculty_advisor' || currentUser?.role === 'central_admin') && (
+              <button
+                onClick={() => setActiveTab('advisor')}
+                className={`flex flex-col items-center py-1 px-1.5 shrink-0 ${activeTab === 'advisor' ? 'text-forest-900 font-bold' : 'text-charcoal-500'}`}
+              >
+                <GraduationCap className="w-4 h-4" />
+                <span>Advisor</span>
+              </button>
+            )}
+            {(currentUser?.role === 'hostel_warden' || currentUser?.role === 'central_admin') && (
+              <button
+                onClick={() => setActiveTab('warden')}
+                className={`flex flex-col items-center py-1 px-1.5 shrink-0 ${activeTab === 'warden' ? 'text-forest-900 font-bold' : 'text-charcoal-500'}`}
+              >
+                <Building2 className="w-4 h-4" />
+                <span>Warden</span>
+              </button>
+            )}
+            {currentUser?.role === 'central_admin' && (
+              <button
+                onClick={() => setActiveTab('super_admin')}
+                className={`flex flex-col items-center py-1 px-1.5 shrink-0 ${activeTab === 'super_admin' ? 'text-forest-900 font-bold' : 'text-charcoal-500'}`}
+              >
+                <Shield className="w-4 h-4" />
+                <span>Main Admin</span>
+              </button>
+            )}
+            {(currentUser?.role === 'domain_admin' || currentUser?.role === 'central_admin') && (
+              <button
+                onClick={() => setActiveTab('admin')}
+                className={`flex flex-col items-center py-1 px-1.5 shrink-0 ${activeTab === 'admin' ? 'text-forest-900 font-bold' : 'text-charcoal-500'}`}
+              >
+                <Wrench className="w-4 h-4" />
+                <span>Domain</span>
+              </button>
+            )}
           </div>
 
         </div>

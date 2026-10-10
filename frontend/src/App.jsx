@@ -4,7 +4,9 @@ import Navbar from './components/layout/Navbar';
 import SwipeCardFeed from './components/feed/SwipeCardFeed';
 import RaiseIssueModal from './components/wizard/RaiseIssueModal';
 import AdminDashboard from './components/admin/AdminDashboard';
+import SuperAdminDashboard from './components/admin/SuperAdminDashboard';
 import AdvisorDashboard from './components/advisor/AdvisorDashboard';
+import WardenDashboard from './components/warden/WardenDashboard';
 import CampusAnalytics from './components/analytics/CampusAnalytics';
 import TicketDetailModal from './components/feed/TicketDetailModal';
 import CinematicLanding from './components/landing/CinematicLanding';
@@ -30,7 +32,6 @@ function MainContent() {
   } = useApp();
 
   // View state: 'story' (Cinematic Landing) or 'workspace' (Interactive App)
-  // Story is the default starting interface when the user launches the website
   const [viewMode, setViewMode] = useState('story');
 
   // Enforce authentication: unauthenticated users can NEVER stay in the workspace
@@ -41,18 +42,30 @@ function MainContent() {
     }
   }, [currentUser, viewMode]);
 
-  const handleEnterWorkspace = (targetTab = 'feed') => {
+  const getDefaultTabForUser = (user) => {
+    if (!user) return 'feed';
+    if (user.role === 'central_admin') return 'super_admin';
+    if (user.role === 'faculty_advisor') return 'advisor';
+    if (user.role === 'hostel_warden') return 'warden';
+    if (user.role === 'domain_admin') return 'admin';
+    return 'feed';
+  };
+
+  const handleEnterWorkspace = (targetTab) => {
     if (!currentUser) {
       if (setNotification) {
         setNotification({
-          message: 'Institutional Sign-In Required — Please log in with your university credentials to enter the workspace.',
+          message: 'Institutional Sign-In Required — Please log in or select a quick persona to enter the workspace.',
           type: 'info'
         });
       }
       setShowLoginModal(true);
       return;
     }
-    setActiveTab(targetTab);
+    const resolvedTab = (!targetTab || targetTab === 'feed') 
+      ? getDefaultTabForUser(currentUser) 
+      : targetTab;
+    setActiveTab(resolvedTab);
     setViewMode('workspace');
   };
 
@@ -84,8 +97,10 @@ function MainContent() {
           {/* Main Role-Based Workspaces */}
           <main className="flex-1 animate-fade-in">
             {(activeTab === 'feed' || activeTab === 'raise') && <SwipeCardFeed />}
-            {activeTab === 'admin' && <AdminDashboard />}
+            {activeTab === 'super_admin' && <SuperAdminDashboard />}
             {activeTab === 'advisor' && <AdvisorDashboard />}
+            {activeTab === 'warden' && <WardenDashboard />}
+            {activeTab === 'admin' && <AdminDashboard />}
             {activeTab === 'analytics' && <CampusAnalytics />}
           </main>
 
@@ -125,7 +140,10 @@ function MainContent() {
 
       {/* Global Institutional Sign-In / Account Modal */}
       {showLoginModal && (
-        <RoleSwitcherModal onClose={() => setShowLoginModal(false)} />
+        <RoleSwitcherModal 
+          onClose={() => setShowLoginModal(false)} 
+          onAuthSuccess={() => setViewMode('workspace')}
+        />
       )}
     </>
   );
