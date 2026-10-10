@@ -26,8 +26,8 @@ import {
   BadgeCheck
 } from 'lucide-react';
 
-export default function RoleSwitcherModal({ onClose }) {
-  const { currentUser, login, logout, switchUser } = useApp();
+export default function RoleSwitcherModal({ onClose, onAuthSuccess }) {
+  const { currentUser, login, logout } = useApp();
 
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
@@ -40,6 +40,7 @@ export default function RoleSwitcherModal({ onClose }) {
 
     const result = login(identifier, password);
     if (result.success) {
+      if (onAuthSuccess) onAuthSuccess();
       onClose();
     } else {
       setError(result.error);
@@ -55,6 +56,7 @@ export default function RoleSwitcherModal({ onClose }) {
     switch (role) {
       case 'student': return <User className="w-3.5 h-3.5 text-blue-600" />;
       case 'faculty_advisor': return <GraduationCap className="w-3.5 h-3.5 text-emerald-600" />;
+      case 'hostel_warden': return <Home className="w-3.5 h-3.5 text-amber-600" />;
       case 'domain_admin': return <Wrench className="w-3.5 h-3.5 text-amber-600" />;
       case 'central_admin': return <Shield className="w-3.5 h-3.5 text-forest-900" />;
       default: return <User className="w-3.5 h-3.5 text-charcoal-500" />;
@@ -65,6 +67,7 @@ export default function RoleSwitcherModal({ onClose }) {
     switch (role) {
       case 'student': return 'bg-blue-50 text-blue-700 border-blue-200';
       case 'faculty_advisor': return 'bg-emerald-50 text-emerald-800 border-emerald-200';
+      case 'hostel_warden': return 'bg-amber-50 text-amber-800 border-amber-200';
       case 'domain_admin': return 'bg-amber-50 text-amber-800 border-amber-200';
       case 'central_admin': return 'bg-forest-900 text-mint-300 border-forest-800';
       default: return 'bg-ivory-200 text-charcoal-700 border-ivory-300';

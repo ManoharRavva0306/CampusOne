@@ -322,19 +322,27 @@ export default function RaiseIssueModal({ onClose }) {
           {/* STEP 1: Scope & Location Selection */}
           {step === 1 && (
             <div className="space-y-4 animate-fade-in">
-              <div className="text-center mb-4">
-                <h4 className="text-sm font-bold text-forest-950">Step 1: Who does this issue affect?</h4>
+              <div className="text-center mb-3">
+                <h4 className="text-sm font-bold text-forest-950">Step 1: Is this a College-Wise or Hostel-Wise Issue?</h4>
                 <p className="text-xs text-charcoal-500 mt-0.5">
-                  Scope isolation ensures classroom issues remain private to your section and directly inform your Class Advisor.
+                  College-wise issues route to your <strong>Class Advisor</strong> and Hostel-wise issues route to your <strong>Hostel Resident Warden</strong> for Stage-1 verification (+20 Priority Weightage) before reaching the Final Main Admin.
                 </p>
+              </div>
+
+              {/* Student Privacy Guarantee Banner */}
+              <div className="p-3 rounded-2xl bg-emerald-50/80 border border-emerald-200 flex items-center space-x-2.5 text-xs text-emerald-950">
+                <Lock className="w-4 h-4 text-emerald-700 shrink-0" />
+                <div>
+                  <strong>Strict Identity Privacy:</strong> Your details ({currentUser.rollNo} • {currentUser.classSection || 'Section'} • {currentUser.hostel || 'Hostel'} Rm {currentUser.room || '-'}) are shared <strong>ONLY</strong> with your respective Class Advisor & Hostel Warden — never with unrelated sections or hostels in between.
+                </div>
               </div>
 
               <div className="space-y-2.5">
                 
-                {/* Classroom Option */}
+                {/* College-Wise: Classroom Option */}
                 <div
                   onClick={() => { setMainDomain('college'); setSubScope('class'); }}
-                  className={`p-4 rounded-2xl border cursor-pointer transition-all flex items-start space-x-3.5 ${
+                  className={`p-3.5 rounded-2xl border cursor-pointer transition-all flex items-start space-x-3.5 ${
                     subScope === 'class'
                       ? 'bg-emerald-50/60 border-emerald-500 ring-1 ring-emerald-500/30'
                       : 'bg-white border-ivory-300 hover:bg-ivory-100'
@@ -344,27 +352,27 @@ export default function RaiseIssueModal({ onClose }) {
                     <School className="w-4 h-4" />
                   </div>
                   <div className="flex-1">
-                    <div className="flex items-center space-x-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <h5 className="text-xs font-bold text-forest-950">
-                        Specific to My Class Section ({currentUser.classSection || 'CSE-B'})
+                        College-Wise: My Class Section ({currentUser.classSection || 'CSE-B 3rd Year'})
                       </h5>
                       <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-blue-100 text-blue-800">
-                        Classroom Privacy
+                        Stage 1 → Class Advisor
                       </span>
                     </div>
                     <p className="text-xs text-charcoal-600 mt-1">
-                      Projectors, classroom AC, benches, blackboard in Room 302.
+                      Projectors, smartboard, classroom AC, benches, or lighting in your section classroom.
                     </p>
                     <p className="text-[11px] text-emerald-700 font-semibold mt-1">
-                      ✓ Visible ONLY to {currentUser.classSection} peers & directly alerts Class Advisor.
+                      ✓ Sent to your {currentUser.classSection || 'Class'} Advisor for Accept/Reject (+20 weightage) before Final Admin.
                     </p>
                   </div>
                 </div>
 
-                {/* Hostel Room Option */}
+                {/* Hostel-Wise: Hostel Room Option */}
                 <div
                   onClick={() => { setMainDomain('hostel'); setSubScope('room'); }}
-                  className={`p-4 rounded-2xl border cursor-pointer transition-all flex items-start space-x-3.5 ${
+                  className={`p-3.5 rounded-2xl border cursor-pointer transition-all flex items-start space-x-3.5 ${
                     subScope === 'room'
                       ? 'bg-emerald-50/60 border-emerald-500 ring-1 ring-emerald-500/30'
                       : 'bg-white border-ivory-300 hover:bg-ivory-100'
@@ -374,24 +382,57 @@ export default function RaiseIssueModal({ onClose }) {
                     <Home className="w-4 h-4" />
                   </div>
                   <div className="flex-1">
-                    <div className="flex items-center space-x-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <h5 className="text-xs font-bold text-forest-950">
-                        My Hostel Room ({currentUser.hostel} - Rm {currentUser.room || '304'})
+                        Hostel-Wise: My Hostel Room ({currentUser.hostel || 'Agastya Bhavan'} - Rm {currentUser.room || '304'})
                       </h5>
                       <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-800">
-                        Room Only
+                        Stage 1 → Hostel Warden
                       </span>
                     </div>
                     <p className="text-xs text-charcoal-600 mt-1">
-                      Ceiling fan regulator, study desk, personal switchboard, door latch.
+                      Ceiling fan regulator, study desk, personal switchboard, LAN port, door latch.
+                    </p>
+                    <p className="text-[11px] text-amber-800 font-semibold mt-1">
+                      ✓ Sent to {currentUser.hostel || 'Hostel'} Resident Warden for Accept/Reject (+20 weightage) before Final Admin.
                     </p>
                   </div>
                 </div>
 
-                {/* Department Level Option */}
+                {/* Hostel-Wise: Common Area / Mess / Water Option */}
+                <div
+                  onClick={() => { setMainDomain('hostel'); setSubScope('hostel_generic'); }}
+                  className={`p-3.5 rounded-2xl border cursor-pointer transition-all flex items-start space-x-3.5 ${
+                    subScope === 'hostel_generic'
+                      ? 'bg-emerald-50/60 border-emerald-500 ring-1 ring-emerald-500/30'
+                      : 'bg-white border-ivory-300 hover:bg-ivory-100'
+                  }`}
+                >
+                  <div className="p-2.5 rounded-xl bg-teal-50 text-teal-700 shrink-0 border border-teal-200">
+                    <Building2 className="w-4 h-4" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h5 className="text-xs font-bold text-forest-950">
+                        Hostel-Wise: {currentUser.hostel || 'Agastya Bhavan'} Common Area / RO Water / Mess
+                      </h5>
+                      <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-teal-100 text-teal-800">
+                        Stage 1 → Hostel Warden
+                      </span>
+                    </div>
+                    <p className="text-xs text-charcoal-600 mt-1">
+                      Corridor RO water coolers, washroom plumbing, hostel Wi-Fi, or mess hygiene in {currentUser.hostel || 'your Bhavan'}.
+                    </p>
+                    <p className="text-[11px] text-teal-800 font-semibold mt-1">
+                      ✓ Sent to {currentUser.hostel || 'Hostel'} Resident Warden for Accept/Reject (+20 weightage) before Final Admin.
+                    </p>
+                  </div>
+                </div>
+
+                {/* College-Wise: Department Level Option */}
                 <div
                   onClick={() => { setMainDomain('college'); setSubScope('department'); }}
-                  className={`p-4 rounded-2xl border cursor-pointer transition-all flex items-start space-x-3.5 ${
+                  className={`p-3.5 rounded-2xl border cursor-pointer transition-all flex items-start space-x-3.5 ${
                     subScope === 'department'
                       ? 'bg-emerald-50/60 border-emerald-500 ring-1 ring-emerald-500/30'
                       : 'bg-white border-ivory-300 hover:bg-ivory-100'
@@ -401,16 +442,16 @@ export default function RaiseIssueModal({ onClose }) {
                     <Building2 className="w-4 h-4" />
                   </div>
                   <div className="flex-1">
-                    <div className="flex items-center space-x-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <h5 className="text-xs font-bold text-forest-950">
-                        Department Level ({currentUser.department || 'CSE'} Labs & Corridors)
+                        College-Wise: Department Labs & Corridors ({currentUser.department || 'CSE'})
                       </h5>
                       <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-purple-100 text-purple-800">
-                        Department
+                        Stage 1 → Class Advisor
                       </span>
                     </div>
                     <p className="text-xs text-charcoal-600 mt-1">
-                      Advanced IoT Lab equipment, corridor water dispensers, department seminar halls.
+                      Department lab workstations, corridor water dispensers, seminar halls.
                     </p>
                   </div>
                 </div>
@@ -418,7 +459,7 @@ export default function RaiseIssueModal({ onClose }) {
                 {/* Campus-Wide Hazard Option */}
                 <div
                   onClick={() => { setMainDomain('campus'); setSubScope('campus'); }}
-                  className={`p-4 rounded-2xl border cursor-pointer transition-all flex items-start space-x-3.5 ${
+                  className={`p-3.5 rounded-2xl border cursor-pointer transition-all flex items-start space-x-3.5 ${
                     subScope === 'campus'
                       ? 'bg-emerald-50/60 border-emerald-500 ring-1 ring-emerald-500/30'
                       : 'bg-white border-ivory-300 hover:bg-ivory-100'
@@ -428,14 +469,14 @@ export default function RaiseIssueModal({ onClose }) {
                     <AlertTriangle className="w-4 h-4" />
                   </div>
                   <div className="flex-1">
-                    <div className="flex items-center space-x-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <h5 className="text-xs font-bold text-forest-950">Campus-Wide Hazard / Emergency</h5>
                       <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-rose-100 text-rose-800">
-                        Safety Critical
+                        Direct Fast-Track
                       </span>
                     </div>
                     <p className="text-xs text-charcoal-600 mt-1">
-                      Live hanging wires, waterlogged pathways, snake sightings, open manholes.
+                      Live hanging wires, waterlogged pathways, open manholes, emergency safety hazards.
                     </p>
                   </div>
                 </div>

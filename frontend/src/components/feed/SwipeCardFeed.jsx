@@ -34,7 +34,8 @@ export default function SwipeCardFeed() {
     tickets, 
     currentUser, 
     voteTicket, 
-    isTicketVisibleToUser, 
+    isTicketVisibleToUser,
+    canViewStudentDetails, 
     feedFilter, 
     setFeedFilter,
     feedMode,
@@ -444,7 +445,13 @@ export default function SwipeCardFeed() {
                         <span className="font-semibold">{currentSwipeTicket.location}</span>
                       </div>
                       <div className="text-[11px] text-ivory-200/80">
-                        Reported by <strong>{currentSwipeTicket.raisedBy.name}</strong> • {formatTimeAgo(currentSwipeTicket.createdAt)}
+                        Reported by{' '}
+                        <strong>
+                          {canViewStudentDetails(currentSwipeTicket.raisedBy) || currentSwipeTicket.raisedByPanelRole
+                            ? currentSwipeTicket.raisedBy.name
+                            : 'Protected Campus Member'}
+                        </strong>{' '}
+                        • {formatTimeAgo(currentSwipeTicket.createdAt)}
                       </div>
                     </div>
 
@@ -481,16 +488,40 @@ export default function SwipeCardFeed() {
                     {currentSwipeTicket.description}
                   </p>
 
-                  {/* Class Advisor Status if applicable */}
-                  {currentSwipeTicket.advisorNotified && (
-                    <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-between text-xs">
+                  {/* Stage-1 Panel Approval Status (Class Advisor or Hostel Resident Warden) */}
+                  {(currentSwipeTicket.scope === 'class' || currentSwipeTicket.scope === 'department') && (
+                    <div className={`p-3 rounded-xl border flex items-center justify-between text-xs ${
+                      currentSwipeTicket.advisorEndorsed || currentSwipeTicket.advisorApprovalStatus === 'approved'
+                        ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                        : 'bg-amber-50 border-amber-200 text-amber-900'
+                    }`}>
                       <div className="flex items-center space-x-2">
                         <ShieldCheck className="w-4 h-4 text-emerald-700 shrink-0" />
-                        <span className="text-emerald-900 font-medium">
-                          Class Advisor: {currentSwipeTicket.advisorEndorsed ? 'Officially Endorsed (+20 Priority)' : 'Notified & Under Review'}
+                        <span className="font-medium">
+                          Class Advisor ({currentSwipeTicket.classSection || currentSwipeTicket.department}):{' '}
+                          {currentSwipeTicket.advisorEndorsed || currentSwipeTicket.advisorApprovalStatus === 'approved'
+                            ? 'Strong Approval (+20 Priority) • Escalated to Main Admin'
+                            : 'Stage-1 Review Pending'}
                         </span>
                       </div>
-                      <span className="text-[10px] text-emerald-800 font-bold uppercase">{currentUser?.classSection || 'CSE-B'}</span>
+                    </div>
+                  )}
+
+                  {(currentSwipeTicket.scope === 'room' || currentSwipeTicket.scope === 'hostel_generic') && (
+                    <div className={`p-3 rounded-xl border flex items-center justify-between text-xs ${
+                      currentSwipeTicket.wardenEndorsed || currentSwipeTicket.wardenApprovalStatus === 'approved'
+                        ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                        : 'bg-amber-50 border-amber-200 text-amber-900'
+                    }`}>
+                      <div className="flex items-center space-x-2">
+                        <ShieldCheck className="w-4 h-4 text-amber-700 shrink-0" />
+                        <span className="font-medium">
+                          Hostel Warden ({currentSwipeTicket.hostel || 'Bhavan'}):{' '}
+                          {currentSwipeTicket.wardenEndorsed || currentSwipeTicket.wardenApprovalStatus === 'approved'
+                            ? 'Strong Approval (+20 Priority) • Escalated to Main Admin'
+                            : 'Stage-1 Review Pending'}
+                        </span>
+                      </div>
                     </div>
                   )}
 
@@ -686,10 +717,24 @@ export default function SwipeCardFeed() {
                           {getScopeBadge(ticket)}
                           {getStatusBadge(ticket.status)}
                           
-                          {ticket.advisorEndorsed && (
+                          {(ticket.advisorEndorsed || ticket.advisorApprovalStatus === 'approved') && (
                             <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
                               <ShieldCheck className="w-2.5 h-2.5 text-emerald-600" />
-                              <span>Advisor Endorsed (+20)</span>
+                              <span>Advisor Approved (+20)</span>
+                            </span>
+                          )}
+
+                          {(ticket.wardenEndorsed || ticket.wardenApprovalStatus === 'approved') && (
+                            <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                              <ShieldCheck className="w-2.5 h-2.5 text-amber-600" />
+                              <span>Warden Approved (+20)</span>
+                            </span>
+                          )}
+
+                          {ticket.raisedByPanelRole && (
+                            <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-forest-900 text-mint-300 border border-forest-800">
+                              <Sparkles className="w-2.5 h-2.5 text-mint-300" />
+                              <span>Direct Panel Complaint</span>
                             </span>
                           )}
                         </div>
@@ -714,7 +759,14 @@ export default function SwipeCardFeed() {
                             <span>{ticket.location}</span>
                           </span>
                           <span>•</span>
-                          <span>Reported by <strong>{ticket.raisedBy.name}</strong></span>
+                          <span>
+                            Reported by{' '}
+                            <strong>
+                              {canViewStudentDetails(ticket.raisedBy) || ticket.raisedByPanelRole
+                                ? ticket.raisedBy.name
+                                : 'Protected Campus Member'}
+                            </strong>
+                          </span>
                           <span>•</span>
                           <span>{formatTimeAgo(ticket.createdAt)}</span>
                         </div>
