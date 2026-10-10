@@ -1,5 +1,5 @@
 {
-  "USERS": [
+  "users": [
     {
       "id": "user_dean",
       "name": "Dr. K. Subramanian",
@@ -1529,7 +1529,40 @@
       "description": "Student — EEE (EEE-B 3rd Year) & Vyasa Bhavan Rm 110"
     }
   ],
-  "INITIAL_TICKETS": [
+  "tickets": [
+    {
+      "id": "TICK-111",
+      "title": "trg",
+      "description": "dfg",
+      "scope": "class",
+      "classSection": "CSE-A 3rd Year",
+      "department": "CSE",
+      "hostel": null,
+      "room": null,
+      "location": "dfgh",
+      "category": "it_av",
+      "domain": "electrical_av",
+      "raisedBy": {
+        "id": "student_19",
+        "name": "Pari Sharma",
+        "rollNo": "CB.EN.U4CSE23118",
+        "avatar": "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80"
+      },
+      "createdAt": "2026-10-10T20:51:18.276Z",
+      "status": "reported",
+      "priorityScore": 53,
+      "upvotes": [
+        "student_19"
+      ],
+      "downvotes": [],
+      "advisorNotified": true,
+      "advisorEndorsed": false,
+      "assignedTo": "Pending Assignment",
+      "eta": "Awaiting triage",
+      "adminNote": "",
+      "imageUrl": "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=800&auto=format&fit=crop&q=80",
+      "comments": []
+    },
     {
       "id": "TICK-101",
       "title": "Ceiling Projector HDMI Flickering & Purple Tint in Room 302",

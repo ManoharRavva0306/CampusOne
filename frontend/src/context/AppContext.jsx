@@ -173,18 +173,34 @@ export function AppProvider({ children }) {
     }
   };
 
-  // Dynamic priority calculation
+  // Dynamic priority calculation with high advisor power
   const recalculatePriority = (ticket) => {
     let base = 50;
     if (ticket.category === 'safety') base = 85;
     if (ticket.scope === 'campus') base += 10;
     if (ticket.scope === 'department') base += 5;
     
-    const upScore = (ticket.upvotes?.length || 0) * 3;
-    const downScore = (ticket.downvotes?.length || 0) * 2;
-    const advisorBonus = ticket.advisorEndorsed ? 20 : 0;
+    const upvotes = ticket.upvotes || [];
+    const downvotes = ticket.downvotes || [];
+
+    let studentUpCount = 0;
+    let advisorUpCount = 0;
+
+    upvotes.forEach(userId => {
+      const user = userList.find(u => u.id === userId) || USERS.find(u => u.id === userId);
+      if (user && (user.role === 'faculty_advisor' || user.role === 'central_admin' || user.role === 'domain_admin')) {
+        advisorUpCount += 1;
+      } else {
+        studentUpCount += 1;
+      }
+    });
+
+    // Student votes add +3; Advisor votes carry +20 heavy institutional power
+    const studentScore = studentUpCount * 3;
+    const advisorScore = (advisorUpCount * 20) + (ticket.advisorEndorsed && advisorUpCount === 0 ? 20 : 0);
+    const downScore = downvotes.length * 2;
     
-    let total = base + upScore - downScore + advisorBonus;
+    let total = base + studentScore + advisorScore - downScore;
     return Math.min(Math.max(total, 10), 100);
   };
 
@@ -195,6 +211,8 @@ export function AppProvider({ children }) {
       showNotification('Please sign in with your Amrita ID to vote on issues.', 'info');
       return;
     }
+
+    const isAdvisor = currentUser.role === 'faculty_advisor' || currentUser.role === 'domain_admin' || currentUser.role === 'central_admin';
 
     setTickets(prev => prev.map(ticket => {
       if (ticket.id !== ticketId) return ticket;
@@ -226,6 +244,9 @@ export function AppProvider({ children }) {
         upvotes,
         downvotes
       };
+      if (isAdvisor && voteType === 'up') {
+        updated.advisorEndorsed = true;
+      }
       updated.priorityScore = recalculatePriority(updated);
       return updated;
     }));
@@ -234,7 +255,11 @@ export function AppProvider({ children }) {
     api.voteTicket(ticketId, voteType, currentUser.id).catch(err => console.warn('DB vote persist error:', err));
 
     if (voteType === 'up') {
-      showNotification('Voted Support! Priority score boosted.', 'success');
+      if (isAdvisor) {
+        showNotification('Faculty Advisor Vote Cast! Priority boosted with institutional weight (+20)', 'success');
+      } else {
+        showNotification('Student Vote Cast! Issue boosted with community confirmation (+3)', 'success');
+      }
     } else {
       showNotification('Voted Oppose / Low priority.', 'info');
     }
@@ -413,6 +438,7 @@ export function AppProvider({ children }) {
       }
       return t;
     }));
+    api.endorseTicket(ticketId).catch(err => console.warn('DB endorse persist error:', err));
     showNotification('Faculty Advisor endorsement added (+20 Priority Score)!', 'success');
   };
 

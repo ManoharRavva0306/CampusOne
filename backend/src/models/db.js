@@ -54,8 +54,29 @@ export function writeDB(data) {
       JSON.stringify({ users: inMemoryUsers, tickets: inMemoryTickets }, null, 2),
       'utf8'
     );
+
+    // Sync latest state into PostgreSQL SQL dump file
+    if (inMemoryTickets && inMemoryTickets.length > 0) {
+      const sqlHeader = `-- =========================================================================\n-- CampusOne PostgreSQL Live Synchronized Database State\n-- Auto-synced: ${new Date().toISOString()}\n-- =========================================================================\n\n`;
+      const ticketInserts = inMemoryTickets.map(t => {
+        const titleSafe = (t.title || '').replace(/'/g, "''");
+        const descSafe = (t.description || '').replace(/'/g, "''");
+        const locSafe = (t.location || '').replace(/'/g, "''");
+        const noteSafe = (t.adminNote || '').replace(/'/g, "''");
+        const raisedBy = t.raisedBy?.id || 'user_arjun';
+        return `INSERT INTO tickets (id, title, description, scope, class_section, department, location, category, domain, raised_by_id, status, priority_score, assigned_to, eta, admin_note, image_url) VALUES ('${t.id}', '${titleSafe}', '${descSafe}', '${t.scope}', ${t.classSection ? `'${t.classSection}'` : 'NULL'}, '${t.department || 'CSE'}', '${locSafe}', '${t.category}', '${t.domain || 'electrical_av'}', '${raisedBy}', '${t.status}', ${t.priorityScore || 50}, '${t.assignedTo || 'Pending'}', '${t.eta || 'Awaiting triage'}', '${noteSafe}', '${t.imageUrl || ''}') ON CONFLICT (id) DO UPDATE SET priority_score = EXCLUDED.priority_score, status = EXCLUDED.status, admin_note = EXCLUDED.admin_note;`;
+      }).join('\n');
+
+      fs.appendFileSync(
+        POSTGRES_FILE,
+        `\n-- Live Sync Event at ${new Date().toISOString()}\n${ticketInserts}\n`,
+        'utf8'
+      );
+    }
+
     return true;
   } catch (err) {
     return false;
   }
 }
+

@@ -78,6 +78,8 @@ export function voteTicket(req, res) {
   const { id } = req.params;
   const { voteType } = req.body; // 'up' | 'down'
   const userId = req.headers['x-user-id'] || 'user_arjun';
+  const users = getUsersFromDB();
+  const voter = users.find(u => u.id === userId);
 
   const updatedTicket = updateTicketInDB(id, (ticket) => {
     let upvotes = [...(ticket.upvotes || [])];
@@ -101,7 +103,7 @@ export function voteTicket(req, res) {
 
     ticket.upvotes = upvotes;
     ticket.downvotes = downvotes;
-    ticket.priorityScore = calculatePriorityScore(ticket);
+    ticket.priorityScore = calculatePriorityScore(ticket, users);
     return ticket;
   });
 
@@ -150,10 +152,11 @@ export function verifyResolution(req, res) {
 // Faculty Advisor Endorsement
 export function endorseTicket(req, res) {
   const { id } = req.params;
+  const users = getUsersFromDB();
 
   const updatedTicket = updateTicketInDB(id, (ticket) => {
     ticket.advisorEndorsed = true;
-    ticket.priorityScore = calculatePriorityScore(ticket);
+    ticket.priorityScore = calculatePriorityScore(ticket, users);
     return ticket;
   });
 
