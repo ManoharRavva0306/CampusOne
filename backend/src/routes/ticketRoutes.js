@@ -8,7 +8,8 @@ import {
   verifyResolution, 
   reviewTicketByPanel,
   endorseTicket, 
-  addComment 
+  addComment,
+  deleteTicket
 } from '../controllers/ticketController.js';
 
 const router = Router();
@@ -22,5 +23,6 @@ router.post('/:id/verify', verifyResolution);
 router.post('/:id/review', reviewTicketByPanel);
 router.post('/:id/endorse', endorseTicket);
 router.post('/:id/comments', addComment);
+router.delete('/:id', deleteTicket);
 
 export default router;

@@ -236,7 +236,15 @@ export function AppProvider({ children }) {
     if (ticket.scope === 'campus') base += 10;
     if (ticket.scope === 'department') base += 5;
 
-    const upScore = (ticket.upvotes?.length || 0) * 3;
+    let upScore = 0;
+    for (const voterId of (ticket.upvotes || [])) {
+      const voter = (userList || USERS).find(u => u.id === voterId);
+      if (voter && (voter.role === 'faculty_advisor' || voter.role === 'hostel_warden' || voter.role === 'central_admin' || voter.role === 'domain_admin')) {
+        upScore += 20;
+      } else {
+        upScore += 3;
+      }
+    }
     const downScore = (ticket.downvotes?.length || 0) * 2;
     const advisorBonus = (ticket.advisorEndorsed || ticket.advisorApprovalStatus === 'approved') ? 20 : 0;
     const wardenBonus = (ticket.wardenEndorsed || ticket.wardenApprovalStatus === 'approved') ? 20 : 0;
@@ -574,6 +582,17 @@ export function AppProvider({ children }) {
     reviewTicketByPanel(ticketId, { panelType, decision: 'approved', note });
   };
 
+  // Delete a ticket (Student deletes own raised request or Admin deletes)
+  const deleteTicket = (ticketId) => {
+    setTickets(prev => prev.filter(t => t.id !== ticketId));
+    if (selectedTicketForDetail?.id === ticketId) {
+      setSelectedTicketForDetail(null);
+    }
+    api.deleteTicket(ticketId, currentUser?.id).catch(() => {});
+    appendAuditLog(`Deleted Ticket (${ticketId})`, currentUser?.name || 'User', '🗑️');
+    showNotification(`Ticket #${ticketId} has been permanently deleted.`, 'info');
+  };
+
   // =========================================================================
   // MAIN ADMIN USER & RBAC CRUD + MULTI-USER EXCEL IMPORT + BULK UPDATE
   // =========================================================================
@@ -902,6 +921,7 @@ export function AppProvider({ children }) {
         setFeedMode,
         voteTicket,
         raiseTicket,
+        deleteTicket,
         boostExistingTicket,
         addComment,
         updateTicketAdmin,

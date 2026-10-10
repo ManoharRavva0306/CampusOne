@@ -22,14 +22,14 @@ let inMemoryUsers = null;
 let inMemoryTickets = null;
 
 export function getPostgresStore() {
-  if (!inMemoryUsers) {
+  if (!inMemoryUsers || !inMemoryTickets) {
     try {
-      // Import the synchronized seed dataset
-      const { USERS, INITIAL_TICKETS } = JSON.parse(
+      // Import the synchronized PostgreSQL seed dataset
+      const parsed = JSON.parse(
         fs.readFileSync(path.join(DATA_DIR, 'postgres_cache.json'), 'utf8')
       );
-      inMemoryUsers = USERS;
-      inMemoryTickets = INITIAL_TICKETS;
+      inMemoryUsers = parsed.users || parsed.USERS || [];
+      inMemoryTickets = parsed.tickets || parsed.INITIAL_TICKETS || [];
     } catch (e) {
       inMemoryUsers = [];
       inMemoryTickets = [];
@@ -51,9 +51,28 @@ export function writeDB(data) {
   try {
     fs.writeFileSync(
       path.join(DATA_DIR, 'postgres_cache.json'),
-      JSON.stringify({ users: inMemoryUsers, tickets: inMemoryTickets }, null, 2),
+      JSON.stringify({ users: inMemoryUsers, tickets: inMemoryTickets, USERS: inMemoryUsers, INITIAL_TICKETS: inMemoryTickets }, null, 2),
       'utf8'
     );
+
+    // Sync latest state into PostgreSQL SQL dump file
+    if (inMemoryTickets && inMemoryTickets.length > 0) {
+      const ticketInserts = inMemoryTickets.map(t => {
+        const titleSafe = (t.title || '').replace(/'/g, "''");
+        const descSafe = (t.description || '').replace(/'/g, "''");
+        const locSafe = (t.location || '').replace(/'/g, "''");
+        const noteSafe = (t.adminNote || '').replace(/'/g, "''");
+        const raisedBy = t.raisedBy?.id || 'user_arjun';
+        return `INSERT INTO tickets (id, title, description, scope, class_section, department, location, category, domain, raised_by_id, status, priority_score, assigned_to, eta, admin_note, image_url) VALUES ('${t.id}', '${titleSafe}', '${descSafe}', '${t.scope}', ${t.classSection ? `'${t.classSection}'` : 'NULL'}, '${t.department || 'CSE'}', '${locSafe}', '${t.category}', '${t.domain || 'electrical_av'}', '${raisedBy}', '${t.status}', ${t.priorityScore || 50}, '${t.assignedTo || 'Pending'}', '${t.eta || 'Awaiting triage'}', '${noteSafe}', '${t.imageUrl || ''}') ON CONFLICT (id) DO UPDATE SET priority_score = EXCLUDED.priority_score, status = EXCLUDED.status, admin_note = EXCLUDED.admin_note;`;
+      }).join('\n');
+
+      fs.appendFileSync(
+        POSTGRES_FILE,
+        `\n-- Live Sync Event at ${new Date().toISOString()}\n${ticketInserts}\n`,
+        'utf8'
+      );
+    }
+
     return true;
   } catch (err) {
     return false;

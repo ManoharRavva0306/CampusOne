@@ -25,7 +25,8 @@ import {
   LayoutGrid,
   RotateCcw,
   ChevronRight,
-  ArrowLeft
+  ArrowLeft,
+  Trash2
 } from 'lucide-react';
 import StudentVerificationBanner from '../verification/StudentVerificationBanner';
 
@@ -34,6 +35,7 @@ export default function SwipeCardFeed() {
     tickets, 
     currentUser, 
     voteTicket, 
+    deleteTicket,
     isTicketVisibleToUser,
     canViewStudentDetails, 
     feedFilter, 
@@ -65,6 +67,7 @@ export default function SwipeCardFeed() {
   const filteredTickets = useMemo(() => {
     return authorizedTickets.filter(ticket => {
       // Scope Tab
+      if (feedFilter === 'my_requests' && ticket.raisedBy?.id !== currentUser?.id) return false;
       if (feedFilter === 'class' && ticket.scope !== 'class') return false;
       if (feedFilter === 'room' && ticket.scope !== 'room' && ticket.scope !== 'hostel_generic') return false;
       if (feedFilter === 'department' && ticket.scope !== 'department') return false;
@@ -226,13 +229,18 @@ export default function SwipeCardFeed() {
       {/* Metric Summary Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-ivory-300 shadow-card">
+        <div
+          onClick={() => { setFeedFilter('my_requests'); setFeedMode('grid'); setActiveSwipeIndex(0); }}
+          className={`p-4 sm:p-5 rounded-2xl border shadow-card cursor-pointer transition-all hover:border-emerald-400 ${
+            feedFilter === 'my_requests' ? 'bg-emerald-50/70 border-emerald-400 ring-2 ring-emerald-500/20' : 'bg-white border-ivory-300'
+          }`}
+        >
           <div className="text-xs text-charcoal-500 font-semibold flex items-center justify-between">
-            <span>My Reports</span>
-            <User className="w-4 h-4 text-charcoal-400" />
+            <span>My Requests</span>
+            <User className="w-4 h-4 text-emerald-600" />
           </div>
           <div className="text-2xl font-black text-forest-950 mt-2">{myReportsCount}</div>
-          <div className="text-[11px] text-charcoal-500 mt-1">Submitted by you</div>
+          <div className="text-[11px] text-emerald-700 font-semibold mt-1">Click to track or delete →</div>
         </div>
 
         <div className={`p-4 sm:p-5 rounded-2xl border shadow-card transition-all ${
@@ -289,6 +297,23 @@ export default function SwipeCardFeed() {
             }
           >
             All Relevant ({authorizedTickets.length})
+          </button>
+
+          <button
+            onClick={() => { setFeedFilter('my_requests'); setFeedMode('grid'); setActiveSwipeIndex(0); }}
+            className={`px-3 py-1.5 rounded-xl whitespace-nowrap transition-all flex items-center space-x-1.5 ${
+              feedFilter === 'my_requests'
+                ? 'bg-[#092d25] text-white shadow-md border border-[#092d25]'
+                : 'text-[#192822] hover:text-[#092d25] hover:bg-[#eef2ec] bg-white border border-ivory-300'
+            }`}
+            style={
+              feedFilter === 'my_requests'
+                ? { backgroundColor: '#092d25', color: '#ffffff' }
+                : { backgroundColor: '#ffffff', color: '#192822' }
+            }
+          >
+            <User className={`w-3 h-3 ${feedFilter === 'my_requests' ? 'text-mint-300' : 'text-emerald-600'}`} />
+            <span>My Raised Issues ({myReportsCount})</span>
           </button>
 
           <button
@@ -832,6 +857,16 @@ export default function SwipeCardFeed() {
                         >
                           <MessageSquare className="w-4 h-4" />
                         </button>
+
+                        {(ticket.raisedBy?.id === currentUser?.id || currentUser?.role === 'central_admin' || currentUser?.role === 'super_admin') && (
+                          <button
+                            onClick={() => deleteTicket(ticket.id)}
+                            className="p-1.5 rounded-xl text-rose-600 hover:text-white hover:bg-rose-600 bg-rose-50 border border-rose-200 transition-colors"
+                            title="Delete My Request"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
                       </div>
 
                     </div>

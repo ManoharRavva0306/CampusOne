@@ -301,4 +301,16 @@ export function updateTicketInDB(ticketId, updateFn) {
   return db.tickets.find(t => t.id === ticketId);
 }
 
+// Delete ticket from DB
+export function deleteTicketFromDB(ticketId) {
+  const db = readDB();
+  const initialLength = (db.tickets || []).length;
+  db.tickets = (db.tickets || []).filter(t => t.id !== ticketId);
+  const deleted = db.tickets.length < initialLength;
+  if (deleted) {
+    writeDB(db);
+  }
+  return deleted;
+}
+
 export const TICKETS = getTicketsFromDB();
