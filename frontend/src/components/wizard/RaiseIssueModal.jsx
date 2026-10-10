@@ -21,7 +21,6 @@ import {
   X,
   ShieldAlert,
   ShieldCheck,
-  Upload,
   Trash2,
   RefreshCw,
   Video,
@@ -75,7 +74,6 @@ export default function RaiseIssueModal({ onClose }) {
   const [visualMetrics, setVisualMetrics] = useState(null);
 
   const videoRef = useRef(null);
-  const fileInputRef = useRef(null);
   const nativeCameraInputRef = useRef(null);
   const mediaStreamRef = useRef(null);
 
@@ -673,24 +671,20 @@ export default function RaiseIssueModal({ onClose }) {
                 />
               </div>
 
-              {/* Photo Evidence (Live Camera + Device Upload + Demo Presets) */}
+              {/* Photo Evidence (Live Camera + Presentation Presets) */}
               <div className="pt-1">
                 <label className="block text-xs font-bold text-forest-950 mb-1.5 flex items-center justify-between">
                   <span className="flex items-center space-x-1.5">
                     <Camera className="w-4 h-4 text-emerald-700" />
-                    <span>Evidence Photo (Camera or Upload)</span>
+                    <span>Evidence Photo (Live Camera Only)</span>
                   </span>
-                  <span className="text-[10px] text-charcoal-500">Accelerates on-site verification</span>
+                  <span className="text-[10px] text-emerald-700 font-semibold flex items-center space-x-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    <span>Live On-Site Verification</span>
+                  </span>
                 </label>
 
-                {/* Hidden File Inputs for PC file selector and native phone camera */}
-                <input
-                  type="file"
-                  accept="image/*"
-                  ref={fileInputRef}
-                  onChange={handleFileChange}
-                  className="hidden"
-                />
+                {/* Native mobile camera fallback input */}
                 <input
                   type="file"
                   accept="image/*"
@@ -753,36 +747,25 @@ export default function RaiseIssueModal({ onClose }) {
                   </div>
                 ) : (
                   <div className="space-y-2.5">
-                    {/* Primary Two Action Buttons: Take Photo (Camera) & Upload Image */}
-                    <div className="grid grid-cols-2 gap-2.5">
-                      <button
-                        type="button"
-                        onClick={startCamera}
-                        className="flex items-center justify-center space-x-2.5 p-3 rounded-2xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-950 font-bold text-xs transition-all shadow-subtle group"
-                      >
-                        <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center group-hover:scale-105 transition-transform shadow-sm">
-                          <Camera className="w-4 h-4" />
+                    {/* Sole Primary Action: Take Photo (Live Camera Only) */}
+                    <button
+                      type="button"
+                      onClick={startCamera}
+                      className="w-full flex items-center justify-center space-x-3 p-3.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-bold text-xs sm:text-sm transition-all shadow-md group touch-press border border-emerald-500/30"
+                    >
+                      <div className="w-9 h-9 rounded-xl bg-white/20 text-white flex items-center justify-center group-hover:scale-110 transition-transform shadow-inner">
+                        <Camera className="w-5 h-5 text-mint-300" />
+                      </div>
+                      <div className="text-left">
+                        <div className="font-extrabold text-xs sm:text-sm text-white flex items-center space-x-1.5">
+                          <span>Take Photo</span>
+                          <span className="w-2 h-2 rounded-full bg-mint-300 animate-pulse" />
                         </div>
-                        <div className="text-left">
-                          <div className="font-bold text-xs text-emerald-950">Take Photo</div>
-                          <div className="text-[10px] text-emerald-700 font-normal">Use Live Camera</div>
+                        <div className="text-[10px] sm:text-[11px] text-mint-200/90 font-normal">
+                          Use Live Camera on-site to scan equipment
                         </div>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        className="flex items-center justify-center space-x-2.5 p-3 rounded-2xl bg-white hover:bg-ivory-100 border border-ivory-300 text-forest-950 font-bold text-xs transition-all shadow-subtle group"
-                      >
-                        <div className="w-8 h-8 rounded-xl bg-forest-900 text-mint-300 flex items-center justify-center group-hover:scale-105 transition-transform shadow-sm">
-                          <Upload className="w-4 h-4" />
-                        </div>
-                        <div className="text-left">
-                          <div className="font-bold text-xs text-forest-950">Upload Image</div>
-                          <div className="text-[10px] text-charcoal-500 font-normal">From Phone or PC</div>
-                        </div>
-                      </button>
-                    </div>
+                      </div>
+                    </button>
 
                     {/* Preview Box */}
                     {selectedPhoto ? (
@@ -795,15 +778,17 @@ export default function RaiseIssueModal({ onClose }) {
                         <div className="absolute inset-0 bg-gradient-to-t from-forest-950/85 via-forest-950/20 to-transparent flex items-end justify-between p-3">
                           <span className="text-[11px] text-mint-300 font-semibold flex items-center space-x-1">
                             <Check className="w-3.5 h-3.5" />
-                            <span>Evidence photo attached</span>
+                            <span>Live evidence photo attached</span>
                           </span>
                           <div className="flex items-center space-x-1.5">
                             <button
                               type="button"
-                              onClick={() => fileInputRef.current?.click()}
-                              className="px-2.5 py-1 rounded-lg bg-white/20 hover:bg-white/30 text-white text-[10px] font-semibold backdrop-blur-sm transition-all"
+                              onClick={startCamera}
+                              className="px-2.5 py-1 rounded-lg bg-white/20 hover:bg-white/30 text-white text-[10px] font-semibold backdrop-blur-sm transition-all flex items-center space-x-1 touch-press"
+                              title="Retake photo using live camera"
                             >
-                              Change
+                              <Camera className="w-3 h-3 text-mint-300" />
+                              <span>Retake</span>
                             </button>
                             <button
                               type="button"
@@ -819,7 +804,7 @@ export default function RaiseIssueModal({ onClose }) {
                     ) : (
                       <div className="border border-dashed border-ivory-300 rounded-2xl p-3 text-center bg-ivory-50/50">
                         <p className="text-xs text-charcoal-500">
-                          No photo attached yet. Capture with camera or upload from device.
+                          No photo captured yet. Click "Take Photo" to activate the live camera.
                         </p>
                       </div>
                     )}
@@ -1089,7 +1074,7 @@ export default function RaiseIssueModal({ onClose }) {
                               </div>
 
                               <p className="text-[10px] text-amber-200/90">
-                                💡 <strong>Action Required:</strong> Upload or capture a clear photo of the broken equipment (e.g. projector, fan, switch, leak, or bench) to unlock verified AI scoring.
+                                💡 <strong>Action Required:</strong> Use the live camera to capture a clear photo of the damaged campus asset (e.g. projector, fan, switch, leak, or bench) to unlock verified AI scoring.
                               </p>
                             </div>
                           )
