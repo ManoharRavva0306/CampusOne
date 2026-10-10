@@ -25,7 +25,8 @@ function MainContent() {
   } = useApp();
 
   // View state: 'story' (Cinematic Landing) or 'workspace' (Interactive App)
-  const [viewMode, setViewMode] = useState('workspace'); // default directly to interactive app for instant judge usability
+  // Story is the default starting interface when the user launches the website
+  const [viewMode, setViewMode] = useState('story');
 
   const handleEnterWorkspace = (targetTab = 'feed') => {
     setActiveTab(targetTab);
