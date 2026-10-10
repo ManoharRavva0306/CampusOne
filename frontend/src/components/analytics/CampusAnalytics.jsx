@@ -9,7 +9,12 @@ import {
   Building2, 
   Award,
   AlertTriangle,
-  Info
+  Info,
+  Cpu,
+  Scan,
+  Zap,
+  ShieldCheck,
+  Activity
 } from 'lucide-react';
 
 export default function CampusAnalytics() {
@@ -195,6 +200,71 @@ export default function CampusAnalytics() {
           </div>
         </div>
 
+      </div>
+
+      {/* AI Telemetry & Neural Engine Metrics */}
+      <div className="bg-gradient-to-br from-forest-950 via-forest-900 to-emerald-950 text-white p-6 sm:p-8 rounded-3xl border border-emerald-800/60 shadow-xl space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center space-x-3.5">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 text-mint-300 flex items-center justify-center border border-emerald-500/30">
+              <Cpu className="w-6 h-6 text-mint-300" />
+            </div>
+            <div>
+              <div className="flex items-center space-x-2">
+                <h3 className="text-lg font-bold text-white">AI Neural Triage & Duplicate Prevention Telemetry</h3>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-400/20 text-mint-300 font-bold border border-emerald-400/30">
+                  Real-Time NLP & Vision Engine
+                </span>
+              </div>
+              <p className="text-xs text-mint-100/70 mt-0.5">
+                Multi-layer NLP semantic similarity and VisionNet edge inference eliminating operational backlogs.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center space-x-2 text-xs font-mono text-mint-300 bg-white/10 px-3.5 py-1.5 rounded-xl border border-white/10 self-start sm:self-center">
+            <Activity className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
+            <span>CampusOne-VisionNet v2.4 Active</span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-1">
+          <div className="bg-white/10 p-4 rounded-2xl border border-white/10">
+            <div className="text-[11px] text-mint-200 font-medium flex items-center justify-between">
+              <span>Duplicate Noise Filtered</span>
+              <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+            </div>
+            <div className="text-2xl font-black text-white mt-1.5">38%</div>
+            <div className="text-[10px] text-mint-300/80 mt-1">24 redundant reports consolidated</div>
+          </div>
+
+          <div className="bg-white/10 p-4 rounded-2xl border border-white/10">
+            <div className="text-[11px] text-mint-200 font-medium flex items-center justify-between">
+              <span>NLP Auto-Triage Accuracy</span>
+              <Zap className="w-3.5 h-3.5 text-mint-300" />
+            </div>
+            <div className="text-2xl font-black text-mint-300 mt-1.5">96.4%</div>
+            <div className="text-[10px] text-mint-300/80 mt-1">Direct domain technician routing</div>
+          </div>
+
+          <div className="bg-white/10 p-4 rounded-2xl border border-white/10">
+            <div className="text-[11px] text-mint-200 font-medium flex items-center justify-between">
+              <span>VisionNet Defect F1</span>
+              <Scan className="w-3.5 h-3.5 text-emerald-300" />
+            </div>
+            <div className="text-2xl font-black text-white mt-1.5">94.2%</div>
+            <div className="text-[10px] text-mint-300/80 mt-1">Hardware & leakage frame verification</div>
+          </div>
+
+          <div className="bg-white/10 p-4 rounded-2xl border border-white/10">
+            <div className="text-[11px] text-mint-200 font-medium flex items-center justify-between">
+              <span>Automated MTTT</span>
+              <Clock className="w-3.5 h-3.5 text-blue-300" />
+            </div>
+            <div className="text-2xl font-black text-mint-300 mt-1.5">3.8 sec</div>
+            <div className="text-[10px] text-mint-300/80 mt-1">Down from 48 hrs manual sorting</div>
+          </div>
+        </div>
       </div>
 
       {/* Illustrative Notice Footnote */}

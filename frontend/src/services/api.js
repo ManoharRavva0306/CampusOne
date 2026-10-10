@@ -141,5 +141,38 @@ export const api = {
       console.warn('API createUser offline:', err.message);
       return null;
     }
+  },
+
+  // AI Semantic Issue Analysis (Auto-Triage, Duplicates, Vision Defect)
+  async analyzeIssueAI(issueData) {
+    try {
+      const res = await fetch(`${API_BASE}/ai/analyze-issue`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(issueData)
+      });
+      if (!res.ok) throw new Error('AI service error');
+      return await res.json();
+    } catch (err) {
+      console.warn('API analyzeIssueAI offline, using fallback:', err.message);
+      return null;
+    }
+  },
+
+  // AI Maintenance Dispatch & SLA Copilot
+  async getAdminCopilotAI(ticketData) {
+    try {
+      const res = await fetch(`${API_BASE}/ai/admin-copilot`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(ticketData)
+      });
+      if (!res.ok) throw new Error('AI Copilot service error');
+      return await res.json();
+    } catch (err) {
+      console.warn('API getAdminCopilotAI offline:', err.message);
+      return null;
+    }
   }
 };
+

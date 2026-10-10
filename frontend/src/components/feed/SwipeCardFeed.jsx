@@ -432,7 +432,13 @@ export default function SwipeCardFeed() {
 
                   {/* Top Badges */}
                   <div className="absolute top-4 left-4 right-4 flex items-center justify-between">
-                    <div>{getScopeBadge(currentSwipeTicket)}</div>
+                    <div className="flex items-center space-x-1.5">
+                      {getScopeBadge(currentSwipeTicket)}
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-950/85 text-mint-300 border border-emerald-400/40 flex items-center space-x-1 shadow-sm backdrop-blur-sm">
+                        <Sparkles className="w-2.5 h-2.5 text-mint-300" />
+                        <span>AI Triaged</span>
+                      </span>
+                    </div>
                     <div>{getStatusBadge(currentSwipeTicket.status)}</div>
                   </div>
 
@@ -686,6 +692,11 @@ export default function SwipeCardFeed() {
                           {getScopeBadge(ticket)}
                           {getStatusBadge(ticket.status)}
                           
+                          <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-mint-100/70 text-forest-950 border border-mint-300">
+                            <Sparkles className="w-2.5 h-2.5 text-emerald-700" />
+                            <span>AI Triaged ({ticket.priorityScore})</span>
+                          </span>
+
                           {ticket.advisorEndorsed && (
                             <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
                               <ShieldCheck className="w-2.5 h-2.5 text-emerald-600" />

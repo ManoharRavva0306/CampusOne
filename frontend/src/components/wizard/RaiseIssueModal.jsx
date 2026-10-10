@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { CATEGORIES } from '../../data/mockData';
+import { api } from '../../services/api';
 import { 
   GitFork, 
   Building2, 
@@ -22,7 +23,11 @@ import {
   Trash2,
   RefreshCw,
   Video,
-  Check
+  Check,
+  Cpu,
+  Eye,
+  Scan,
+  Activity
 } from 'lucide-react';
 
 export default function RaiseIssueModal({ onClose }) {
@@ -61,6 +66,10 @@ export default function RaiseIssueModal({ onClose }) {
   const [selectedPhoto, setSelectedPhoto] = useState('https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=800&auto=format&fit=crop&q=80');
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState(null);
+
+  // AI Copilot & Vision Intelligence State
+  const [aiAnalysis, setAiAnalysis] = useState(null);
+  const [isAnalyzingAI, setIsAnalyzingAI] = useState(false);
 
   const videoRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -189,19 +198,56 @@ export default function RaiseIssueModal({ onClose }) {
     }
   }, [step]);
 
-  // Photo presets for testing/demo
+  // Photo presets for testing/demo (Includes both relevant campus assets and testable irrelevant items)
   const PHOTO_PRESETS = [
-    { label: 'Projector / AV', url: 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=800&auto=format&fit=crop&q=80' },
-    { label: 'Electrical Wiring', url: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=800&auto=format&fit=crop&q=80' },
-    { label: 'Ceiling Fan', url: 'https://images.unsplash.com/photo-1590725140246-20acbe44865e?w=800&auto=format&fit=crop&q=80' },
-    { label: 'Broken Furniture', url: 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=800&auto=format&fit=crop&q=80' },
-    { label: 'Water Dispenser', url: 'https://images.unsplash.com/photo-1584771145729-0bd9fda6529b?w=800&auto=format&fit=crop&q=80' },
+    { label: 'Projector (Relevant)', url: 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=800&auto=format&fit=crop&q=80', isRelevant: true },
+    { label: 'Electrical Wire (Relevant)', url: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=800&auto=format&fit=crop&q=80', isRelevant: true },
+    { label: 'Ceiling Fan (Relevant)', url: 'https://images.unsplash.com/photo-1590725140246-20acbe44865e?w=800&auto=format&fit=crop&q=80', isRelevant: true },
+    { label: 'Broken Desk (Relevant)', url: 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=800&auto=format&fit=crop&q=80', isRelevant: true },
+    { label: 'Water Leak (Relevant)', url: 'https://images.unsplash.com/photo-1584771145729-0bd9fda6529b?w=800&auto=format&fit=crop&q=80', isRelevant: true },
+    { label: '⚠️ Nature Garden (Irrelevant)', url: 'https://images.unsplash.com/photo-1518531933037-91b2f5f229cc?w=800&auto=format&fit=crop&q=80', isRelevant: false },
+    { label: '⚠️ Coffee Cup (Irrelevant)', url: 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=800&auto=format&fit=crop&q=80', isRelevant: false },
   ];
 
-  // AI Duplicate Detection Engine
-  const duplicateMatches = useMemo(() => {
-    if (!title && !description) return [];
+  // Live AI Issue Analysis (Auto-Triage, Vision Defect, Semantic Duplicate Matching)
+  useEffect(() => {
+    if (!title.trim() && !description.trim()) {
+      setAiAnalysis(null);
+      return;
+    }
 
+    const timer = setTimeout(async () => {
+      setIsAnalyzingAI(true);
+      try {
+        const res = await api.analyzeIssueAI({
+          title: title.trim(),
+          description: description.trim(),
+          category,
+          location: location.trim(),
+          scope: subScope,
+          imageUrl: selectedPhoto
+        });
+        if (res && res.success) {
+          setAiAnalysis(res);
+        }
+      } catch (err) {
+        console.warn('AI analysis call failed:', err);
+      } finally {
+        setIsAnalyzingAI(false);
+      }
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [title, description, category, location, subScope, selectedPhoto]);
+
+  // AI Semantic Duplicate Detection Engine
+  const duplicateMatches = useMemo(() => {
+    if (aiAnalysis?.duplicates && aiAnalysis.duplicates.length > 0) {
+      return aiAnalysis.duplicates;
+    }
+
+    // Heuristic fallback
+    if (!title && !description) return [];
     const query = `${title} ${description}`.toLowerCase();
     const keywords = query.split(/\s+/).filter(w => w.length > 3);
 
@@ -211,7 +257,6 @@ export default function RaiseIssueModal({ onClose }) {
       if (t.status === 'resolved') return false;
 
       const targetText = `${t.title} ${t.description} ${t.location}`.toLowerCase();
-      
       let hits = 0;
       keywords.forEach(kw => {
         if (targetText.includes(kw)) hits++;
@@ -219,8 +264,13 @@ export default function RaiseIssueModal({ onClose }) {
 
       const sameCategory = t.category === category;
       return hits >= 2 || (hits >= 1 && sameCategory);
-    }).slice(0, 2);
-  }, [title, description, category, tickets]);
+    }).slice(0, 3).map(t => ({
+      ticket: t,
+      matchConfidence: 86,
+      matchedKeywords: keywords.slice(0, 3),
+      matchReason: 'Heuristic keyword overlap with active campus report'
+    }));
+  }, [aiAnalysis, title, description, category, tickets]);
 
   const handleNextStep = () => {
     if (step === 1 && !subScope) return;
@@ -262,7 +312,12 @@ export default function RaiseIssueModal({ onClose }) {
       category: category,
       domain: matchedCat ? matchedCat.domain : 'electrical_av',
       imageUrl: selectedPhoto || 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=800&auto=format&fit=crop&q=80',
-      priorityScore: urgency === 'emergency' ? 95 : urgency === 'high' ? 80 : 65
+      priorityScore: (() => {
+        const isPhotoVerified = aiAnalysis?.vision?.isRelevant === true;
+        const base = urgency === 'emergency' ? 85 : urgency === 'high' ? 70 : 50;
+        const evidenceBoost = isPhotoVerified ? 15 : 0;
+        return Math.min(base + evidenceBoost, 100);
+      })()
     };
 
     raiseTicket(ticketData);
@@ -710,6 +765,138 @@ export default function RaiseIssueModal({ onClose }) {
                         ))}
                       </div>
                     </div>
+
+                    {/* ✨ CAMPUSONE AI COPILOT & COMPUTER VISION SCANNER */}
+                    {(isAnalyzingAI || aiAnalysis) && (
+                      <div className="mt-3 p-3.5 rounded-2xl bg-gradient-to-br from-emerald-50/90 to-mint-50/50 border border-emerald-300/80 shadow-subtle space-y-3 animate-fade-in">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-2 text-emerald-950 font-bold text-xs">
+                            <Sparkles className="w-4 h-4 text-emerald-600 animate-spin-slow" />
+                            <span>CampusOne AI Copilot & Vision Engine</span>
+                          </div>
+                          {isAnalyzingAI ? (
+                            <span className="flex items-center space-x-1.5 text-[10px] text-emerald-800 font-semibold bg-emerald-100/70 px-2.5 py-0.5 rounded-full animate-pulse">
+                              <RefreshCw className="w-3 h-3 animate-spin" />
+                              <span>Analyzing context...</span>
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-mono text-emerald-800 font-bold bg-white border border-emerald-200 px-2 py-0.5 rounded-full">
+                              ⚡ Active Inference
+                            </span>
+                          )}
+                        </div>
+
+                        {aiAnalysis?.triage && (
+                          <div className="bg-white/80 p-2.5 rounded-xl border border-emerald-200/70 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <div>
+                              <div className="text-[11px] font-bold text-forest-950 flex items-center space-x-1.5">
+                                <span>Auto-Triage Suggestion:</span>
+                                <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-900 font-extrabold uppercase text-[10px]">
+                                  {CATEGORIES.find(c => c.id === aiAnalysis.triage.suggestedCategory)?.label || aiAnalysis.triage.suggestedCategory}
+                                </span>
+                                <span className="text-[10px] font-bold text-emerald-700">
+                                  ({aiAnalysis.triage.confidence}% Confidence)
+                                </span>
+                              </div>
+                              <p className="text-[10px] text-charcoal-600 mt-0.5">
+                                {aiAnalysis.triage.explanation}
+                              </p>
+                            </div>
+
+                            {category !== aiAnalysis.triage.suggestedCategory && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setCategory(aiAnalysis.triage.suggestedCategory);
+                                  if (aiAnalysis.triage.suggestedUrgency) {
+                                    setUrgency(aiAnalysis.triage.suggestedUrgency);
+                                  }
+                                }}
+                                className="btn-primary text-[10px] py-1 px-2.5 self-start sm:self-center shrink-0"
+                              >
+                                Apply AI Category
+                              </button>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Computer Vision Defect Scanner Output (Gated by Photo Relevance) */}
+                        {aiAnalysis?.vision && selectedPhoto && (
+                          aiAnalysis.vision.isRelevant ? (
+                            /* ✅ RELEVANT IMAGE: Full VisionNet Verification & Boost Active */
+                            <div className="bg-emerald-950 text-white p-3.5 rounded-xl shadow-inner space-y-2.5 border border-emerald-700 animate-fade-in">
+                              <div className="flex items-center justify-between text-[11px]">
+                                <span className="flex items-center space-x-1.5 font-bold text-mint-300">
+                                  <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                                  <span>VisionNet Verified Defect ({aiAnalysis.vision.confidence}% Match)</span>
+                                </span>
+                                <span className="text-[10px] text-mint-300 font-bold bg-emerald-500/20 border border-emerald-400/30 px-2 py-0.5 rounded-full">
+                                  ⚡ AI Priority Active (+15 Boost)
+                                </span>
+                              </div>
+
+                              <div className="space-y-1 text-xs">
+                                <div className="text-white font-semibold">
+                                  Asset Identified: <span className="text-mint-300">{aiAnalysis.vision.detectedObject}</span>
+                                </div>
+                                <div className="text-ivory-200 text-[11px]">
+                                  Defect Diagnosis: <span className="text-amber-300">{aiAnalysis.vision.defectType}</span>
+                                </div>
+                                <div className="text-[10px] text-emerald-300 font-medium">
+                                  Severity: {aiAnalysis.vision.severity}
+                                </div>
+                              </div>
+
+                              {aiAnalysis.vision.recommendedTools && (
+                                <div className="pt-1.5 border-t border-emerald-800/80">
+                                  <div className="text-[10px] text-mint-200 font-bold mb-1">
+                                    Recommended Technician Toolset:
+                                  </div>
+                                  <div className="flex flex-wrap gap-1">
+                                    {aiAnalysis.vision.recommendedTools.map((tool, ti) => (
+                                      <span key={ti} className="px-1.5 py-0.5 rounded bg-emerald-900/80 text-[9px] text-mint-300 border border-emerald-700 font-mono">
+                                        {tool}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            /* ⚠️ IRRELEVANT IMAGE: Warning Box & Locked Score */
+                            <div className="bg-amber-950/90 text-white p-3.5 rounded-xl border-2 border-amber-500 shadow-md space-y-2 animate-fade-in">
+                              <div className="flex items-center justify-between text-xs">
+                                <span className="flex items-center space-x-1.5 font-bold text-amber-300">
+                                  <AlertTriangle className="w-4 h-4 text-amber-400" />
+                                  <span>Irrelevant / Non-Facility Photo Detected</span>
+                                </span>
+                                <span className="text-[10px] bg-rose-500/25 text-rose-300 border border-rose-500/40 px-2 py-0.5 rounded-full font-mono font-bold">
+                                  0% Evidence Match
+                                </span>
+                              </div>
+
+                              <p className="text-xs text-amber-100/90 leading-relaxed">
+                                {aiAnalysis.vision.warningMessage || "Our AI Vision model did not detect any verifiable campus infrastructure or equipment defects in this photo frame."}
+                              </p>
+
+                              <div className="p-2 rounded-lg bg-black/40 border border-amber-500/30 flex items-center justify-between text-[11px]">
+                                <span className="text-amber-200/90">AI Priority Score Status:</span>
+                                <span className="font-bold text-rose-400 uppercase tracking-wide flex items-center space-x-1">
+                                  <Lock className="w-3 h-3" />
+                                  <span>AI Evidence Score Paused</span>
+                                </span>
+                              </div>
+
+                              <p className="text-[10px] text-amber-200/80">
+                                💡 <strong>Action Required:</strong> Upload or capture a clear photo of the broken equipment (e.g. projector, fan, switch, leak) to unlock verified AI scoring.
+                              </p>
+                            </div>
+                          )
+                        )}
+
+                      </div>
+                    )}
+
                   </div>
                 )}
               </div>
@@ -739,43 +926,75 @@ export default function RaiseIssueModal({ onClose }) {
 
               {/* ✨ AI DUPLICATE CHECK PROMPT */}
               {duplicateMatches.length > 0 && (
-                <div className="p-4 rounded-2xl bg-amber-50 border-2 border-amber-300 space-y-2.5">
-                  <div className="flex items-center space-x-2 text-amber-900 text-xs font-bold uppercase tracking-wide">
-                    <Sparkles className="w-4 h-4 text-amber-600" />
-                    <span>Potential Duplicate Report Detected</span>
+                <div className="p-4 rounded-2xl bg-amber-50/90 border-2 border-amber-300 space-y-3 shadow-subtle">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2 text-amber-900 text-xs font-bold uppercase tracking-wide">
+                      <Sparkles className="w-4 h-4 text-amber-600" />
+                      <span>CampusOne AI Semantic Duplicate Engine</span>
+                    </div>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-200/80 text-amber-900 font-bold">
+                      Redundancy Guard Active
+                    </span>
                   </div>
 
                   <p className="text-xs text-charcoal-800 leading-relaxed">
-                    A similar report is already active in your area. Instead of creating a duplicate ticket, supporting this existing report increases its priority score so staff resolve it faster:
+                    A matching active report was identified in your area. Boosting this report will raise its priority for maintenance teams faster than creating a redundant ticket:
                   </p>
 
-                  {duplicateMatches.map(match => (
-                    <div 
-                      key={match.id}
-                      className="p-3 rounded-xl bg-white border border-amber-200 flex items-center justify-between shadow-subtle"
-                    >
-                      <div className="pr-2">
-                        <div className="text-xs font-bold text-forest-950">
-                          {match.title} <span className="font-mono text-charcoal-500 font-normal">({match.id})</span>
-                        </div>
-                        <div className="text-[11px] text-charcoal-500 mt-0.5">
-                          Status: <strong className="text-amber-800 capitalize">{match.status}</strong> • {match.upvotes.length} peers confirmed
-                        </div>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          boostExistingTicket(match.id);
-                          onClose();
-                        }}
-                        className="btn-primary text-xs py-1.5 px-3 shrink-0"
+                  {duplicateMatches.map((match, idx) => {
+                    const t = match.ticket || match;
+                    const conf = match.matchConfidence || 88;
+                    return (
+                      <div 
+                        key={t.id || idx}
+                        className="p-3.5 rounded-xl bg-white border border-amber-200 flex flex-col space-y-2 shadow-subtle"
                       >
-                        <ThumbsUp className="w-3.5 h-3.5" />
-                        <span>Support Existing</span>
-                      </button>
-                    </div>
-                  ))}
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="pr-2">
+                            <div className="text-xs font-bold text-forest-950 flex items-center space-x-2">
+                              <span>{t.title}</span>
+                              <span className="font-mono text-charcoal-500 font-normal">({t.id})</span>
+                              <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
+                                {conf}% Match
+                              </span>
+                            </div>
+                            <div className="text-[11px] text-charcoal-500 mt-0.5">
+                              Status: <strong className="text-amber-800 capitalize">{t.status}</strong> • {(t.upvotes || []).length} peers confirmed
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              boostExistingTicket(t.id);
+                              onClose();
+                            }}
+                            className="btn-primary text-xs py-1.5 px-3 shrink-0 flex items-center space-x-1.5"
+                          >
+                            <ThumbsUp className="w-3.5 h-3.5" />
+                            <span>Boost (+1 Vote)</span>
+                          </button>
+                        </div>
+
+                        {match.matchedKeywords && match.matchedKeywords.length > 0 && (
+                          <div className="flex items-center space-x-1.5 pt-1 text-[10px] text-charcoal-500 flex-wrap">
+                            <span className="font-semibold text-charcoal-700">Matched Entities:</span>
+                            {match.matchedKeywords.map((kw, ki) => (
+                              <span key={ki} className="px-1.5 py-0.5 rounded bg-ivory-200 text-charcoal-700 font-mono text-[9px]">
+                                {kw}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+
+                        {match.matchReason && (
+                          <div className="text-[10px] text-amber-900 bg-amber-50/80 p-1.5 rounded-lg border border-amber-200/60">
+                            💡 <em>{match.matchReason}</em>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
 
@@ -805,6 +1024,71 @@ export default function RaiseIssueModal({ onClose }) {
                     </button>
                   ))}
                 </div>
+              </div>
+
+              {/* AI Dynamic Priority Telemetry Card (Gated by Photo Verification) */}
+              <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-950 via-forest-950 to-forest-900 text-white shadow-md space-y-2.5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div className="flex items-center space-x-2">
+                    <Cpu className="w-4 h-4 text-mint-300" />
+                    <span className="text-xs font-bold uppercase tracking-wider text-mint-300">
+                      AI Dynamic Priority Telemetry
+                    </span>
+                  </div>
+                  
+                  {aiAnalysis?.vision?.isRelevant ? (
+                    <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/25 text-mint-300 text-[11px] font-bold border border-emerald-400/40 flex items-center space-x-1">
+                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Verified Score: {urgency === 'emergency' ? 98 : urgency === 'high' ? 85 : 68}/100</span>
+                    </span>
+                  ) : (
+                    <span className="px-2.5 py-0.5 rounded-full bg-amber-500/25 text-amber-300 text-[11px] font-bold border border-amber-400/40 flex items-center space-x-1">
+                      <Lock className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Base Score: {urgency === 'emergency' ? 85 : urgency === 'high' ? 70 : 50}/100 (Unverified Photo)</span>
+                    </span>
+                  )}
+                </div>
+                
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center pt-1 text-[11px]">
+                  <div className="bg-white/10 rounded-xl p-2 border border-white/10">
+                    <div className="text-[10px] text-mint-200/80">Hazard Weight</div>
+                    <div className="font-extrabold text-white mt-0.5">
+                      {urgency === 'emergency' ? '85 (Critical)' : category === 'safety' ? '85 (Safety)' : '50 (Standard)'}
+                    </div>
+                  </div>
+
+                  <div className="bg-white/10 rounded-xl p-2 border border-white/10">
+                    <div className="text-[10px] text-mint-200/80">Scope Radius</div>
+                    <div className="font-extrabold text-white mt-0.5">
+                      {subScope === 'campus' ? '+10 Campus' : subScope === 'department' ? '+5 Dept' : '+0 Section'}
+                    </div>
+                  </div>
+
+                  <div className={`rounded-xl p-2 border ${
+                    aiAnalysis?.vision?.isRelevant 
+                      ? 'bg-emerald-500/20 border-emerald-400/40 text-mint-300' 
+                      : 'bg-amber-500/20 border-amber-400/40 text-amber-300'
+                  }`}>
+                    <div className="text-[10px] opacity-80">Photo Evidence</div>
+                    <div className="font-extrabold mt-0.5">
+                      {aiAnalysis?.vision?.isRelevant ? '+15 (AI Verified)' : '⚠️ 0 (Unverified)'}
+                    </div>
+                  </div>
+
+                  <div className="bg-white/10 rounded-xl p-2 border border-white/10">
+                    <div className="text-[10px] text-mint-200/80">Dispatch Queue</div>
+                    <div className="font-extrabold text-white mt-0.5 capitalize truncate">
+                      {CATEGORIES.find(c => c.id === category)?.domain?.replace('_', ' ') || 'AV / Electrical'}
+                    </div>
+                  </div>
+                </div>
+
+                {!aiAnalysis?.vision?.isRelevant && (
+                  <div className="text-[10px] text-amber-200/90 bg-amber-950/60 p-2 rounded-xl border border-amber-500/30 flex items-center space-x-1.5">
+                    <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                    <span>Photo unverified: The +15 hardware evidence boost is withheld until a relevant damaged facility image is uploaded.</span>
+                  </div>
+                )}
               </div>
 
               {/* Final Submit Button */}

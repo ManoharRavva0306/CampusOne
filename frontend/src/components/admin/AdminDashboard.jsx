@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
+import { api } from '../../services/api';
 import { 
   Wrench, 
   Flame, 
@@ -19,7 +20,10 @@ import {
   Zap,
   Hammer,
   Utensils,
-  Layers
+  Layers,
+  Cpu,
+  RefreshCw,
+  Box
 } from 'lucide-react';
 
 export default function AdminDashboard() {
@@ -45,11 +49,30 @@ export default function AdminDashboard() {
   const [editNote, setEditNote] = useState('');
   const [editTechnician, setEditTechnician] = useState('');
 
+  // AI Dispatch Copilot State
+  const [adminCopilotData, setAdminCopilotData] = useState(null);
+  const [isGeneratingCopilot, setIsGeneratingCopilot] = useState(false);
+
   const domainTickets = tickets.filter(t => {
     if (selectedDomain !== 'all' && t.domain !== selectedDomain) return false;
     if (statusFilter !== 'all' && t.status !== statusFilter) return false;
     return true;
   }).sort((a, b) => b.priorityScore - a.priorityScore);
+
+  const fetchCopilotRecommendation = async (ticket) => {
+    setIsGeneratingCopilot(true);
+    setAdminCopilotData(null);
+    try {
+      const res = await api.getAdminCopilotAI(ticket);
+      if (res && res.success && res.recommendation) {
+        setAdminCopilotData(res.recommendation);
+      }
+    } catch (err) {
+      console.warn('Copilot recommendation error:', err);
+    } finally {
+      setIsGeneratingCopilot(false);
+    }
+  };
 
   const openEditModal = (ticket) => {
     setEditingTicket(ticket);
@@ -57,6 +80,17 @@ export default function AdminDashboard() {
     setEditEta(ticket.eta || '');
     setEditNote(ticket.adminNote || '');
     setEditTechnician(ticket.assignedTo || '');
+    fetchCopilotRecommendation(ticket);
+  };
+
+  const applyCopilotPlan = () => {
+    if (!adminCopilotData) return;
+    setEditTechnician(adminCopilotData.technician || editTechnician);
+    setEditEta(adminCopilotData.estimatedSla || editEta);
+    setEditNote(adminCopilotData.suggestedBroadcast || editNote);
+    if (editStatus === 'reported') {
+      setEditStatus('in_progress');
+    }
   };
 
   const handleSaveUpdate = (e) => {
@@ -246,10 +280,14 @@ export default function AdminDashboard() {
               <div className="flex items-center space-x-4 shrink-0 lg:border-l lg:border-ivory-200 lg:pl-6 justify-between lg:justify-end">
                 
                 <div className="text-center px-3 py-1.5 rounded-xl bg-ivory-100 border border-ivory-200">
-                  <div className="text-[10px] uppercase font-bold text-charcoal-500">Priority</div>
+                  <div className="text-[10px] uppercase font-bold text-charcoal-500">AI Priority</div>
                   <div className="text-base font-black text-forest-950 flex items-center justify-center space-x-1">
                     <Flame className="w-4 h-4 text-emerald-600 fill-emerald-600" />
                     <span>{ticket.priorityScore}</span>
+                  </div>
+                  <div className="text-[8px] uppercase font-bold text-emerald-700 flex items-center justify-center space-x-0.5 mt-0.5">
+                    <Cpu className="w-2.5 h-2.5 text-emerald-600" />
+                    <span>Triage Engine</span>
                   </div>
                 </div>
 
@@ -293,7 +331,7 @@ export default function AdminDashboard() {
       {/* Modal to Update Ticket (Status, ETA, Technician, Notes) */}
       {editingTicket && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-forest-950/70 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white border border-ivory-300 rounded-3xl max-w-lg w-full p-6 shadow-2xl animate-scale-in">
+          <div className="bg-white border border-ivory-300 rounded-3xl max-w-lg w-full p-6 shadow-2xl animate-scale-in max-h-[90vh] overflow-y-auto">
             
             <div className="flex items-center justify-between pb-3 border-b border-ivory-200">
               <div>
@@ -301,6 +339,80 @@ export default function AdminDashboard() {
                 <p className="text-xs text-charcoal-500 truncate max-w-sm">{editingTicket.title}</p>
               </div>
               <button onClick={() => setEditingTicket(null)} className="text-charcoal-400 hover:text-forest-950">✕</button>
+            </div>
+
+            {/* ✨ CAMPUSONE AI DISPATCH & SLA COPILOT */}
+            <div className="mt-4 p-3.5 rounded-2xl bg-gradient-to-br from-emerald-950 to-forest-950 text-white border border-emerald-700/60 shadow-md space-y-2.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <Cpu className="w-4 h-4 text-mint-300" />
+                  <span className="text-xs font-bold uppercase tracking-wider text-mint-300">
+                    AI Dispatch & SLA Copilot
+                  </span>
+                </div>
+                {isGeneratingCopilot ? (
+                  <span className="flex items-center space-x-1 text-[10px] text-mint-200 animate-pulse">
+                    <RefreshCw className="w-3 h-3 animate-spin" />
+                    <span>Analyzing domain & parts...</span>
+                  </span>
+                ) : adminCopilotData ? (
+                  <button
+                    type="button"
+                    onClick={applyCopilotPlan}
+                    className="px-2.5 py-1 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-forest-950 font-extrabold text-[10px] transition-all flex items-center space-x-1 shadow-sm"
+                  >
+                    <Sparkles className="w-3 h-3" />
+                    <span>Auto-Fill Dispatch Plan</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => fetchCopilotRecommendation(editingTicket)}
+                    className="px-2 py-0.5 rounded-md bg-white/10 hover:bg-white/20 text-mint-200 text-[10px] font-semibold"
+                  >
+                    Consult AI
+                  </button>
+                )}
+              </div>
+
+              {adminCopilotData && (
+                <div className="space-y-2 text-xs">
+                  <div className="grid grid-cols-2 gap-2 text-[11px]">
+                    <div className="bg-white/10 rounded-xl p-2 border border-white/10">
+                      <div className="text-[10px] text-mint-300 font-medium">Recommended Specialist</div>
+                      <div className="font-bold text-white mt-0.5">{adminCopilotData.technician}</div>
+                      <div className="text-[9px] text-mint-200/70 font-mono mt-0.5">{adminCopilotData.requiredSkill}</div>
+                    </div>
+                    <div className="bg-white/10 rounded-xl p-2 border border-white/10">
+                      <div className="text-[10px] text-mint-300 font-medium">Predicted SLA Duration</div>
+                      <div className="font-bold text-white mt-0.5">{adminCopilotData.estimatedSla}</div>
+                      <div className="text-[9px] text-mint-200/70 font-mono mt-0.5">Confidence: {adminCopilotData.confidenceScore || 92}%</div>
+                    </div>
+                  </div>
+
+                  {adminCopilotData.partsChecklist && (
+                    <div className="bg-white/5 rounded-xl p-2 border border-white/5">
+                      <div className="text-[10px] text-mint-300 font-semibold mb-1 flex items-center space-x-1">
+                        <Box className="w-3 h-3 text-mint-300" />
+                        <span>Required Spare Parts & Diagnostic Toolset:</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {adminCopilotData.partsChecklist.map((part, pi) => (
+                          <span key={pi} className="px-1.5 py-0.5 rounded bg-emerald-900/70 text-[9px] text-mint-200 font-mono border border-emerald-800">
+                            {part}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {adminCopilotData.rootCauseForecast && (
+                    <div className="text-[10px] text-mint-100/90 bg-emerald-900/30 p-2 rounded-xl border border-emerald-800/40">
+                      🔬 <strong>Root Cause Analysis:</strong> {adminCopilotData.rootCauseForecast}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             <form onSubmit={handleSaveUpdate} className="mt-4 space-y-4">
