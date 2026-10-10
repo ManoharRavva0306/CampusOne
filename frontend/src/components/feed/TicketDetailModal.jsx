@@ -207,12 +207,30 @@ export default function TicketDetailModal({ ticket, onClose }) {
               )}
             </div>
 
-            <div className="rounded-2xl overflow-hidden h-60 border border-ivory-300 bg-ivory-100">
+            <div className="relative rounded-2xl overflow-hidden h-60 border border-ivory-300 bg-ivory-100 group">
               <img
                 src={currentTicket.imageUrl}
                 alt={currentTicket.title}
                 className="w-full h-full object-cover"
               />
+              {currentTicket.visibilityPercentage > 0 && (
+                <div className="absolute top-3 right-3 bg-forest-950/85 backdrop-blur-md px-3 py-1 rounded-full border border-emerald-400/50 flex items-center space-x-1.5 text-white shadow-lg">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                  <span className="text-xs font-bold text-mint-300">
+                    {currentTicket.visibilityPercentage}% Problem Visibility
+                  </span>
+                </div>
+              )}
+              {currentTicket.defectDiagnosis && (
+                <div className="absolute bottom-3 left-3 right-3 bg-forest-950/90 backdrop-blur-md px-3 py-1.5 rounded-xl border border-emerald-400/30 text-white text-[11px] flex items-center justify-between">
+                  <span className="text-emerald-200 truncate">
+                    AI Defect: <strong className="text-amber-300">{currentTicket.defectDiagnosis}</strong>
+                  </span>
+                  <span className="text-[10px] text-mint-300 font-mono shrink-0 ml-2">
+                    Verified Asset
+                  </span>
+                </div>
+              )}
             </div>
 
             <p className="text-xs sm:text-sm text-charcoal-800 leading-relaxed bg-ivory-50 p-4 rounded-2xl border border-ivory-200">

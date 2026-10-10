@@ -13,7 +13,15 @@ import { calculatePriorityScore } from '../services/priorityService.js';
  */
 export function analyzeIssue(req, res) {
   try {
-    const { title = '', description = '', category = '', location = '', scope = 'class', imageUrl = '' } = req.body;
+    const { 
+      title = '', 
+      description = '', 
+      category = '', 
+      location = '', 
+      scope = 'class', 
+      imageUrl = '',
+      visualMetrics = null
+    } = req.body;
     const tickets = getTicketsFromDB();
 
     // 1. NLP Semantic Duplicate Matches
@@ -22,12 +30,12 @@ export function analyzeIssue(req, res) {
     // 2. Intelligent Auto-Triage & Categorization
     const triage = autoTriageIssue({ title, description, location });
 
-    // 3. Vision Defect Analysis
-    const vision = analyzeImageDefect({ imageUrl, title, description });
+    // 3. Vision Defect Analysis (Computes problem visibility percentage & detects defects)
+    const vision = analyzeImageDefect({ imageUrl, title, description, category, visualMetrics });
 
-    // 4. Predicted Priority Score Breakdown (Gated by Photo Relevance)
+    // 4. Predicted Priority Score Breakdown (Gated by Photo Relevance & Problem Visibility)
     const simulatedTicket = {
-      category: category || triage.suggestedCategory,
+      category: category || vision.suggestedCategory || triage.suggestedCategory,
       scope: scope || 'class',
       upvotes: ['seed_user'],
       downvotes: [],
@@ -48,6 +56,7 @@ export function analyzeIssue(req, res) {
         score: finalScore,
         baseScore: basePriority,
         isEvidenceVerified: vision.isRelevant,
+        visibilityPercentage: vision.visibilityPercentage || 0,
         urgency: triage.suggestedUrgency,
         factors: [
           { name: 'Base Hazard Weight', value: simulatedTicket.category === 'safety' ? 85 : 50 },
@@ -55,7 +64,7 @@ export function analyzeIssue(req, res) {
           { name: 'Initial Stakeholder Endorsement', value: '+3' },
           { 
             name: 'Computer Vision Evidence', 
-            value: vision.isRelevant ? `+15 (Verified: ${vision.confidence}%)` : '⚠️ 0 (Irrelevant / Unverified)',
+            value: vision.isRelevant ? `+15 (${vision.visibilityPercentage}% Problem Visibility)` : '⚠️ 0% (No Visible Defect / Irrelevant Image)',
             verified: vision.isRelevant 
           }
         ]

@@ -2,6 +2,7 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { CATEGORIES } from '../../data/mockData';
 import { api } from '../../services/api';
+import { analyzeVisualEvidence } from '../../services/visionEngine';
 import { 
   GitFork, 
   Building2, 
@@ -71,6 +72,7 @@ export default function RaiseIssueModal({ onClose }) {
   // AI Copilot & Vision Intelligence State
   const [aiAnalysis, setAiAnalysis] = useState(null);
   const [isAnalyzingAI, setIsAnalyzingAI] = useState(false);
+  const [visualMetrics, setVisualMetrics] = useState(null);
 
   const videoRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -121,8 +123,39 @@ export default function RaiseIssueModal({ onClose }) {
     }
   };
 
+  // Handle immediate photo selection & AI vision defect inspection
+  const handleSelectPhoto = async (photoUrl, canvasEl = null) => {
+    setSelectedPhoto(photoUrl);
+    if (!photoUrl) {
+      setVisualMetrics(null);
+      return;
+    }
+
+    setIsAnalyzingAI(true);
+    try {
+      const metrics = await analyzeVisualEvidence(canvasEl || photoUrl, category);
+      setVisualMetrics(metrics);
+      const res = await api.analyzeIssueAI({
+        title: title.trim(),
+        description: description.trim(),
+        category,
+        location: location.trim(),
+        scope: subScope,
+        imageUrl: photoUrl,
+        visualMetrics: metrics
+      });
+      if (res && res.success) {
+        setAiAnalysis(res);
+      }
+    } catch (err) {
+      console.warn('Vision analysis failed:', err);
+    } finally {
+      setIsAnalyzingAI(false);
+    }
+  };
+
   // Snap photo frame from live camera stream
-  const capturePhoto = () => {
+  const capturePhoto = async () => {
     if (!videoRef.current) return;
     const video = videoRef.current;
     const maxDim = 800;
@@ -143,8 +176,8 @@ export default function RaiseIssueModal({ onClose }) {
     const ctx = canvas.getContext('2d');
     ctx.drawImage(video, 0, 0, w, h);
     const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-    setSelectedPhoto(dataUrl);
     stopCamera();
+    await handleSelectPhoto(dataUrl, canvas);
   };
 
   // Process uploaded or camera file with client-side scaling
@@ -153,7 +186,7 @@ export default function RaiseIssueModal({ onClose }) {
     const reader = new FileReader();
     reader.onload = (e) => {
       const img = new window.Image();
-      img.onload = () => {
+      img.onload = async () => {
         const maxDim = 800;
         let w = img.width;
         let h = img.height;
@@ -171,8 +204,9 @@ export default function RaiseIssueModal({ onClose }) {
         canvas.height = h;
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0, w, h);
-        setSelectedPhoto(canvas.toDataURL('image/jpeg', 0.85));
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
         stopCamera();
+        await handleSelectPhoto(dataUrl, canvas);
       };
       img.src = e.target.result;
     };
@@ -212,7 +246,8 @@ export default function RaiseIssueModal({ onClose }) {
 
   // Live AI Issue Analysis (Auto-Triage, Vision Defect, Semantic Duplicate Matching)
   useEffect(() => {
-    if (!title.trim() && !description.trim()) {
+    // If no text and no photo is selected, clear analysis
+    if (!title.trim() && !description.trim() && !selectedPhoto) {
       setAiAnalysis(null);
       return;
     }
@@ -220,13 +255,19 @@ export default function RaiseIssueModal({ onClose }) {
     const timer = setTimeout(async () => {
       setIsAnalyzingAI(true);
       try {
+        let metrics = visualMetrics;
+        if (selectedPhoto && !metrics) {
+          metrics = await analyzeVisualEvidence(selectedPhoto, category);
+          setVisualMetrics(metrics);
+        }
         const res = await api.analyzeIssueAI({
           title: title.trim(),
           description: description.trim(),
           category,
           location: location.trim(),
           scope: subScope,
-          imageUrl: selectedPhoto
+          imageUrl: selectedPhoto,
+          visualMetrics: metrics
         });
         if (res && res.success) {
           setAiAnalysis(res);
@@ -236,7 +277,7 @@ export default function RaiseIssueModal({ onClose }) {
       } finally {
         setIsAnalyzingAI(false);
       }
-    }, 400);
+    }, 350);
 
     return () => clearTimeout(timer);
   }, [title, description, category, location, subScope, selectedPhoto]);
@@ -313,6 +354,9 @@ export default function RaiseIssueModal({ onClose }) {
       category: category,
       domain: matchedCat ? matchedCat.domain : 'electrical_av',
       imageUrl: selectedPhoto || 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=800&auto=format&fit=crop&q=80',
+      visibilityPercentage: aiAnalysis?.vision?.isRelevant ? (aiAnalysis.vision.visibilityPercentage || 92) : 0,
+      defectDiagnosis: aiAnalysis?.vision?.isRelevant ? aiAnalysis.vision.defectType : null,
+      detectedAsset: aiAnalysis?.vision?.isRelevant ? aiAnalysis.vision.detectedObject : null,
       priorityScore: (() => {
         const isPhotoVerified = aiAnalysis?.vision?.isRelevant === true;
         const base = urgency === 'emergency' ? 85 : urgency === 'high' ? 70 : 50;
@@ -763,8 +807,8 @@ export default function RaiseIssueModal({ onClose }) {
                             </button>
                             <button
                               type="button"
-                              onClick={() => setSelectedPhoto(null)}
-                              className="p-1.5 rounded-lg bg-rose-500/80 hover:bg-rose-600 text-white text-[10px] backdrop-blur-sm transition-all"
+                              onClick={() => handleSelectPhoto(null)}
+                              className="p-1.5 rounded-lg bg-rose-500/80 hover:bg-rose-600 text-white text-[10px] backdrop-blur-sm transition-all touch-press"
                               title="Remove photo"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
@@ -790,8 +834,8 @@ export default function RaiseIssueModal({ onClose }) {
                           <button
                             key={idx}
                             type="button"
-                            onClick={() => setSelectedPhoto(preset.url)}
-                            className={`text-[10px] px-2.5 py-1 rounded-lg border whitespace-nowrap transition-all ${
+                            onClick={() => handleSelectPhoto(preset.url)}
+                            className={`text-[10px] px-2.5 py-1 rounded-lg border whitespace-nowrap transition-all touch-press ${
                               selectedPhoto === preset.url
                                 ? 'bg-[#092d25] text-white border-[#092d25] font-bold shadow-xs'
                                 : 'bg-white text-charcoal-700 border-ivory-300 hover:bg-ivory-100'
@@ -862,35 +906,117 @@ export default function RaiseIssueModal({ onClose }) {
                           </div>
                         )}
 
-                        {/* Computer Vision Defect Scanner Output (Gated by Photo Relevance) */}
+                        {/* Computer Vision Defect Scanner & Problem Visibility Output (Gated by Photo Relevance) */}
                         {aiAnalysis?.vision && selectedPhoto && (
                           aiAnalysis.vision.isRelevant ? (
-                            /* ✅ RELEVANT IMAGE: Full VisionNet Verification & Boost Active */
-                            <div className="bg-emerald-950 text-white p-3.5 rounded-xl shadow-inner space-y-2.5 border border-emerald-700 animate-fade-in">
-                              <div className="flex items-center justify-between text-[11px]">
-                                <span className="flex items-center space-x-1.5 font-bold text-mint-300">
-                                  <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                                  <span>VisionNet Verified Defect ({aiAnalysis.vision.confidence}% Match)</span>
-                                </span>
-                                <span className="text-[10px] text-mint-300 font-bold bg-emerald-500/20 border border-emerald-400/30 px-2 py-0.5 rounded-full">
-                                  ⚡ AI Priority Active (+15 Boost)
-                                </span>
+                            /* ✅ RELEVANT IMAGE: Prominent Problem Visibility Percentage Gauge & Defect Recognition */
+                            <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-950 via-forest-950 to-[#07241d] text-white border-2 border-emerald-500/70 shadow-xl space-y-3 animate-fade-in">
+                              {/* Header & Problem Visibility Score Badge */}
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center space-x-2">
+                                  <div className="w-8 h-8 rounded-xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center shrink-0">
+                                    <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                                  </div>
+                                  <div>
+                                    <div className="text-xs font-bold text-mint-300 flex items-center space-x-1.5">
+                                      <span>VisionNet Defect Recognition</span>
+                                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                                    </div>
+                                    <div className="text-[10px] text-emerald-200/80">
+                                      {aiAnalysis.vision.clarityRating}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Prominent Problem Visibility Percentage Badge */}
+                                <div className="text-right shrink-0">
+                                  <div className="inline-flex items-baseline space-x-1 px-3 py-1 rounded-xl bg-emerald-500/20 border border-emerald-400/50 shadow-sm">
+                                    <span className="text-xl font-black tracking-tight text-mint-300">
+                                      {aiAnalysis.vision.visibilityPercentage}%
+                                    </span>
+                                    <span className="text-[10px] font-bold text-emerald-300 uppercase">
+                                      Visibility
+                                    </span>
+                                  </div>
+                                </div>
                               </div>
 
-                              <div className="space-y-1 text-xs">
-                                <div className="text-white font-semibold">
-                                  Asset Identified: <span className="text-mint-300">{aiAnalysis.vision.detectedObject}</span>
+                              {/* Dynamic Problem Visibility Progress Meter */}
+                              <div className="space-y-1">
+                                <div className="flex justify-between text-[10px] text-mint-200/90 font-medium">
+                                  <span>Problem Visibility in Frame</span>
+                                  <span className="font-mono font-bold text-mint-300">
+                                    {aiAnalysis.vision.visibilityPercentage}% Defect Prominence
+                                  </span>
                                 </div>
-                                <div className="text-ivory-200 text-[11px]">
-                                  Defect Diagnosis: <span className="text-amber-300">{aiAnalysis.vision.defectType}</span>
-                                </div>
-                                <div className="text-[10px] text-emerald-300 font-medium">
-                                  Severity: {aiAnalysis.vision.severity}
+                                <div className="w-full h-2.5 rounded-full bg-black/60 p-0.5 border border-emerald-500/40 overflow-hidden">
+                                  <div 
+                                    className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-teal-400 to-mint-300 shadow-md transition-all duration-700 ease-out"
+                                    style={{ width: `${aiAnalysis.vision.visibilityPercentage}%` }}
+                                  />
                                 </div>
                               </div>
 
-                              {aiAnalysis.vision.recommendedTools && (
-                                <div className="pt-1.5 border-t border-emerald-800/80">
+                              {/* Recognized Defect Intelligence Card */}
+                              <div className="p-3 rounded-xl bg-black/40 border border-emerald-500/30 space-y-2 text-xs">
+                                <div className="flex items-start justify-between gap-2">
+                                  <div>
+                                    <span className="text-[10px] uppercase font-bold tracking-wider text-mint-200/80 block">
+                                      Asset Identified
+                                    </span>
+                                    <span className="font-bold text-white text-xs">
+                                      {aiAnalysis.vision.detectedObject}
+                                    </span>
+                                  </div>
+                                  <span className="px-2 py-0.5 rounded-md bg-emerald-500/25 border border-emerald-400/30 text-[10px] font-bold text-mint-300 shrink-0">
+                                    ⚡ +15 AI Priority Active
+                                  </span>
+                                </div>
+
+                                <div>
+                                  <span className="text-[10px] uppercase font-bold tracking-wider text-amber-300/80 block">
+                                    Defect Diagnosis
+                                  </span>
+                                  <span className="text-amber-200 font-semibold text-xs">
+                                    {aiAnalysis.vision.defectType}
+                                  </span>
+                                </div>
+
+                                {aiAnalysis.vision.defectFeature && (
+                                  <div>
+                                    <span className="text-[10px] uppercase font-bold tracking-wider text-emerald-300/80 block">
+                                      Recognized Defect Feature
+                                    </span>
+                                    <span className="text-ivory-200 text-[11px]">
+                                      {aiAnalysis.vision.defectFeature}
+                                    </span>
+                                  </div>
+                                )}
+
+                                <div className="text-[10px] text-emerald-300 font-medium pt-0.5">
+                                  Severity Assessment: {aiAnalysis.vision.severity}
+                                </div>
+                              </div>
+
+                              {/* 1-Click Auto-Fill Button from Image Recognition */}
+                              {aiAnalysis.vision.suggestedTitle && (!title || !description || title !== aiAnalysis.vision.suggestedTitle) && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (aiAnalysis.vision.suggestedTitle) setTitle(aiAnalysis.vision.suggestedTitle);
+                                    if (aiAnalysis.vision.suggestedDescription) setDescription(aiAnalysis.vision.suggestedDescription);
+                                    if (aiAnalysis.vision.suggestedCategory) setCategory(aiAnalysis.vision.suggestedCategory);
+                                  }}
+                                  className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs flex items-center justify-center space-x-2 shadow-lg transition-all touch-press border border-emerald-400/40"
+                                >
+                                  <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-spin-slow" />
+                                  <span>✨ Auto-Fill Title & Details from Image Recognition</span>
+                                </button>
+                              )}
+
+                              {/* Recommended Technician Toolset */}
+                              {aiAnalysis.vision.recommendedTools && aiAnalysis.vision.recommendedTools.length > 0 && (
+                                <div className="pt-1 border-t border-emerald-800/80">
                                   <div className="text-[10px] text-mint-200 font-bold mb-1">
                                     Recommended Technician Toolset:
                                   </div>
@@ -905,32 +1031,65 @@ export default function RaiseIssueModal({ onClose }) {
                               )}
                             </div>
                           ) : (
-                            /* ⚠️ IRRELEVANT IMAGE: Warning Box & Locked Score */
-                            <div className="bg-amber-950/90 text-white p-3.5 rounded-xl border-2 border-amber-500 shadow-md space-y-2 animate-fade-in">
-                              <div className="flex items-center justify-between text-xs">
-                                <span className="flex items-center space-x-1.5 font-bold text-amber-300">
-                                  <AlertTriangle className="w-4 h-4 text-amber-400" />
-                                  <span>Irrelevant / Non-Facility Photo Detected</span>
-                                </span>
-                                <span className="text-[10px] bg-rose-500/25 text-rose-300 border border-rose-500/40 px-2 py-0.5 rounded-full font-mono font-bold">
-                                  0% Evidence Match
-                                </span>
+                            /* ⚠️ IRRELEVANT IMAGE: Prominent 0% Problem Visibility & Paused Score Warning */
+                            <div className="p-4 rounded-2xl bg-amber-950/95 text-white border-2 border-amber-500 shadow-xl space-y-3 animate-fade-in">
+                              {/* Header & 0% Visibility Badge */}
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center space-x-2">
+                                  <div className="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-400/40 flex items-center justify-center shrink-0">
+                                    <AlertTriangle className="w-4 h-4 text-amber-400" />
+                                  </div>
+                                  <div>
+                                    <div className="text-xs font-bold text-amber-300 flex items-center space-x-1.5">
+                                      <span>Non-Facility Image Detected</span>
+                                    </div>
+                                    <div className="text-[10px] text-amber-200/80">
+                                      Zero campus maintenance problem visible
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* 0% Visibility Badge */}
+                                <div className="text-right shrink-0">
+                                  <div className="inline-flex items-baseline space-x-1 px-3 py-1 rounded-xl bg-rose-500/25 border border-rose-500/40 shadow-sm">
+                                    <span className="text-xl font-black tracking-tight text-rose-300">
+                                      0%
+                                    </span>
+                                    <span className="text-[10px] font-bold text-rose-300 uppercase">
+                                      Visibility
+                                    </span>
+                                  </div>
+                                </div>
                               </div>
 
-                              <p className="text-xs text-amber-100/90 leading-relaxed">
-                                {aiAnalysis.vision.warningMessage || "Our AI Vision model did not detect any verifiable campus infrastructure or equipment defects in this photo frame."}
+                              {/* 0% Progress Bar */}
+                              <div className="space-y-1">
+                                <div className="flex justify-between text-[10px] text-amber-200 font-medium">
+                                  <span>Problem Visibility in Frame</span>
+                                  <span className="font-mono font-bold text-rose-400">0% (Score Paused)</span>
+                                </div>
+                                <div className="w-full h-2.5 rounded-full bg-black/60 p-0.5 border border-rose-500/30 overflow-hidden">
+                                  <div 
+                                    className="h-full rounded-full bg-rose-500/40 transition-all duration-500"
+                                    style={{ width: '0%' }}
+                                  />
+                                </div>
+                              </div>
+
+                              <p className="text-xs text-amber-100/90 leading-relaxed bg-black/30 p-2.5 rounded-xl border border-amber-500/30">
+                                {aiAnalysis.vision.warningMessage || "Our AI Vision model identified this photo as non-facility subject matter (nature, food/drink, portrait/selfie, or unrelated scenery). No physical maintenance problem is visible."}
                               </p>
 
-                              <div className="p-2 rounded-lg bg-black/40 border border-amber-500/30 flex items-center justify-between text-[11px]">
-                                <span className="text-amber-200/90">AI Priority Score Status:</span>
+                              <div className="p-2.5 rounded-lg bg-black/40 border border-amber-500/30 flex items-center justify-between text-[11px]">
+                                <span className="text-amber-200/90 font-medium">AI Evidence Priority Status:</span>
                                 <span className="font-bold text-rose-400 uppercase tracking-wide flex items-center space-x-1">
-                                  <Lock className="w-3 h-3" />
-                                  <span>AI Evidence Score Paused</span>
+                                  <Lock className="w-3.5 h-3.5" />
+                                  <span>AI Evidence Score Paused (+0 Boost)</span>
                                 </span>
                               </div>
 
-                              <p className="text-[10px] text-amber-200/80">
-                                💡 <strong>Action Required:</strong> Upload or capture a clear photo of the broken equipment (e.g. projector, fan, switch, leak) to unlock verified AI scoring.
+                              <p className="text-[10px] text-amber-200/90">
+                                💡 <strong>Action Required:</strong> Upload or capture a clear photo of the broken equipment (e.g. projector, fan, switch, leak, or bench) to unlock verified AI scoring.
                               </p>
                             </div>
                           )
@@ -1113,7 +1272,9 @@ export default function RaiseIssueModal({ onClose }) {
                   }`}>
                     <div className="text-[10px] opacity-80">Photo Evidence</div>
                     <div className="font-extrabold mt-0.5">
-                      {aiAnalysis?.vision?.isRelevant ? '+15 (AI Verified)' : '⚠️ 0 (Unverified)'}
+                      {aiAnalysis?.vision?.isRelevant 
+                        ? `+15 (${aiAnalysis.vision.visibilityPercentage}% Visibility)` 
+                        : '⚠️ 0% (Paused)'}
                     </div>
                   </div>
 

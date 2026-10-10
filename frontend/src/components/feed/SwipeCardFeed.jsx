@@ -523,6 +523,12 @@ export default function SwipeCardFeed() {
                         <Sparkles className="w-2.5 h-2.5 text-mint-300" />
                         <span>AI Triaged</span>
                       </span>
+                      {currentSwipeTicket.visibilityPercentage > 0 && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/30 text-mint-300 border border-emerald-400/50 flex items-center space-x-1 shadow-sm backdrop-blur-sm">
+                          <ShieldCheck className="w-2.5 h-2.5 text-emerald-400" />
+                          <span>{currentSwipeTicket.visibilityPercentage}% Problem Visibility</span>
+                        </span>
+                      )}
                     </div>
                     <div>{getStatusBadge(currentSwipeTicket.status)}</div>
                   </div>
@@ -812,6 +818,13 @@ export default function SwipeCardFeed() {
                             <Sparkles className="w-2.5 h-2.5 text-emerald-700" />
                             <span>AI Triaged ({ticket.priorityScore})</span>
                           </span>
+
+                          {ticket.visibilityPercentage > 0 && (
+                            <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100/80 text-emerald-900 border border-emerald-300">
+                              <ShieldCheck className="w-2.5 h-2.5 text-emerald-700" />
+                              <span>{ticket.visibilityPercentage}% Problem Visibility</span>
+                            </span>
+                          )}
 
                           {(ticket.advisorEndorsed || ticket.advisorApprovalStatus === 'approved') && (
                             <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">

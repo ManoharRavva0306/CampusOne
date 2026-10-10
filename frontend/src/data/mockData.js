@@ -1725,6 +1725,8 @@ export const INITIAL_TICKETS = [
     eta: 'Today, 4:30 PM (Before Evening Lab)',
     adminNote: 'Technician Vignesh dispatched with 15m optical HDMI cable and replacement splitter.',
     imageUrl: 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=800&auto=format&fit=crop&q=80',
+    visibilityPercentage: 94,
+    defectDiagnosis: 'HDMI Pin Dislodged & Optical Lens Misalignment',
     comments: [
       {
         id: 'c1',
@@ -1784,6 +1786,8 @@ export const INITIAL_TICKETS = [
     eta: 'Completed Today 2:10 PM',
     adminNote: 'Replaced fan step-regulator module and lubricated bearing. Marked as fixed. Please test and confirm on app!',
     imageUrl: 'https://images.unsplash.com/photo-1590725140246-20acbe44865e?w=800&auto=format&fit=crop&q=80',
+    visibilityPercentage: 91,
+    defectDiagnosis: 'Blade Pitch Misalignment & Bearing Friction',
     comments: [
       {
         id: 'c3_w',
@@ -1842,6 +1846,8 @@ export const INITIAL_TICKETS = [
     eta: 'Immediate / Within 30 Mins',
     adminNote: 'Emergency barricading placed. Power breaker 4 isolated. Cable being re-routed underground.',
     imageUrl: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=800&auto=format&fit=crop&q=80',
+    visibilityPercentage: 96,
+    defectDiagnosis: 'Exposed Live Phase Copper Conductors',
     comments: []
   },
   {
