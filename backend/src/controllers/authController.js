@@ -69,9 +69,20 @@ export function getCurrentUser(req, res) {
   res.json({ success: true, user: safeUser });
 }
 
-// POST /api/auth/users (Overall Admin adds a new user)
+// POST /api/auth/users (Overall Admin adds a new student or user directly to database)
 export function createUser(req, res) {
-  const { name, email, password, role, department, classSection, rollNo } = req.body;
+  const { 
+    name, 
+    email, 
+    password, 
+    role, 
+    department, 
+    classSection, 
+    rollNo,
+    hostel,
+    room 
+  } = req.body;
+
   if (!name || !email || !password || !role) {
     return res.status(400).json({ success: false, message: 'Name, email, password, and role are required' });
   }
@@ -79,25 +90,33 @@ export function createUser(req, res) {
   const users = getUsersFromDB();
   const exists = users.find(u => u.email && u.email.toLowerCase() === email.toLowerCase().trim());
   if (exists) {
-    return res.status(409).json({ success: false, message: 'A user with this email already exists in the database' });
+    return res.status(409).json({ success: false, message: 'A student or user with this email already exists in the database' });
   }
+
+  const generatedRoll = rollNo || (role === 'student' ? `CB.EN.U4${(department || 'CSE').toUpperCase()}23${Math.floor(100 + Math.random() * 900)}` : `FAC.${Math.floor(1000 + Math.random() * 9000)}`);
 
   const newUser = {
     id: `user_${Date.now()}`,
     name,
     email: email.trim().toLowerCase(),
     password,
-    role,
+    role: role || 'student',
+    rollNo: generatedRoll,
     department: department || 'CSE',
-    classSection: classSection || 'CSE-B 3rd Year',
-    rollNo: rollNo || `ID.${Date.now().toString().slice(-4)}`,
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
-    description: `${role.replace('_', ' ').toUpperCase()} — ${department || 'Campus Wide'}`
+    classSection: classSection || (role === 'student' ? 'CSE-B 3rd Year' : null),
+    hostel: hostel || (role === 'student' ? 'Vashistha Bhavan' : null),
+    room: room || (role === 'student' ? '304' : null),
+    avatar: role === 'student' 
+      ? 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'
+      : 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&auto=format&fit=crop&q=80',
+    description: role === 'student' 
+      ? `Student — ${department || 'CSE'} (${classSection || '3rd Year'}) & ${hostel || 'Hostel'} Rm ${room || '304'}`
+      : `${role.replace('_', ' ').toUpperCase()} — ${department || 'Campus Wide'}`
   };
 
   addUserToDB(newUser);
   const { password: _, ...safeUser } = newUser;
-  res.status(201).json({ success: true, user: safeUser });
+  res.status(201).json({ success: true, user: safeUser, fullUser: newUser });
 }
 
 // PATCH /api/auth/users/:id (Overall Admin updates user credentials)

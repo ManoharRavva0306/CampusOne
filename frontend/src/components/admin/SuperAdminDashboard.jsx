@@ -518,6 +518,56 @@ export default function SuperAdminDashboard() {
                 </div>
               </div>
 
+              {newUser.role === 'student' && (
+                <>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block font-bold text-charcoal-700 mb-1">Student Roll Number</label>
+                      <input
+                        type="text"
+                        value={newUser.rollNo || ''}
+                        onChange={(e) => setNewUser({ ...newUser, rollNo: e.target.value })}
+                        placeholder="e.g. CB.EN.U4CSE23099"
+                        className="w-full px-3 py-2 rounded-xl bg-ivory-100 border border-ivory-300 font-mono text-xs focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-bold text-charcoal-700 mb-1">Class Section</label>
+                      <input
+                        type="text"
+                        value={newUser.classSection || ''}
+                        onChange={(e) => setNewUser({ ...newUser, classSection: e.target.value })}
+                        placeholder="e.g. CSE-B 3rd Year"
+                        className="w-full px-3 py-2 rounded-xl bg-ivory-100 border border-ivory-300 text-xs focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block font-bold text-charcoal-700 mb-1">Hostel Bhavan</label>
+                      <input
+                        type="text"
+                        value={newUser.hostel || ''}
+                        onChange={(e) => setNewUser({ ...newUser, hostel: e.target.value })}
+                        placeholder="e.g. Vashistha Bhavan"
+                        className="w-full px-3 py-2 rounded-xl bg-ivory-100 border border-ivory-300 text-xs focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-bold text-charcoal-700 mb-1">Hostel Room Number</label>
+                      <input
+                        type="text"
+                        value={newUser.room || ''}
+                        onChange={(e) => setNewUser({ ...newUser, room: e.target.value })}
+                        placeholder="e.g. 304"
+                        className="w-full px-3 py-2 rounded-xl bg-ivory-100 border border-ivory-300 text-xs focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+
               <div className="pt-3 border-t border-ivory-200 flex justify-end space-x-2">
                 <button
                   type="button"

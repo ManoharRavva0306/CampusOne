@@ -48,6 +48,7 @@ export function AppProvider({ children }) {
     }
   });
 
+  const [userList, setUserList] = useState(USERS);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [activeTab, setActiveTab] = useState('feed'); // 'feed' | 'raise' | 'admin' | 'advisor' | 'analytics'
   const [feedFilter, setFeedFilter] = useState('all'); // 'all' | 'class' | 'room' | 'department' | 'campus'
@@ -55,16 +56,41 @@ export function AppProvider({ children }) {
   const [selectedTicketForDetail, setSelectedTicketForDetail] = useState(null);
   const [notification, setNotification] = useState(null);
 
-  // Sync with real backend database on mount
+  // Sync users & tickets with real backend database on mount
   useEffect(() => {
     async function loadFromDB() {
+      // Load tickets
       const data = await api.getTickets(currentUser?.id);
       if (data && data.success && Array.isArray(data.tickets) && data.tickets.length > 0) {
         setTickets(data.tickets.map(sanitizeTicket));
       }
+
+      // Load users from backend database
+      try {
+        const uRes = await fetch('http://localhost:5000/api/auth/users');
+        const uData = await uRes.json();
+        if (uData && uData.success && Array.isArray(uData.users) && uData.users.length > 0) {
+          setUserList(uData.users);
+        }
+      } catch (err) {
+        console.warn('Could not fetch users from backend:', err);
+      }
     }
     loadFromDB();
   }, [currentUser?.id]);
+
+  // Overall Admin: Add new student or user to database
+  const addNewUser = async (newUserData) => {
+    const res = await api.createUser(newUserData);
+    if (res && res.success) {
+      setUserList(prev => [res.fullUser || res.user, ...prev]);
+      showNotification(`Student/User "${newUserData.name}" saved to database!`, 'success');
+      return { success: true };
+    } else {
+      showNotification(res?.message || 'Failed to save to database', 'error');
+      return { success: false };
+    }
+  };
 
   // Sync to local storage
   useEffect(() => {
@@ -432,6 +458,8 @@ export function AppProvider({ children }) {
       value={{
         tickets,
         currentUser,
+        userList,
+        addNewUser,
         login,
         logout,
         showLoginModal,
