@@ -22,14 +22,14 @@ let inMemoryUsers = null;
 let inMemoryTickets = null;
 
 export function getPostgresStore() {
-  if (!inMemoryUsers) {
+  if (!inMemoryUsers || !inMemoryTickets) {
     try {
-      // Import the synchronized seed dataset
-      const { USERS, INITIAL_TICKETS } = JSON.parse(
+      // Import the synchronized PostgreSQL seed dataset
+      const parsed = JSON.parse(
         fs.readFileSync(path.join(DATA_DIR, 'postgres_cache.json'), 'utf8')
       );
-      inMemoryUsers = USERS;
-      inMemoryTickets = INITIAL_TICKETS;
+      inMemoryUsers = parsed.users || parsed.USERS || [];
+      inMemoryTickets = parsed.tickets || parsed.INITIAL_TICKETS || [];
     } catch (e) {
       inMemoryUsers = [];
       inMemoryTickets = [];
