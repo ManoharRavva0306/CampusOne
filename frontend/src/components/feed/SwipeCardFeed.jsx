@@ -209,7 +209,7 @@ export default function SwipeCardFeed() {
             Your campus. Your voice. Your impact.
           </h1>
           <p className="text-xs text-charcoal-700 mt-1 max-w-xl">
-            Logged in as <strong>{currentUser.name}</strong> ({currentUser.classSection || currentUser.department}). All reports are scope-isolated and tracked with accountable resolution times.
+            Logged in as <strong>{currentUser?.name || 'University Member'}</strong> ({currentUser?.classSection || currentUser?.department || 'Campus'}). All reports are scope-isolated and tracked with accountable resolution times.
           </p>
         </div>
 
@@ -304,7 +304,7 @@ export default function SwipeCardFeed() {
             }
           >
             <Lock className={`w-3 h-3 ${feedFilter === 'class' ? 'text-mint-300' : 'text-blue-600'}`} />
-            <span>Classroom Only ({currentUser.classSection || 'CSE-B'})</span>
+            <span>Classroom Only ({currentUser?.classSection || 'CSE-B'})</span>
           </button>
 
           <button
@@ -338,7 +338,7 @@ export default function SwipeCardFeed() {
             }
           >
             <Building2 className={`w-3 h-3 ${feedFilter === 'department' ? 'text-mint-300' : 'text-purple-600'}`} />
-            <span>Department ({currentUser.department})</span>
+            <span>Department ({currentUser?.department || 'CSE'})</span>
           </button>
 
           <button
@@ -490,7 +490,7 @@ export default function SwipeCardFeed() {
                           Class Advisor: {currentSwipeTicket.advisorEndorsed ? 'Officially Endorsed (+20 Priority)' : 'Notified & Under Review'}
                         </span>
                       </div>
-                      <span className="text-[10px] text-emerald-800 font-bold uppercase">{currentUser.classSection || 'CSE-B'}</span>
+                      <span className="text-[10px] text-emerald-800 font-bold uppercase">{currentUser?.classSection || 'CSE-B'}</span>
                     </div>
                   )}
 
@@ -648,7 +648,7 @@ export default function SwipeCardFeed() {
           {/* Issue Cards */}
           <div className="space-y-4">
             {filteredTickets.map(ticket => {
-              const hasConfirmed = ticket.upvotes?.includes(currentUser.id);
+              const hasConfirmed = currentUser?.id ? ticket.upvotes?.includes(currentUser.id) : false;
               const isUrgent = ticket.category === 'safety' || ticket.priorityScore >= 90;
 
               return (

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import Navbar from './components/layout/Navbar';
 import SwipeCardFeed from './components/feed/SwipeCardFeed';
@@ -8,6 +8,7 @@ import AdvisorDashboard from './components/advisor/AdvisorDashboard';
 import CampusAnalytics from './components/analytics/CampusAnalytics';
 import TicketDetailModal from './components/feed/TicketDetailModal';
 import CinematicLanding from './components/landing/CinematicLanding';
+import RoleSwitcherModal from './components/layout/RoleSwitcherModal';
 import { 
   PlusCircle, 
   Sparkles,
@@ -21,28 +22,43 @@ function MainContent() {
     setActiveTab, 
     selectedTicketForDetail, 
     setSelectedTicketForDetail,
-    notification
+    notification,
+    setNotification,
+    currentUser,
+    showLoginModal,
+    setShowLoginModal
   } = useApp();
 
   // View state: 'story' (Cinematic Landing) or 'workspace' (Interactive App)
   // Story is the default starting interface when the user launches the website
   const [viewMode, setViewMode] = useState('story');
 
+  // Enforce authentication: unauthenticated users can NEVER stay in the workspace
+  useEffect(() => {
+    if (!currentUser && viewMode === 'workspace') {
+      setViewMode('story');
+      setShowLoginModal(true);
+    }
+  }, [currentUser, viewMode]);
+
   const handleEnterWorkspace = (targetTab = 'feed') => {
+    if (!currentUser) {
+      if (setNotification) {
+        setNotification({
+          message: 'Institutional Sign-In Required — Please log in with your university credentials to enter the workspace.',
+          type: 'info'
+        });
+      }
+      setShowLoginModal(true);
+      return;
+    }
     setActiveTab(targetTab);
     setViewMode('workspace');
   };
 
-  if (viewMode === 'story') {
-    return (
-      <CinematicLanding onEnterWorkspace={handleEnterWorkspace} />
-    );
-  }
-
   return (
-    <div className="min-h-screen flex flex-col bg-ivory-100 text-charcoal-900 pb-20 selection:bg-emerald-500 selection:text-white">
-      
-      {/* Toast Notification Alert */}
+    <>
+      {/* Toast Notification Alert (Shared across Story and Workspace views) */}
       {notification && (
         <div className="fixed bottom-6 right-6 z-50 animate-fade-up">
           <div className={`px-4 py-3 rounded-2xl shadow-xl border text-xs font-semibold flex items-center space-x-2.5 backdrop-blur-md ${
@@ -56,43 +72,62 @@ function MainContent() {
         </div>
       )}
 
-      {/* Top Navbar */}
-      <Navbar onToggleLanding={() => setViewMode('story')} />
+      {/* View Switcher: Cinematic Landing (Home) vs Operational Workspace */}
+      {viewMode === 'story' ? (
+        <CinematicLanding onEnterWorkspace={handleEnterWorkspace} />
+      ) : (
+        <div className="min-h-screen flex flex-col bg-ivory-100 text-charcoal-900 pb-20 selection:bg-emerald-500 selection:text-white">
+          
+          {/* Top Navbar */}
+          <Navbar onToggleLanding={() => setViewMode('story')} />
 
-      {/* Main Role-Based Workspaces */}
-      <main className="flex-1 animate-fade-in">
-        {(activeTab === 'feed' || activeTab === 'raise') && <SwipeCardFeed />}
-        {activeTab === 'admin' && <AdminDashboard />}
-        {activeTab === 'advisor' && <AdvisorDashboard />}
-        {activeTab === 'analytics' && <CampusAnalytics />}
-      </main>
+          {/* Main Role-Based Workspaces */}
+          <main className="flex-1 animate-fade-in">
+            {(activeTab === 'feed' || activeTab === 'raise') && <SwipeCardFeed />}
+            {activeTab === 'admin' && <AdminDashboard />}
+            {activeTab === 'advisor' && <AdvisorDashboard />}
+            {activeTab === 'analytics' && <CampusAnalytics />}
+          </main>
 
-      {/* Raise Issue Guided Decision Tree Wizard */}
-      {activeTab === 'raise' && (
-        <RaiseIssueModal onClose={() => setActiveTab('feed')} />
+          {/* Raise Issue Guided Decision Tree Wizard */}
+          {activeTab === 'raise' && (
+            <RaiseIssueModal onClose={() => setActiveTab('feed')} />
+          )}
+
+          {/* Ticket Detail Modal */}
+          {selectedTicketForDetail && (
+            <TicketDetailModal
+              ticket={selectedTicketForDetail}
+              onClose={() => setSelectedTicketForDetail(null)}
+            />
+          )}
+
+          {/* Floating Action Button to Report Issue */}
+          {activeTab !== 'raise' && (
+            <button
+              onClick={() => {
+                if (!currentUser) {
+                  setShowLoginModal(true);
+                } else {
+                  setActiveTab('raise');
+                }
+              }}
+              className="fixed bottom-6 left-6 z-30 flex items-center space-x-2.5 px-5 py-3 rounded-2xl bg-[#092d25] hover:bg-[#061c18] text-white font-bold text-xs shadow-2xl button-glow transition-all border border-[#0e3b31]"
+              style={{ backgroundColor: '#092d25', color: '#ffffff' }}
+            >
+              <PlusCircle className="w-4 h-4 text-mint-300" />
+              <span className="text-white font-bold">Report an Issue (Wizard)</span>
+            </button>
+          )}
+
+        </div>
       )}
 
-      {/* Ticket Detail Modal */}
-      {selectedTicketForDetail && (
-        <TicketDetailModal
-          ticket={selectedTicketForDetail}
-          onClose={() => setSelectedTicketForDetail(null)}
-        />
+      {/* Global Institutional Sign-In / Account Modal */}
+      {showLoginModal && (
+        <RoleSwitcherModal onClose={() => setShowLoginModal(false)} />
       )}
-
-      {/* Floating Action Button to Report Issue */}
-      {activeTab !== 'raise' && (
-        <button
-          onClick={() => setActiveTab('raise')}
-          className="fixed bottom-6 left-6 z-30 flex items-center space-x-2.5 px-5 py-3 rounded-2xl bg-[#092d25] hover:bg-[#061c18] text-white font-bold text-xs shadow-2xl button-glow transition-all border border-[#0e3b31]"
-          style={{ backgroundColor: '#092d25', color: '#ffffff' }}
-        >
-          <PlusCircle className="w-4 h-4 text-mint-300" />
-          <span className="text-white font-bold">Report an Issue (Wizard)</span>
-        </button>
-      )}
-
-    </div>
+    </>
   );
 }
 

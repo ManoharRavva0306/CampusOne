@@ -30,8 +30,19 @@ export default function RaiseIssueModal({ onClose }) {
     currentUser, 
     raiseTicket, 
     tickets, 
-    boostExistingTicket 
+    boostExistingTicket,
+    setShowLoginModal 
   } = useApp();
+
+  // If unauthenticated, redirect to login modal
+  useEffect(() => {
+    if (!currentUser) {
+      onClose();
+      setShowLoginModal(true);
+    }
+  }, [currentUser]);
+
+  if (!currentUser) return null;
 
   // Step 1: Location & Scope
   // Step 2: Issue Category

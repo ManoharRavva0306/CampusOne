@@ -20,6 +20,8 @@ export default function AdvisorDashboard() {
     setSelectedTicketForDetail 
   } = useApp();
 
+  if (!currentUser) return null;
+
   const [commentInput, setCommentInput] = useState({});
 
   const classTickets = tickets.filter(

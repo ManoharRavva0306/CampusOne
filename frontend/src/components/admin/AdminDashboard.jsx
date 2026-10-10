@@ -30,6 +30,8 @@ export default function AdminDashboard() {
     setSelectedTicketForDetail 
   } = useApp();
 
+  if (!currentUser) return null;
+
   const [selectedDomain, setSelectedDomain] = useState(
     currentUser.domain || 'electrical_av'
   );

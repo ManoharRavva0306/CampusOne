@@ -7,9 +7,11 @@ export default function StudentVerificationBanner() {
   const [feedback, setFeedback] = useState({});
   const [activeFeedbackId, setActiveFeedbackId] = useState(null);
 
+  if (!currentUser) return null;
+
   // Tickets raised by currentUser that are waiting for their on-site confirmation
   const pendingTickets = tickets.filter(
-    t => t.raisedBy.id === currentUser.id && t.status === 'awaiting_verification'
+    t => t.raisedBy?.id === currentUser?.id && t.status === 'awaiting_verification'
   );
 
   if (pendingTickets.length === 0) return null;

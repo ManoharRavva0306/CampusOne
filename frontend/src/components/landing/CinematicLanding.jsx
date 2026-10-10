@@ -1,4 +1,5 @@
 import React from 'react';
+import { useApp } from '../../context/AppContext';
 import { 
   ArrowRight, 
   ShieldCheck, 
@@ -14,10 +15,16 @@ import {
   Users, 
   Building2, 
   Zap, 
-  ArrowUpRight 
+  ArrowUpRight,
+  LogIn,
+  LogOut,
+  User,
+  Shield
 } from 'lucide-react';
 
 export default function CinematicLanding({ onEnterWorkspace }) {
+  const { currentUser, setShowLoginModal, logout } = useApp();
+
   const scrollToPillars = () => {
     document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -58,20 +65,69 @@ export default function CinematicLanding({ onEnterWorkspace }) {
             </div>
           </div>
 
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-2.5">
             <button
               onClick={scrollToPillars}
               className="text-xs px-3 py-2 rounded-lg font-medium text-[#485c53] hover:text-[#092d25] transition-colors hidden sm:inline-block"
             >
               How It Works
             </button>
-            <button
-              onClick={() => onEnterWorkspace('feed')}
-              className="text-xs py-2 px-4 rounded-xl font-bold flex items-center space-x-1.5 shadow-md bg-[#13a879] hover:bg-[#0f8e65] text-white transition-all hover:scale-105"
-            >
-              <span>Launch Workspace</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
+
+            {currentUser ? (
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => setShowLoginModal(true)}
+                  className="flex items-center space-x-2 bg-white/95 border border-[#cbdad0] px-3 py-1.5 rounded-xl shadow-xs hover:border-emerald-400 transition-all text-left"
+                  title="Institutional Profile & Switch Account"
+                >
+                  <img
+                    src={currentUser.avatar}
+                    alt={currentUser.name}
+                    className="w-7 h-7 rounded-full object-cover ring-2 ring-emerald-500/40"
+                  />
+                  <div className="hidden sm:block">
+                    <div className="text-xs font-bold text-[#092d25]">{currentUser.name}</div>
+                    <div className="text-[10px] text-[#485c53] font-mono uppercase">
+                      {currentUser.role?.replace('_', ' ')}
+                    </div>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => onEnterWorkspace('feed')}
+                  className="text-xs py-2 px-3.5 rounded-xl font-bold flex items-center space-x-1.5 shadow-md bg-[#13a879] hover:bg-[#0f8e65] text-white transition-all hover:scale-105"
+                >
+                  <span>Go to Workspace</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+
+                <button
+                  onClick={logout}
+                  className="p-2 text-[#485c53] hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors"
+                  title="Sign Out"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => setShowLoginModal(true)}
+                  className="text-xs py-2 px-3.5 rounded-xl font-bold flex items-center space-x-1.5 shadow-sm bg-white hover:bg-slate-50 text-[#092d25] border border-[#cbdad0] transition-all"
+                >
+                  <LogIn className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Institutional Sign-In</span>
+                </button>
+
+                <button
+                  onClick={() => onEnterWorkspace('feed')}
+                  className="text-xs py-2 px-3.5 rounded-xl font-bold flex items-center space-x-1.5 shadow-md bg-[#13a879] hover:bg-[#0f8e65] text-white transition-all hover:scale-105"
+                >
+                  <span>Launch Workspace</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
           </div>
 
         </div>
@@ -105,7 +161,7 @@ export default function CinematicLanding({ onEnterWorkspace }) {
             onClick={() => onEnterWorkspace('feed')}
             className="w-full sm:w-auto px-7 py-3.5 rounded-xl font-bold text-sm shadow-xl flex items-center justify-center space-x-2 bg-[#13a879] hover:bg-[#0f8e65] text-white shadow-emerald-900/15 transition-all hover:scale-105"
           >
-            <span>Explore CampusOne Workspace</span>
+            <span>{currentUser ? 'Explore CampusOne Workspace' : 'Sign In to Access Workspace'}</span>
             <ArrowRight className="w-4 h-4" />
           </button>
 
@@ -117,6 +173,13 @@ export default function CinematicLanding({ onEnterWorkspace }) {
             <ChevronDown className="w-4 h-4 text-[#73827a]" />
           </button>
         </div>
+
+        {!currentUser && (
+          <p className="mt-4 text-xs text-[#526a5e] flex items-center justify-center space-x-1.5 animate-fade-up">
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 inline shrink-0" />
+            <span>Institutional Sign-In required to view live grievances, vote, or raise tickets.</span>
+          </p>
+        )}
 
         {/* Hero Interactive Node Diagram (Visualizing Connection & Transparency) */}
         <div className="mt-16 w-full max-w-4xl p-1 rounded-3xl bg-white/95 backdrop-blur-md border border-[#e2e9e3] shadow-card animate-fade-up stagger-3">
@@ -305,14 +368,19 @@ export default function CinematicLanding({ onEnterWorkspace }) {
           <p className="text-base text-[#485c53] max-w-xl mx-auto">
             Experience the live prototype with role-based access for students, class advisors, domain administrators, and campus leadership.
           </p>
-          <div className="pt-4">
+          <div className="pt-4 flex flex-col items-center">
             <button
               onClick={() => onEnterWorkspace('feed')}
               className="px-8 py-4 rounded-xl font-bold text-sm shadow-xl inline-flex items-center space-x-2.5 bg-[#13a879] hover:bg-[#0f8e65] text-white shadow-emerald-900/15 transition-all hover:scale-105"
             >
-              <span>Launch Interactive Prototype</span>
+              <span>{currentUser ? 'Launch Interactive Prototype' : 'Sign In to Launch Workspace'}</span>
               <ArrowRight className="w-4 h-4" />
             </button>
+            {!currentUser && (
+              <p className="text-xs text-[#526a5e] mt-3">
+                Amrita Central Administration Provisioning Only • Public Self-Registration Disabled
+              </p>
+            )}
           </div>
         </div>
       </section>

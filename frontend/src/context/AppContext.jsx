@@ -32,17 +32,22 @@ export function AppProvider({ children }) {
     }
   });
 
-  // Current logged in user (Default: Arjun K. - Student CSE-B)
+  // Current logged in user (Default: saved user, or null if logged out)
   const [currentUser, setCurrentUser] = useState(() => {
     try {
       const savedId = localStorage.getItem(CURRENT_USER_KEY);
-      const found = USERS.find(u => u.id === savedId);
-      return found || USERS[0];
+      if (savedId === 'LOGGED_OUT') return null;
+      if (savedId) {
+        const found = USERS.find(u => u.id === savedId);
+        if (found) return found;
+      }
+      return null; // Prompt login on unauthenticated visit
     } catch (e) {
-      return USERS[0];
+      return null;
     }
   });
 
+  const [showLoginModal, setShowLoginModal] = useState(false);
   const [activeTab, setActiveTab] = useState('feed'); // 'feed' | 'raise' | 'admin' | 'advisor' | 'analytics'
   const [feedFilter, setFeedFilter] = useState('all'); // 'all' | 'class' | 'room' | 'department' | 'campus'
   const [feedMode, setFeedMode] = useState('swipe'); // 'swipe' | 'grid'
@@ -55,7 +60,11 @@ export function AppProvider({ children }) {
   }, [tickets]);
 
   useEffect(() => {
-    localStorage.setItem(CURRENT_USER_KEY, currentUser.id);
+    if (currentUser) {
+      localStorage.setItem(CURRENT_USER_KEY, currentUser.id);
+    } else {
+      localStorage.setItem(CURRENT_USER_KEY, 'LOGGED_OUT');
+    }
   }, [currentUser]);
 
   // Toast notification helper
@@ -66,10 +75,57 @@ export function AppProvider({ children }) {
     }, 4000);
   };
 
+  // Institutional Login with Roll No / Staff ID or Email
+  const login = (identifier, password) => {
+    const cleanId = (identifier || '').trim().toLowerCase();
+    const user = USERS.find(u => 
+      (u.rollNo && u.rollNo.toLowerCase() === cleanId) ||
+      (u.email && u.email.toLowerCase() === cleanId) ||
+      (u.id && u.id.toLowerCase() === cleanId) ||
+      (u.name && u.name.toLowerCase() === cleanId)
+    );
+
+    if (!user) {
+      return { 
+        success: false, 
+        error: 'University account not found in student/staff registry. Accounts can only be provisioned by Central Administration.' 
+      };
+    }
+
+    if (password && user.password && password !== user.password && password !== 'amrita123') {
+      return {
+        success: false,
+        error: 'Incorrect institutional password. (Default demo password is: amrita123)'
+      };
+    }
+
+    setCurrentUser(user);
+    setShowLoginModal(false);
+    showNotification(`Signed in as ${user.name} (${user.role.replace('_', ' ').toUpperCase()})`, 'success');
+
+    if (user.role === 'domain_admin') {
+      setActiveTab('admin');
+    } else if (user.role === 'faculty_advisor') {
+      setActiveTab('advisor');
+    } else {
+      setActiveTab('feed');
+    }
+
+    return { success: true, user };
+  };
+
+  // Sign out
+  const logout = () => {
+    setCurrentUser(null);
+    localStorage.setItem(CURRENT_USER_KEY, 'LOGGED_OUT');
+    showNotification('You have signed out from CampusOne.', 'info');
+  };
+
   // Switch user role helper
   const switchUser = (user) => {
     setCurrentUser(user);
-    showNotification(`Switched role to: ${user.name} (${user.description})`, 'success');
+    setShowLoginModal(false);
+    showNotification(`Switched account to: ${user.name} (${user.description})`, 'success');
     
     // Auto switch tab to appropriate view if relevant
     if (user.role === 'domain_admin') {
@@ -96,6 +152,12 @@ export function AppProvider({ children }) {
 
   // Upvote / Downvote (Swipe Right / Left)
   const voteTicket = (ticketId, voteType) => {
+    if (!currentUser) {
+      setShowLoginModal(true);
+      showNotification('Please sign in with your Amrita ID to vote on issues.', 'info');
+      return;
+    }
+
     setTickets(prev => prev.map(ticket => {
       if (ticket.id !== ticketId) return ticket;
 
@@ -139,6 +201,12 @@ export function AppProvider({ children }) {
 
   // Raise new problem ticket
   const raiseTicket = (ticketData) => {
+    if (!currentUser) {
+      setShowLoginModal(true);
+      showNotification('Please sign in to report a problem.', 'info');
+      return null;
+    }
+
     const newId = `TICK-${Math.floor(100 + Math.random() * 900)}`;
     const newTicket = {
       id: newId,
@@ -169,6 +237,12 @@ export function AppProvider({ children }) {
 
   // Boost existing ticket from AI duplicate detection
   const boostExistingTicket = (ticketId) => {
+    if (!currentUser) {
+      setShowLoginModal(true);
+      showNotification('Please sign in to support this issue.', 'info');
+      return;
+    }
+
     setTickets(prev => prev.map(t => {
       if (t.id === ticketId) {
         const upvotes = t.upvotes.includes(currentUser.id) ? t.upvotes : [...t.upvotes, currentUser.id];
@@ -184,6 +258,12 @@ export function AppProvider({ children }) {
   // Add discussion comment
   const addComment = (ticketId, text) => {
     if (!text.trim()) return;
+    if (!currentUser) {
+      setShowLoginModal(true);
+      showNotification('Please sign in to comment.', 'info');
+      return;
+    }
+
     const newComment = {
       id: `c_${Date.now()}`,
       userName: currentUser.name,
@@ -300,6 +380,10 @@ export function AppProvider({ children }) {
 
   // Scope-based visibility check for current user
   const isTicketVisibleToUser = (ticket, user = currentUser) => {
+    if (!user) {
+      return ticket.scope === 'campus';
+    }
+
     // Admins see all tickets relevant to their scope or whole campus
     if (user.role === 'central_admin') return true;
     if (user.role === 'domain_admin') {
@@ -329,7 +413,12 @@ export function AppProvider({ children }) {
       value={{
         tickets,
         currentUser,
+        login,
+        logout,
+        showLoginModal,
+        setShowLoginModal,
         switchUser,
+        USERS,
         activeTab,
         setActiveTab,
         feedFilter,

@@ -16,9 +16,11 @@ import {
   CheckCircle2,
   Clock,
   X,
-  Home
+  Home,
+  LogIn,
+  LogOut,
+  User
 } from 'lucide-react';
-import RoleSwitcherModal from './RoleSwitcherModal';
 
 export default function Navbar({ onToggleLanding }) {
   const { 
@@ -26,16 +28,18 @@ export default function Navbar({ onToggleLanding }) {
     activeTab, 
     setActiveTab, 
     resetDemoData, 
-    tickets 
+    tickets,
+    logout,
+    showLoginModal,
+    setShowLoginModal
   } = useApp();
   
-  const [showRoleModal, setShowRoleModal] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
 
   // Tickets awaiting verification from the current student
-  const pendingVerificationCount = tickets.filter(
-    t => t.raisedBy.id === currentUser.id && t.status === 'awaiting_verification'
-  ).length;
+  const pendingVerificationCount = currentUser ? tickets.filter(
+    t => t.raisedBy?.id === currentUser?.id && t.status === 'awaiting_verification'
+  ).length : 0;
 
   // Recent activity / notifications
   const recentUpdates = [
@@ -97,7 +101,10 @@ export default function Navbar({ onToggleLanding }) {
               </button>
 
               <button
-                onClick={() => setActiveTab('feed')}
+                onClick={() => {
+                  if (!currentUser) setShowLoginModal(true);
+                  else setActiveTab('feed');
+                }}
                 className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all flex items-center space-x-1.5 ${
                   activeTab === 'feed'
                     ? 'bg-[#092d25] text-white shadow-md'
@@ -109,7 +116,10 @@ export default function Navbar({ onToggleLanding }) {
               </button>
 
               <button
-                onClick={() => setActiveTab('raise')}
+                onClick={() => {
+                  if (!currentUser) setShowLoginModal(true);
+                  else setActiveTab('raise');
+                }}
                 className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all flex items-center space-x-1.5 ${
                   activeTab === 'raise'
                     ? 'bg-[#13a879] text-white shadow-md'
@@ -121,7 +131,10 @@ export default function Navbar({ onToggleLanding }) {
               </button>
 
               <button
-                onClick={() => setActiveTab('admin')}
+                onClick={() => {
+                  if (!currentUser) setShowLoginModal(true);
+                  else setActiveTab('admin');
+                }}
                 className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all flex items-center space-x-1.5 ${
                   activeTab === 'admin'
                     ? 'bg-[#092d25] text-white shadow-md'
@@ -133,7 +146,10 @@ export default function Navbar({ onToggleLanding }) {
               </button>
 
               <button
-                onClick={() => setActiveTab('advisor')}
+                onClick={() => {
+                  if (!currentUser) setShowLoginModal(true);
+                  else setActiveTab('advisor');
+                }}
                 className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all flex items-center space-x-1.5 ${
                   activeTab === 'advisor'
                     ? 'bg-[#092d25] text-white shadow-md'
@@ -145,7 +161,10 @@ export default function Navbar({ onToggleLanding }) {
               </button>
 
               <button
-                onClick={() => setActiveTab('analytics')}
+                onClick={() => {
+                  if (!currentUser) setShowLoginModal(true);
+                  else setActiveTab('analytics');
+                }}
                 className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all flex items-center space-x-1.5 ${
                   activeTab === 'analytics'
                     ? 'bg-[#092d25] text-white shadow-md'
@@ -220,31 +239,53 @@ export default function Navbar({ onToggleLanding }) {
                 )}
               </div>
 
-              {/* Active Role Selector Pill */}
-              <button
-                onClick={() => setShowRoleModal(true)}
-                className="flex items-center space-x-2 bg-ivory-100 hover:bg-ivory-200 border border-ivory-300 px-3 py-1.5 rounded-xl transition-all shadow-subtle"
-              >
-                <div className="relative">
-                  <img
-                    src={currentUser.avatar}
-                    alt={currentUser.name}
-                    className="w-7 h-7 rounded-full object-cover ring-2 ring-emerald-500/30"
-                  />
-                  {pendingVerificationCount > 0 && (
-                    <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-amber-500 rounded-full border-2 border-white" />
-                  )}
+              {/* User Authentication Pill / Sign In Button */}
+              {currentUser ? (
+                <div className="flex items-center space-x-1.5">
+                  <button
+                    onClick={() => setShowLoginModal(true)}
+                    className="flex items-center space-x-2 bg-ivory-100 hover:bg-ivory-200 border border-ivory-300 px-3 py-1.5 rounded-xl transition-all shadow-subtle"
+                    title="Account details or switch profile"
+                  >
+                    <div className="relative">
+                      <img
+                        src={currentUser.avatar}
+                        alt={currentUser.name}
+                        className="w-7 h-7 rounded-full object-cover ring-2 ring-emerald-500/30"
+                      />
+                      {pendingVerificationCount > 0 && (
+                        <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-amber-500 rounded-full border-2 border-white" />
+                      )}
+                    </div>
+                    <div className="text-left hidden sm:block">
+                      <div className="text-xs font-bold text-forest-950 flex items-center space-x-1">
+                        <span>{currentUser.name}</span>
+                      </div>
+                      <div className="text-[10px] text-charcoal-500 truncate max-w-[120px]">
+                        {currentUser.classSection || currentUser.domainTitle || currentUser.department}
+                      </div>
+                    </div>
+                    <ChevronDown className="w-3.5 h-3.5 text-charcoal-500" />
+                  </button>
+
+                  <button
+                    onClick={logout}
+                    className="p-2 text-charcoal-500 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors hidden sm:block"
+                    title="Sign Out of CampusOne"
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                  </button>
                 </div>
-                <div className="text-left hidden sm:block">
-                  <div className="text-xs font-bold text-forest-950 flex items-center space-x-1">
-                    <span>{currentUser.name}</span>
-                  </div>
-                  <div className="text-[10px] text-charcoal-500 truncate max-w-[120px]">
-                    {currentUser.classSection || currentUser.domainTitle || currentUser.department}
-                  </div>
-                </div>
-                <ChevronDown className="w-3.5 h-3.5 text-charcoal-500" />
-              </button>
+              ) : (
+                <button
+                  onClick={() => setShowLoginModal(true)}
+                  className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl text-xs font-bold shadow-md bg-[#092d25] hover:bg-[#061c18] text-white transition-all border border-[#092d25]"
+                  style={{ backgroundColor: '#092d25', color: '#ffffff' }}
+                >
+                  <LogIn className="w-3.5 h-3.5 text-mint-300" />
+                  <span>Institutional Sign-In</span>
+                </button>
+              )}
 
             </div>
 
@@ -260,35 +301,50 @@ export default function Navbar({ onToggleLanding }) {
               <span>Home</span>
             </button>
             <button
-              onClick={() => setActiveTab('feed')}
+              onClick={() => {
+                if (!currentUser) setShowLoginModal(true);
+                else setActiveTab('feed');
+              }}
               className={`flex flex-col items-center py-1 ${activeTab === 'feed' ? 'text-forest-900 font-bold' : 'text-charcoal-500'}`}
             >
               <Layers className="w-4 h-4" />
               <span>Feed</span>
             </button>
             <button
-              onClick={() => setActiveTab('raise')}
+              onClick={() => {
+                if (!currentUser) setShowLoginModal(true);
+                else setActiveTab('raise');
+              }}
               className={`flex flex-col items-center py-1 ${activeTab === 'raise' ? 'text-emerald-600 font-bold' : 'text-charcoal-500'}`}
             >
               <PlusCircle className="w-4 h-4" />
               <span>Report</span>
             </button>
             <button
-              onClick={() => setActiveTab('admin')}
+              onClick={() => {
+                if (!currentUser) setShowLoginModal(true);
+                else setActiveTab('admin');
+              }}
               className={`flex flex-col items-center py-1 ${activeTab === 'admin' ? 'text-forest-900 font-bold' : 'text-charcoal-500'}`}
             >
               <Wrench className="w-4 h-4" />
               <span>Admin</span>
             </button>
             <button
-              onClick={() => setActiveTab('advisor')}
+              onClick={() => {
+                if (!currentUser) setShowLoginModal(true);
+                else setActiveTab('advisor');
+              }}
               className={`flex flex-col items-center py-1 ${activeTab === 'advisor' ? 'text-forest-900 font-bold' : 'text-charcoal-500'}`}
             >
               <GraduationCap className="w-4 h-4" />
               <span>Advisor</span>
             </button>
             <button
-              onClick={() => setActiveTab('analytics')}
+              onClick={() => {
+                if (!currentUser) setShowLoginModal(true);
+                else setActiveTab('analytics');
+              }}
               className={`flex flex-col items-center py-1 ${activeTab === 'analytics' ? 'text-forest-900 font-bold' : 'text-charcoal-500'}`}
             >
               <BarChart3 className="w-4 h-4" />
@@ -298,11 +354,6 @@ export default function Navbar({ onToggleLanding }) {
 
         </div>
       </header>
-
-      {/* Role Switcher Modal */}
-      {showRoleModal && (
-        <RoleSwitcherModal onClose={() => setShowRoleModal(false)} />
-      )}
     </>
   );
 }

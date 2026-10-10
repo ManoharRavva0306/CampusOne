@@ -28,8 +28,8 @@ export default function TicketDetailModal({ ticket, onClose }) {
   const [commentText, setCommentText] = useState('');
 
   const currentTicket = tickets.find(t => t.id === ticket.id) || ticket;
-  const hasConfirmed = currentTicket.upvotes?.includes(currentUser.id);
-  const isReporter = currentTicket.raisedBy.id === currentUser.id;
+  const hasConfirmed = currentTicket.upvotes?.includes(currentUser?.id);
+  const isReporter = currentTicket.raisedBy?.id === currentUser?.id;
   const isAwaitingVerification = currentTicket.status === 'awaiting_verification';
 
   const handleSendComment = (e) => {
