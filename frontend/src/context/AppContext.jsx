@@ -126,7 +126,8 @@ export function AppProvider({ children }) {
   useEffect(() => {
     async function loadFromDB() {
       try {
-        const uRes = await fetch('http://localhost:5000/api/auth/users');
+        const apiUrl = import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/auth/users` : (typeof window !== 'undefined' && window.location.hostname !== 'localhost' ? '/api/auth/users' : 'http://localhost:5000/api/auth/users');
+        const uRes = await fetch(apiUrl);
         const uData = await uRes.json();
         if (uData && uData.success && Array.isArray(uData.users) && uData.users.length > 0) {
           setUserList(uData.users);
