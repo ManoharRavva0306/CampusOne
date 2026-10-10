@@ -1,10 +1,11 @@
-import { TICKETS } from '../models/ticketModel.js';
+import { getTicketsFromDB } from '../models/ticketModel.js';
 
 export function getAnalytics(req, res) {
-  const total = TICKETS.length;
-  const resolved = TICKETS.filter(t => t.status === 'resolved').length;
-  const inProgress = TICKETS.filter(t => t.status === 'in_progress').length;
-  const awaitingVerification = TICKETS.filter(t => t.status === 'awaiting_verification').length;
+  const tickets = getTicketsFromDB();
+  const total = tickets.length;
+  const resolved = tickets.filter(t => t.status === 'resolved').length;
+  const inProgress = tickets.filter(t => t.status === 'in_progress').length;
+  const awaitingVerification = tickets.filter(t => t.status === 'awaiting_verification').length;
 
   res.json({
     success: true,
@@ -19,11 +20,11 @@ export function getAnalytics(req, res) {
       aiDuplicatesPrevented: 24
     },
     scopeBreakdown: {
-      class: TICKETS.filter(t => t.scope === 'class').length,
-      room: TICKETS.filter(t => t.scope === 'room').length,
-      department: TICKETS.filter(t => t.scope === 'department').length,
-      hostel_generic: TICKETS.filter(t => t.scope === 'hostel_generic').length,
-      campus: TICKETS.filter(t => t.scope === 'campus').length
+      class: tickets.filter(t => t.scope === 'class').length,
+      room: tickets.filter(t => t.scope === 'room').length,
+      department: tickets.filter(t => t.scope === 'department').length,
+      hostel_generic: tickets.filter(t => t.scope === 'hostel_generic').length,
+      campus: tickets.filter(t => t.scope === 'campus').length
     }
   });
 }

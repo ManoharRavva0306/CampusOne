@@ -1,11 +1,122 @@
-import { USERS } from '../models/ticketModel.js';
+import { getUsersFromDB, addUserToDB, updateUserInDB } from '../models/ticketModel.js';
+import crypto from 'crypto';
 
-export function getUsers(req, res) {
-  res.json({ success: true, count: USERS.length, users: USERS });
+// In-memory active session token map
+const activeSessions = new Map();
+
+// POST /api/auth/login
+export function login(req, res) {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    return res.status(400).json({ success: false, message: 'Institutional email and password are required' });
+  }
+
+  const cleanEmail = email.trim().toLowerCase();
+  const users = getUsersFromDB();
+  const user = users.find(u => u.email && u.email.toLowerCase() === cleanEmail && u.password === password);
+
+  if (!user) {
+    return res.status(401).json({ 
+      success: false, 
+      message: 'Invalid credentials. Ensure your institutional email & password are correct.' 
+    });
+  }
+
+  const token = 'c1_' + crypto.randomBytes(24).toString('hex');
+  activeSessions.set(token, user.id);
+
+  const { password: _, ...safeUser } = user;
+
+  res.json({
+    success: true,
+    message: `Signed in as ${user.name} (${user.role})`,
+    token,
+    user: safeUser
+  });
 }
 
+// GET /api/auth/users
+export function getUsers(req, res) {
+  const users = getUsersFromDB();
+  const safeUsers = users.map(({ password, ...rest }) => rest);
+  res.json({ success: true, count: safeUsers.length, users: safeUsers });
+}
+
+// GET /api/auth/me
 export function getCurrentUser(req, res) {
-  const userId = req.headers['x-user-id'] || 'user_arjun';
-  const user = USERS.find(u => u.id === userId) || USERS[0];
-  res.json({ success: true, user });
+  const authHeader = req.headers['authorization'];
+  const token = authHeader ? authHeader.replace('Bearer ', '').trim() : null;
+  const headerUserId = req.headers['x-user-id'];
+
+  const users = getUsersFromDB();
+  let user = null;
+
+  if (token && activeSessions.has(token)) {
+    const userId = activeSessions.get(token);
+    user = users.find(u => u.id === userId);
+  } else if (headerUserId) {
+    user = users.find(u => u.id === headerUserId);
+  } else {
+    user = users[0];
+  }
+
+  if (!user) {
+    return res.status(404).json({ success: false, message: 'User not found' });
+  }
+
+  const { password: _, ...safeUser } = user;
+  res.json({ success: true, user: safeUser });
+}
+
+// POST /api/auth/users (Overall Admin adds a new user)
+export function createUser(req, res) {
+  const { name, email, password, role, department, classSection, rollNo } = req.body;
+  if (!name || !email || !password || !role) {
+    return res.status(400).json({ success: false, message: 'Name, email, password, and role are required' });
+  }
+
+  const users = getUsersFromDB();
+  const exists = users.find(u => u.email && u.email.toLowerCase() === email.toLowerCase().trim());
+  if (exists) {
+    return res.status(409).json({ success: false, message: 'A user with this email already exists in the database' });
+  }
+
+  const newUser = {
+    id: `user_${Date.now()}`,
+    name,
+    email: email.trim().toLowerCase(),
+    password,
+    role,
+    department: department || 'CSE',
+    classSection: classSection || 'CSE-B 3rd Year',
+    rollNo: rollNo || `ID.${Date.now().toString().slice(-4)}`,
+    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+    description: `${role.replace('_', ' ').toUpperCase()} — ${department || 'Campus Wide'}`
+  };
+
+  addUserToDB(newUser);
+  const { password: _, ...safeUser } = newUser;
+  res.status(201).json({ success: true, user: safeUser });
+}
+
+// PATCH /api/auth/users/:id (Overall Admin updates user credentials)
+export function updateUser(req, res) {
+  const { id } = req.params;
+  const { name, email, password, role, department } = req.body;
+
+  const updatedUser = updateUserInDB(id, {
+    ...(name ? { name } : {}),
+    ...(email ? { email: email.trim().toLowerCase() } : {}),
+    ...(password ? { password } : {}),
+    ...(role ? { role } : {}),
+    ...(department ? { department } : {})
+  });
+
+  if (!updatedUser) {
+    return res.status(404).json({ success: false, message: 'User not found in database' });
+  }
+
+  const { password: _, ...safeUser } = updatedUser;
+  res.json({ success: true, user: safeUser });
 }

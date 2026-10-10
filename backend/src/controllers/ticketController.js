@@ -1,14 +1,19 @@
-import { TICKETS, USERS } from '../models/ticketModel.js';
+import { 
+  getUsersFromDB, 
+  getTicketsFromDB, 
+  addTicketToDB, 
+  updateTicketInDB 
+} from '../models/ticketModel.js';
 import { calculatePriorityScore } from '../services/priorityService.js';
 import { findDuplicateTickets } from '../services/aiDuplicateService.js';
 import { filterTicketsByScope } from '../middleware/scopeAuthMiddleware.js';
 
-let tickets = [...TICKETS];
-
 // Get tickets with scope privacy applied
 export function getTickets(req, res) {
+  const users = getUsersFromDB();
+  const tickets = getTicketsFromDB();
   const userId = req.headers['x-user-id'] || 'user_arjun';
-  const user = USERS.find(u => u.id === userId) || USERS[0];
+  const user = users.find(u => u.id === userId) || users[0];
 
   const visibleTickets = filterTicketsByScope(tickets, user);
   res.json({ success: true, user, count: visibleTickets.length, tickets: visibleTickets });
@@ -16,6 +21,7 @@ export function getTickets(req, res) {
 
 // Check duplicates via AI keyword similarity
 export function checkDuplicates(req, res) {
+  const tickets = getTicketsFromDB();
   const { title, description, category } = req.body;
   const duplicates = findDuplicateTickets(tickets, { title, description, category });
   res.json({ success: true, count: duplicates.length, duplicates });
@@ -23,8 +29,9 @@ export function checkDuplicates(req, res) {
 
 // Create new ticket via Decision Tree
 export function createTicket(req, res) {
+  const users = getUsersFromDB();
   const userId = req.headers['x-user-id'] || 'user_arjun';
-  const user = USERS.find(u => u.id === userId) || USERS[0];
+  const user = users.find(u => u.id === userId) || users[0];
   const data = req.body;
 
   const newTicket = {
@@ -60,7 +67,7 @@ export function createTicket(req, res) {
   };
 
   newTicket.priorityScore = calculatePriorityScore(newTicket);
-  tickets.unshift(newTicket);
+  addTicketToDB(newTicket);
 
   res.status(201).json({ success: true, ticket: newTicket });
 }
@@ -71,33 +78,34 @@ export function voteTicket(req, res) {
   const { voteType } = req.body; // 'up' | 'down'
   const userId = req.headers['x-user-id'] || 'user_arjun';
 
-  const ticket = tickets.find(t => t.id === id);
-  if (!ticket) return res.status(404).json({ success: false, message: 'Ticket not found' });
+  const updatedTicket = updateTicketInDB(id, (ticket) => {
+    let upvotes = [...(ticket.upvotes || [])];
+    let downvotes = [...(ticket.downvotes || [])];
 
-  let upvotes = [...ticket.upvotes];
-  let downvotes = [...ticket.downvotes];
-
-  if (voteType === 'up') {
-    if (upvotes.includes(userId)) {
-      upvotes = upvotes.filter(u => u !== userId);
-    } else {
-      upvotes.push(userId);
-      downvotes = downvotes.filter(u => u !== userId);
+    if (voteType === 'up') {
+      if (upvotes.includes(userId)) {
+        upvotes = upvotes.filter(u => u !== userId);
+      } else {
+        upvotes.push(userId);
+        downvotes = downvotes.filter(u => u !== userId);
+      }
+    } else if (voteType === 'down') {
+      if (downvotes.includes(userId)) {
+        downvotes = downvotes.filter(u => u !== userId);
+      } else {
+        downvotes.push(userId);
+        upvotes = upvotes.filter(u => u !== userId);
+      }
     }
-  } else if (voteType === 'down') {
-    if (downvotes.includes(userId)) {
-      downvotes = downvotes.filter(u => u !== userId);
-    } else {
-      downvotes.push(userId);
-      upvotes = upvotes.filter(u => u !== userId);
-    }
-  }
 
-  ticket.upvotes = upvotes;
-  ticket.downvotes = downvotes;
-  ticket.priorityScore = calculatePriorityScore(ticket);
+    ticket.upvotes = upvotes;
+    ticket.downvotes = downvotes;
+    ticket.priorityScore = calculatePriorityScore(ticket);
+    return ticket;
+  });
 
-  res.json({ success: true, ticket });
+  if (!updatedTicket) return res.status(404).json({ success: false, message: 'Ticket not found' });
+  res.json({ success: true, ticket: updatedTicket });
 }
 
 // Domain Admin Updates (Status, ETA, Technician, Note)
@@ -105,15 +113,16 @@ export function updateTicketAdmin(req, res) {
   const { id } = req.params;
   const { status, eta, adminNote, assignedTo } = req.body;
 
-  const ticket = tickets.find(t => t.id === id);
-  if (!ticket) return res.status(404).json({ success: false, message: 'Ticket not found' });
+  const updatedTicket = updateTicketInDB(id, (ticket) => {
+    if (status) ticket.status = status;
+    if (eta !== undefined) ticket.eta = eta;
+    if (adminNote !== undefined) ticket.adminNote = adminNote;
+    if (assignedTo !== undefined) ticket.assignedTo = assignedTo;
+    return ticket;
+  });
 
-  if (status) ticket.status = status;
-  if (eta !== undefined) ticket.eta = eta;
-  if (adminNote !== undefined) ticket.adminNote = adminNote;
-  if (assignedTo !== undefined) ticket.assignedTo = assignedTo;
-
-  res.json({ success: true, ticket });
+  if (!updatedTicket) return res.status(404).json({ success: false, message: 'Ticket not found' });
+  res.json({ success: true, ticket: updatedTicket });
 }
 
 // Two-Way Student Verification Closure Loop
@@ -121,41 +130,43 @@ export function verifyResolution(req, res) {
   const { id } = req.params;
   const { isApproved, feedback } = req.body;
 
-  const ticket = tickets.find(t => t.id === id);
-  if (!ticket) return res.status(404).json({ success: false, message: 'Ticket not found' });
+  const updatedTicket = updateTicketInDB(id, (ticket) => {
+    if (isApproved) {
+      ticket.status = 'resolved';
+      ticket.adminNote = (ticket.adminNote || '') + `\n[Verified & Closed by Reporter: "${feedback || 'Confirmed on-site'}"]`;
+    } else {
+      ticket.status = 'in_progress';
+      ticket.priorityScore = Math.min(ticket.priorityScore + 15, 100);
+      ticket.adminNote = (ticket.adminNote || '') + `\n[REOPENED by Reporter: "${feedback || 'Still broken'}" - Escalated]`;
+    }
+    return ticket;
+  });
 
-  if (isApproved) {
-    ticket.status = 'resolved';
-    ticket.adminNote += `\n[Verified & Closed by Reporter: "${feedback || 'Confirmed on-site'}"]`;
-  } else {
-    ticket.status = 'in_progress';
-    ticket.priorityScore = Math.min(ticket.priorityScore + 15, 100);
-    ticket.adminNote += `\n[REOPENED by Reporter: "${feedback || 'Still broken'}" - Escalated]`;
-  }
-
-  res.json({ success: true, ticket });
+  if (!updatedTicket) return res.status(404).json({ success: false, message: 'Ticket not found' });
+  res.json({ success: true, ticket: updatedTicket });
 }
 
 // Faculty Advisor Endorsement
 export function endorseTicket(req, res) {
   const { id } = req.params;
-  const ticket = tickets.find(t => t.id === id);
-  if (!ticket) return res.status(404).json({ success: false, message: 'Ticket not found' });
 
-  ticket.advisorEndorsed = true;
-  ticket.priorityScore = calculatePriorityScore(ticket);
-  res.json({ success: true, ticket });
+  const updatedTicket = updateTicketInDB(id, (ticket) => {
+    ticket.advisorEndorsed = true;
+    ticket.priorityScore = calculatePriorityScore(ticket);
+    return ticket;
+  });
+
+  if (!updatedTicket) return res.status(404).json({ success: false, message: 'Ticket not found' });
+  res.json({ success: true, ticket: updatedTicket });
 }
 
 // Add Comment
 export function addComment(req, res) {
   const { id } = req.params;
   const { text } = req.body;
+  const users = getUsersFromDB();
   const userId = req.headers['x-user-id'] || 'user_arjun';
-  const user = USERS.find(u => u.id === userId) || USERS[0];
-
-  const ticket = tickets.find(t => t.id === id);
-  if (!ticket) return res.status(404).json({ success: false, message: 'Ticket not found' });
+  const user = users.find(u => u.id === userId) || users[0];
 
   const comment = {
     id: `c_${Date.now()}`,
@@ -167,6 +178,12 @@ export function addComment(req, res) {
     isOfficial: user.role !== 'student'
   };
 
-  ticket.comments.push(comment);
-  res.status(201).json({ success: true, comment });
+  const updatedTicket = updateTicketInDB(id, (ticket) => {
+    ticket.comments = ticket.comments || [];
+    ticket.comments.push(comment);
+    return ticket;
+  });
+
+  if (!updatedTicket) return res.status(404).json({ success: false, message: 'Ticket not found' });
+  res.status(201).json({ success: true, comment, ticket: updatedTicket });
 }

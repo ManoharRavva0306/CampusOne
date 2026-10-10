@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { USERS, INITIAL_TICKETS, CATEGORIES } from '../data/mockData';
+import { api } from '../services/api';
 import confetti from 'canvas-confetti';
 
 const AppContext = createContext();
@@ -53,6 +54,17 @@ export function AppProvider({ children }) {
   const [feedMode, setFeedMode] = useState('swipe'); // 'swipe' | 'grid'
   const [selectedTicketForDetail, setSelectedTicketForDetail] = useState(null);
   const [notification, setNotification] = useState(null);
+
+  // Sync with real backend database on mount
+  useEffect(() => {
+    async function loadFromDB() {
+      const data = await api.getTickets(currentUser?.id);
+      if (data && data.success && Array.isArray(data.tickets) && data.tickets.length > 0) {
+        setTickets(data.tickets.map(sanitizeTicket));
+      }
+    }
+    loadFromDB();
+  }, [currentUser?.id]);
 
   // Sync to local storage
   useEffect(() => {
@@ -192,6 +204,9 @@ export function AppProvider({ children }) {
       return updated;
     }));
 
+    // Persist to real backend database
+    api.voteTicket(ticketId, voteType, currentUser.id).catch(err => console.warn('DB vote persist error:', err));
+
     if (voteType === 'up') {
       showNotification('Voted Support! Priority score boosted.', 'success');
     } else {
@@ -232,6 +247,10 @@ export function AppProvider({ children }) {
 
     setTickets(prev => [newTicket, ...prev]);
     showNotification(`Problem ticket #${newId} logged successfully!`, 'success');
+
+    // Persist to real backend database
+    api.createTicket(ticketData, currentUser.id).catch(err => console.warn('DB async persist error:', err));
+
     return newTicket;
   };
 
