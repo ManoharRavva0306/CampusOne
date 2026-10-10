@@ -63,51 +63,51 @@ export default function TicketDetailModal({ ticket, onClose }) {
   const currentStepIdx = getStepIndex(currentTicket);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-forest-950/70 backdrop-blur-sm animate-fade-in">
-      <div className="bg-white border border-ivory-300 rounded-3xl max-w-3xl w-full p-6 shadow-2xl overflow-hidden flex flex-col max-h-[92vh] animate-scale-in">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 bg-forest-950/70 backdrop-blur-sm animate-fade-in overscroll-contain">
+      <div className="bg-white border border-ivory-300 rounded-2xl sm:rounded-3xl max-w-3xl w-full p-3.5 sm:p-6 shadow-2xl overflow-hidden flex flex-col max-h-[96dvh] animate-scale-in">
         
         {/* Header */}
-        <div className="flex items-center justify-between pb-4 border-b border-ivory-200">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-mono font-bold text-forest-950 px-2.5 py-0.5 rounded-full bg-ivory-200 border border-ivory-300">
+        <div className="flex items-center justify-between pb-3 sm:pb-4 border-b border-ivory-200 gap-2">
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+            <span className="text-[11px] sm:text-xs font-mono font-bold text-forest-950 px-2 py-0.5 rounded-full bg-ivory-200 border border-ivory-300">
               #{currentTicket.id}
             </span>
-            <span className="text-xs text-charcoal-500">
+            <span className="text-[11px] sm:text-xs text-charcoal-500">
               Scope: <strong className="text-forest-950 capitalize">{currentTicket.scope?.replace('_', ' ')}</strong>
             </span>
             {(currentTicket.advisorEndorsed || currentTicket.advisorApprovalStatus === 'approved') && (
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                ✓ Advisor Approved (+20 Priority)
+              <span className="px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                ✓ Advisor Approved (+20)
               </span>
             )}
             {(currentTicket.wardenEndorsed || currentTicket.wardenApprovalStatus === 'approved') && (
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
-                ✓ Warden Approved (+20 Priority)
+              <span className="px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                ✓ Warden Approved (+20)
               </span>
             )}
           </div>
 
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-charcoal-400 hover:text-forest-950 hover:bg-ivory-200 transition-colors"
+            className="p-1.5 rounded-lg text-charcoal-400 hover:text-forest-950 hover:bg-ivory-200 transition-colors touch-press shrink-0"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Modal Scrollable Body */}
-        <div className="flex-1 overflow-y-auto py-5 pr-1 space-y-6">
+        <div className="flex-1 overflow-y-auto py-4 sm:py-5 pr-1 space-y-4 sm:space-y-6">
 
           {/* Lifecycle Stepper */}
-          <div className="bg-ivory-100/80 p-4 rounded-2xl border border-ivory-200">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-charcoal-500 mb-3 flex items-center justify-between">
-              <span>2-Stage Governance & Resolution Lifecycle</span>
+          <div className="bg-ivory-100/80 p-3 sm:p-4 rounded-2xl border border-ivory-200 overflow-x-auto no-scrollbar">
+            <div className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-charcoal-500 mb-2 sm:mb-3 flex items-center justify-between min-w-[280px]">
+              <span>2-Stage Lifecycle</span>
               <span className="text-emerald-700 font-mono font-bold">
                 {currentTicket.status.replace('_', ' ').toUpperCase()}
               </span>
             </div>
 
-            <div className="flex items-center justify-between relative px-2">
+            <div className="flex items-center justify-between relative px-2 min-w-[280px]">
               <div className="absolute left-6 right-6 top-1/2 -translate-y-1/2 h-1 bg-ivory-300 -z-0" />
               <div 
                 className="absolute left-6 top-1/2 -translate-y-1/2 h-1 bg-emerald-600 transition-all duration-500 -z-0" 
@@ -116,14 +116,14 @@ export default function TicketDetailModal({ ticket, onClose }) {
 
               {steps.map((st, i) => (
                 <div key={st.key} className="flex flex-col items-center z-10">
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold border-2 transition-all ${
+                  <div className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-[9px] sm:text-[10px] font-bold border-2 transition-all ${
                     i <= currentStepIdx 
                       ? 'bg-emerald-600 border-white text-white shadow-sm' 
                       : 'bg-white border-ivory-300 text-charcoal-400'
                   }`}>
                     {i < currentStepIdx ? '✓' : i + 1}
                   </div>
-                  <span className={`text-[10px] mt-1 font-semibold text-center ${i <= currentStepIdx ? 'text-forest-950' : 'text-charcoal-400'}`}>
+                  <span className={`text-[8px] sm:text-[10px] mt-1 font-semibold text-center max-w-[56px] sm:max-w-none truncate sm:whitespace-normal ${i <= currentStepIdx ? 'text-forest-950' : 'text-charcoal-400'}`}>
                     {st.label}
                   </span>
                 </div>

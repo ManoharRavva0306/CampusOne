@@ -52,6 +52,12 @@ export default function SwipeCardFeed() {
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
 
+  // Touch gesture state for native mobile swiping
+  const [touchStartX, setTouchStartX] = useState(0);
+  const [touchStartY, setTouchStartY] = useState(0);
+  const [dragOffset, setDragOffset] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+
   // Filter strictly based on authorized scope visibility
   const authorizedTickets = useMemo(() => {
     return tickets.filter(t => isTicketVisibleToUser(t));
@@ -114,12 +120,48 @@ export default function SwipeCardFeed() {
     // Advance to next card with smooth transition
     setTimeout(() => {
       setSwipeDirection(null);
+      setDragOffset(0);
       if (activeSwipeIndex < filteredTickets.length - 1) {
         setActiveSwipeIndex(prev => prev + 1);
       } else {
         setActiveSwipeIndex(0); // Loop back or complete
       }
     }, 320);
+  };
+
+  // Mobile Touch Handlers for Genuine Swipe Physics
+  const handleTouchStart = (e) => {
+    if (swipeDirection || !currentSwipeTicket) return;
+    setTouchStartX(e.touches[0].clientX);
+    setTouchStartY(e.touches[0].clientY);
+    setIsDragging(true);
+  };
+
+  const handleTouchMove = (e) => {
+    if (!isDragging || swipeDirection || !currentSwipeTicket) return;
+    const currentX = e.touches[0].clientX;
+    const currentY = e.touches[0].clientY;
+    const diffX = currentX - touchStartX;
+    const diffY = currentY - touchStartY;
+
+    // Only engage horizontal swipe if dragging more horizontally than vertically
+    if (Math.abs(diffX) > Math.abs(diffY)) {
+      setDragOffset(diffX);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (!isDragging) return;
+    setIsDragging(false);
+
+    // Dynamic swipe threshold: 75px
+    if (dragOffset > 75) {
+      handleSwipe('right');
+    } else if (dragOffset < -75) {
+      handleSwipe('left');
+    } else {
+      setDragOffset(0);
+    }
   };
 
   // Keyboard navigation for swipe (Left / Right Arrow Keys)
@@ -227,53 +269,53 @@ export default function SwipeCardFeed() {
       </div>
 
       {/* Metric Summary Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
         
         <div
           onClick={() => { setFeedFilter('my_requests'); setFeedMode('grid'); setActiveSwipeIndex(0); }}
-          className={`p-4 sm:p-5 rounded-2xl border shadow-card cursor-pointer transition-all hover:border-emerald-400 ${
+          className={`p-3.5 sm:p-5 rounded-2xl border shadow-card cursor-pointer transition-all hover:border-emerald-400 touch-press ${
             feedFilter === 'my_requests' ? 'bg-emerald-50/70 border-emerald-400 ring-2 ring-emerald-500/20' : 'bg-white border-ivory-300'
           }`}
         >
-          <div className="text-xs text-charcoal-500 font-semibold flex items-center justify-between">
+          <div className="text-[11px] sm:text-xs text-charcoal-500 font-semibold flex items-center justify-between">
             <span>My Requests</span>
-            <User className="w-4 h-4 text-emerald-600" />
+            <User className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600" />
           </div>
-          <div className="text-2xl font-black text-forest-950 mt-2">{myReportsCount}</div>
-          <div className="text-[11px] text-emerald-700 font-semibold mt-1">Click to track or delete →</div>
+          <div className="text-xl sm:text-2xl font-black text-forest-950 mt-1 sm:mt-2">{myReportsCount}</div>
+          <div className="text-[10px] sm:text-[11px] text-emerald-700 font-semibold mt-0.5 sm:mt-1">Track & delete →</div>
         </div>
 
-        <div className={`p-4 sm:p-5 rounded-2xl border shadow-card transition-all ${
+        <div className={`p-3.5 sm:p-5 rounded-2xl border shadow-card transition-all touch-press ${
           awaitingVerificationCount > 0 
             ? 'bg-amber-50/70 border-amber-300' 
             : 'bg-white border-ivory-300'
         }`}>
-          <div className="text-xs text-charcoal-500 font-semibold flex items-center justify-between">
+          <div className="text-[11px] sm:text-xs text-charcoal-500 font-semibold flex items-center justify-between">
             <span>Awaiting Action</span>
-            <Clock className={`w-4 h-4 ${awaitingVerificationCount > 0 ? 'text-amber-600' : 'text-charcoal-400'}`} />
+            <Clock className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${awaitingVerificationCount > 0 ? 'text-amber-600' : 'text-charcoal-400'}`} />
           </div>
-          <div className={`text-2xl font-black mt-2 ${awaitingVerificationCount > 0 ? 'text-amber-800' : 'text-forest-950'}`}>
+          <div className={`text-xl sm:text-2xl font-black mt-1 sm:mt-2 ${awaitingVerificationCount > 0 ? 'text-amber-800' : 'text-forest-950'}`}>
             {awaitingVerificationCount}
           </div>
-          <div className="text-[11px] text-charcoal-500 mt-1">Needs your on-site sign-off</div>
+          <div className="text-[10px] sm:text-[11px] text-charcoal-500 mt-0.5 sm:mt-1">Needs sign-off</div>
         </div>
 
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-ivory-300 shadow-card">
-          <div className="text-xs text-charcoal-500 font-semibold flex items-center justify-between">
+        <div className="bg-white p-3.5 sm:p-5 rounded-2xl border border-ivory-300 shadow-card">
+          <div className="text-[11px] sm:text-xs text-charcoal-500 font-semibold flex items-center justify-between">
             <span>In Progress</span>
-            <Wrench className="w-4 h-4 text-charcoal-400" />
+            <Wrench className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-charcoal-400" />
           </div>
-          <div className="text-2xl font-black text-forest-950 mt-2">{inProgressCount}</div>
-          <div className="text-[11px] text-charcoal-500 mt-1">Technicians dispatched</div>
+          <div className="text-xl sm:text-2xl font-black text-forest-950 mt-1 sm:mt-2">{inProgressCount}</div>
+          <div className="text-[10px] sm:text-[11px] text-charcoal-500 mt-0.5 sm:mt-1">Technicians active</div>
         </div>
 
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-ivory-300 shadow-card">
-          <div className="text-xs text-charcoal-500 font-semibold flex items-center justify-between">
+        <div className="bg-white p-3.5 sm:p-5 rounded-2xl border border-ivory-300 shadow-card">
+          <div className="text-[11px] sm:text-xs text-charcoal-500 font-semibold flex items-center justify-between">
             <span>Resolved</span>
-            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+            <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600" />
           </div>
-          <div className="text-2xl font-black text-emerald-700 mt-2">{resolvedCount}</div>
-          <div className="text-[11px] text-charcoal-500 mt-1">Verified on-site by students</div>
+          <div className="text-xl sm:text-2xl font-black text-emerald-700 mt-1 sm:mt-2">{resolvedCount}</div>
+          <div className="text-[10px] sm:text-[11px] text-charcoal-500 mt-0.5 sm:mt-1">Student verified</div>
         </div>
 
       </div>
@@ -282,10 +324,10 @@ export default function SwipeCardFeed() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
         
         {/* Scope Privacy Tabs */}
-        <div className="flex items-center space-x-1.5 overflow-x-auto pb-1 text-xs font-semibold">
+        <div className="flex items-center space-x-1.5 overflow-x-auto pb-1 text-xs font-semibold no-scrollbar touch-pan-y">
           <button
             onClick={() => { setFeedFilter('all'); setActiveSwipeIndex(0); }}
-            className={`px-3 py-1.5 rounded-xl whitespace-nowrap transition-all ${
+            className={`px-3 py-1.5 rounded-xl whitespace-nowrap transition-all touch-press ${
               feedFilter === 'all'
                 ? 'bg-[#092d25] text-white shadow-md border border-[#092d25]'
                 : 'text-[#192822] hover:text-[#092d25] hover:bg-[#eef2ec] bg-white border border-ivory-300'
@@ -301,7 +343,7 @@ export default function SwipeCardFeed() {
 
           <button
             onClick={() => { setFeedFilter('my_requests'); setFeedMode('grid'); setActiveSwipeIndex(0); }}
-            className={`px-3 py-1.5 rounded-xl whitespace-nowrap transition-all flex items-center space-x-1.5 ${
+            className={`px-3 py-1.5 rounded-xl whitespace-nowrap transition-all flex items-center space-x-1.5 touch-press ${
               feedFilter === 'my_requests'
                 ? 'bg-[#092d25] text-white shadow-md border border-[#092d25]'
                 : 'text-[#192822] hover:text-[#092d25] hover:bg-[#eef2ec] bg-white border border-ivory-300'
@@ -318,7 +360,7 @@ export default function SwipeCardFeed() {
 
           <button
             onClick={() => { setFeedFilter('class'); setActiveSwipeIndex(0); }}
-            className={`px-3 py-1.5 rounded-xl whitespace-nowrap transition-all flex items-center space-x-1.5 ${
+            className={`px-3 py-1.5 rounded-xl whitespace-nowrap transition-all flex items-center space-x-1.5 touch-press ${
               feedFilter === 'class'
                 ? 'bg-[#092d25] text-white shadow-md border border-[#092d25]'
                 : 'text-[#192822] hover:text-[#092d25] hover:bg-[#eef2ec] bg-white border border-ivory-300'
@@ -335,7 +377,7 @@ export default function SwipeCardFeed() {
 
           <button
             onClick={() => { setFeedFilter('room'); setActiveSwipeIndex(0); }}
-            className={`px-3 py-1.5 rounded-xl whitespace-nowrap transition-all flex items-center space-x-1.5 ${
+            className={`px-3 py-1.5 rounded-xl whitespace-nowrap transition-all flex items-center space-x-1.5 touch-press ${
               feedFilter === 'room'
                 ? 'bg-[#092d25] text-white shadow-md border border-[#092d25]'
                 : 'text-[#192822] hover:text-[#092d25] hover:bg-[#eef2ec] bg-white border border-ivory-300'
@@ -352,7 +394,7 @@ export default function SwipeCardFeed() {
 
           <button
             onClick={() => { setFeedFilter('department'); setActiveSwipeIndex(0); }}
-            className={`px-3 py-1.5 rounded-xl whitespace-nowrap transition-all flex items-center space-x-1.5 ${
+            className={`px-3 py-1.5 rounded-xl whitespace-nowrap transition-all flex items-center space-x-1.5 touch-press ${
               feedFilter === 'department'
                 ? 'bg-[#092d25] text-white shadow-md border border-[#092d25]'
                 : 'text-[#192822] hover:text-[#092d25] hover:bg-[#eef2ec] bg-white border border-ivory-300'
@@ -369,7 +411,7 @@ export default function SwipeCardFeed() {
 
           <button
             onClick={() => { setFeedFilter('campus'); setActiveSwipeIndex(0); }}
-            className={`px-3 py-1.5 rounded-xl whitespace-nowrap transition-all flex items-center space-x-1.5 ${
+            className={`px-3 py-1.5 rounded-xl whitespace-nowrap transition-all flex items-center space-x-1.5 touch-press ${
               feedFilter === 'campus'
                 ? 'bg-[#092d25] text-white shadow-md border border-[#092d25]'
                 : 'text-[#192822] hover:text-[#092d25] hover:bg-[#eef2ec] bg-white border border-ivory-300'
@@ -426,39 +468,56 @@ export default function SwipeCardFeed() {
               <div className="absolute inset-0 bg-white/70 rounded-3xl transform scale-95 translate-y-3 -z-10 border border-ivory-300 shadow-md" />
               <div className="absolute inset-0 bg-white/40 rounded-3xl transform scale-90 translate-y-6 -z-20 border border-ivory-300 shadow-sm" />
 
-              {/* Active Swiping Card */}
+              {/* Active Swiping Card with Native Touch Drag */}
               <div
-                className={`bg-white rounded-3xl border border-ivory-300 overflow-hidden shadow-modal relative transition-transform duration-300 ${
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+                style={
+                  dragOffset !== 0
+                    ? {
+                        transform: `translateX(${dragOffset}px) rotate(${dragOffset * 0.04}deg)`,
+                        transition: isDragging ? 'none' : 'transform 0.25s ease'
+                      }
+                    : undefined
+                }
+                className={`bg-white rounded-3xl border border-ivory-300 overflow-hidden shadow-modal relative transition-transform duration-300 select-none touch-pan-y ${
                   swipeDirection === 'right' ? 'animate-swipe-right' :
                   swipeDirection === 'left' ? 'animate-swipe-left' : ''
                 }`}
               >
-                {/* Visual Stamp Overlays on Swipe Action */}
-                {swipeDirection === 'right' && (
-                  <div className="absolute top-8 right-8 z-40 px-5 py-2.5 rounded-2xl bg-[#13a879] text-white font-black text-lg border-2 border-white shadow-2xl rotate-12 flex items-center space-x-2 animate-fade-in">
+                {/* Visual Stamp Overlays on Swipe Action or Touch Drag */}
+                {(swipeDirection === 'right' || dragOffset > 25) && (
+                  <div 
+                    className="absolute top-8 right-8 z-40 px-5 py-2.5 rounded-2xl bg-[#13a879] text-white font-black text-lg border-2 border-white shadow-2xl rotate-12 flex items-center space-x-2 animate-fade-in pointer-events-none"
+                    style={{ opacity: swipeDirection === 'right' ? 1 : Math.min(1, dragOffset / 75) }}
+                  >
                     <ThumbsUp className="w-6 h-6" />
                     <span>SUPPORT & BOOST</span>
                   </div>
                 )}
-                {swipeDirection === 'left' && (
-                  <div className="absolute top-8 left-8 z-40 px-5 py-2.5 rounded-2xl bg-rose-600 text-white font-black text-lg border-2 border-white shadow-2xl -rotate-12 flex items-center space-x-2 animate-fade-in">
+                {(swipeDirection === 'left' || dragOffset < -25) && (
+                  <div 
+                    className="absolute top-8 left-8 z-40 px-5 py-2.5 rounded-2xl bg-rose-600 text-white font-black text-lg border-2 border-white shadow-2xl -rotate-12 flex items-center space-x-2 animate-fade-in pointer-events-none"
+                    style={{ opacity: swipeDirection === 'left' ? 1 : Math.min(1, Math.abs(dragOffset) / 75) }}
+                  >
                     <ThumbsDown className="w-6 h-6" />
                     <span>OPPOSE / LOWER</span>
                   </div>
                 )}
 
                 {/* Card Media Header */}
-                <div className="relative h-64 sm:h-72 overflow-hidden bg-forest-950">
+                <div className="relative h-52 sm:h-64 md:h-72 overflow-hidden bg-forest-950">
                   <img
                     src={currentSwipeTicket.imageUrl}
                     alt={currentSwipeTicket.title}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover pointer-events-none"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-forest-950 via-forest-950/40 to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-forest-950 via-forest-950/40 to-transparent pointer-events-none" />
 
                   {/* Top Badges */}
-                  <div className="absolute top-4 left-4 right-4 flex items-center justify-between">
-                    <div className="flex items-center space-x-1.5">
+                  <div className="absolute top-3 sm:top-4 left-3 sm:left-4 right-3 sm:right-4 flex items-center justify-between">
+                    <div className="flex items-center space-x-1.5 flex-wrap gap-1">
                       {getScopeBadge(currentSwipeTicket)}
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-950/85 text-mint-300 border border-emerald-400/40 flex items-center space-x-1 shadow-sm backdrop-blur-sm">
                         <Sparkles className="w-2.5 h-2.5 text-mint-300" />
@@ -469,7 +528,7 @@ export default function SwipeCardFeed() {
                   </div>
 
                   {/* Priority Gauge & Location */}
-                  <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between text-white">
+                  <div className="absolute bottom-3 sm:bottom-4 left-3 sm:left-4 right-3 sm:right-4 flex items-end justify-between text-white">
                     <div className="space-y-0.5">
                       <div className="flex items-center space-x-1.5 text-xs text-mint-200">
                         <MapPin className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
@@ -488,7 +547,7 @@ export default function SwipeCardFeed() {
 
                     <div className="bg-forest-950/90 backdrop-blur-md px-3 py-1.5 rounded-xl border border-emerald-500/40 text-center shadow-lg">
                       <div className="text-[9px] uppercase font-bold text-mint-300">Priority</div>
-                      <div className="text-lg font-black text-white flex items-center justify-center space-x-1">
+                      <div className="text-base sm:text-lg font-black text-white flex items-center justify-center space-x-1">
                         <Flame className="w-4 h-4 text-emerald-400 fill-emerald-400" />
                         <span>{currentSwipeTicket.priorityScore}</span>
                         <span className="text-[10px] text-ivory-300 font-normal">/100</span>
@@ -498,7 +557,7 @@ export default function SwipeCardFeed() {
                 </div>
 
                 {/* Card Content Body */}
-                <div className="p-6 space-y-4 text-left">
+                <div className="p-4 sm:p-6 space-y-3.5 sm:space-y-4 text-left">
                   
                   {/* Card Index Pill */}
                   <div className="flex items-center justify-between text-xs text-charcoal-500">
@@ -509,7 +568,7 @@ export default function SwipeCardFeed() {
                   {/* Title */}
                   <h3 
                     onClick={() => setSelectedTicketForDetail(currentSwipeTicket)}
-                    className="text-lg sm:text-xl font-extrabold text-forest-950 hover:text-emerald-700 cursor-pointer transition-colors leading-snug"
+                    className="text-base sm:text-xl font-extrabold text-forest-950 hover:text-emerald-700 cursor-pointer transition-colors leading-snug"
                   >
                     {currentSwipeTicket.title}
                   </h3>
@@ -581,7 +640,7 @@ export default function SwipeCardFeed() {
                     </div>
                     <button
                       onClick={() => setSelectedTicketForDetail(currentSwipeTicket)}
-                      className="text-xs text-emerald-700 hover:text-emerald-800 font-semibold flex items-center space-x-1"
+                      className="text-xs text-emerald-700 hover:text-emerald-800 font-semibold flex items-center space-x-1 touch-press"
                     >
                       <span>{currentSwipeTicket.comments?.length || 0} Comments</span>
                       <ChevronRight className="w-3.5 h-3.5" />
@@ -589,11 +648,11 @@ export default function SwipeCardFeed() {
                   </div>
 
                   {/* Tactile Big Swipe Action Buttons */}
-                  <div className="grid grid-cols-2 gap-3 pt-2">
+                  <div className="grid grid-cols-2 gap-2.5 sm:gap-3 pt-2">
                     <button
                       onClick={() => handleSwipe('left')}
-                      className="py-3 px-4 rounded-2xl bg-white hover:bg-rose-50 border border-rose-200 hover:border-rose-400 text-rose-700 font-bold text-xs flex items-center justify-center space-x-2 transition-all shadow-subtle hover:scale-[1.02]"
-                      title="Vote oppose or lower priority (or press ← Left Arrow)"
+                      className="py-3 px-3 sm:px-4 rounded-2xl bg-white hover:bg-rose-50 border border-rose-200 hover:border-rose-400 text-rose-700 font-bold text-xs flex items-center justify-center space-x-2 transition-all shadow-subtle touch-press"
+                      title="Vote oppose or lower priority (or swipe left)"
                     >
                       <ThumbsDown className="w-4 h-4 text-rose-600" />
                       <span>Swipe Left (Oppose)</span>
@@ -601,8 +660,8 @@ export default function SwipeCardFeed() {
 
                     <button
                       onClick={() => handleSwipe('right')}
-                      className="py-3 px-4 rounded-2xl bg-[#13a879] hover:bg-[#0f8e65] text-white font-bold text-xs flex items-center justify-center space-x-2 shadow-lg shadow-emerald-950/20 transition-all hover:scale-[1.02]"
-                      title="Vote support and boost priority (or press → Right Arrow)"
+                      className="py-3 px-3 sm:px-4 rounded-2xl bg-[#13a879] hover:bg-[#0f8e65] text-white font-bold text-xs flex items-center justify-center space-x-2 shadow-lg shadow-emerald-950/20 transition-all touch-press"
+                      title="Vote support and boost priority (or swipe right)"
                     >
                       <ThumbsUp className="w-4 h-4 text-white" />
                       <span>Swipe Right (Support)</span>
@@ -625,9 +684,10 @@ export default function SwipeCardFeed() {
                     ))}
                   </div>
 
-                  {/* Keyboard hint */}
-                  <div className="text-center text-[10px] text-charcoal-400">
-                    Tip: You can also use <kbd className="px-1 py-0.5 bg-ivory-200 rounded border text-charcoal-700">← Left</kbd> or <kbd className="px-1 py-0.5 bg-ivory-200 rounded border text-charcoal-700">Right →</kbd> arrow keys to swipe
+                  {/* Touch swipe gesture hint for mobile & keyboard hint for desktop */}
+                  <div className="text-center text-[10px] text-charcoal-500 pt-1">
+                    <span className="sm:hidden">👆 Drag card horizontally or tap buttons above</span>
+                    <span className="hidden sm:inline">Tip: You can also use <kbd className="px-1 py-0.5 bg-ivory-200 rounded border text-charcoal-700">← Left</kbd> or <kbd className="px-1 py-0.5 bg-ivory-200 rounded border text-charcoal-700">Right →</kbd> arrow keys to swipe</span>
                   </div>
 
                 </div>

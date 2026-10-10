@@ -326,30 +326,30 @@ export default function RaiseIssueModal({ onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-forest-950/70 backdrop-blur-sm animate-fade-in">
-      <div className="bg-white border border-ivory-300 rounded-3xl max-w-2xl w-full p-6 shadow-2xl overflow-hidden flex flex-col max-h-[92vh] animate-scale-in">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 bg-forest-950/70 backdrop-blur-sm animate-fade-in overscroll-contain">
+      <div className="bg-white border border-ivory-300 rounded-2xl sm:rounded-3xl max-w-2xl w-full p-3.5 sm:p-6 shadow-2xl overflow-hidden flex flex-col max-h-[96dvh] animate-scale-in">
         
         {/* Header */}
-        <div className="pb-4 border-b border-ivory-200 flex items-center justify-between">
+        <div className="pb-3 sm:pb-4 border-b border-ivory-200 flex items-center justify-between gap-2">
           <div>
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-1.5 sm:space-x-2">
               <span className="p-1 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200">
-                <GitFork className="w-4 h-4" />
+                <GitFork className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </span>
-              <h3 className="text-base font-bold text-forest-950">Guided Issue Reporting Wizard</h3>
+              <h3 className="text-sm sm:text-base font-bold text-forest-950">Issue Reporting Wizard</h3>
             </div>
-            <p className="text-xs text-charcoal-500 mt-0.5">
-              Refines scope to protect student privacy and automatically allocate to the responsible department.
+            <p className="text-[11px] sm:text-xs text-charcoal-500 mt-0.5 line-clamp-1 sm:line-clamp-none">
+              Refines scope to protect student privacy and ensure fast routing.
             </p>
           </div>
 
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-2 sm:space-x-3 shrink-0">
             {/* Step Progress Pills */}
-            <div className="flex items-center space-x-1.5">
+            <div className="flex items-center space-x-1 sm:space-x-1.5">
               {[1, 2, 3, 4].map(s => (
                 <div 
                   key={s}
-                  className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold transition-all ${
+                  className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-[10px] sm:text-[11px] font-bold transition-all ${
                     step === s 
                       ? 'bg-[#092d25] text-white shadow-sm'
                       : step > s 
@@ -366,7 +366,7 @@ export default function RaiseIssueModal({ onClose }) {
               ))}
             </div>
 
-            <button onClick={handleModalClose} className="p-1 text-charcoal-400 hover:text-forest-950">
+            <button onClick={handleModalClose} className="p-1 text-charcoal-400 hover:text-forest-950 touch-press">
               <X className="w-5 h-5" />
             </button>
           </div>
@@ -659,13 +659,13 @@ export default function RaiseIssueModal({ onClose }) {
                 {/* Live Camera Viewfinder (when camera active) */}
                 {isCameraActive ? (
                   <div className="rounded-2xl border-2 border-emerald-500 bg-black overflow-hidden relative p-2 space-y-2 animate-fade-in shadow-xl">
-                    <div className="relative rounded-xl overflow-hidden bg-black flex items-center justify-center min-h-[200px]">
+                    <div className="relative rounded-xl overflow-hidden bg-black flex items-center justify-center min-h-[160px] sm:min-h-[200px]">
                       <video
                         ref={videoRef}
                         autoPlay
                         playsInline
                         muted
-                        className="w-full h-56 object-cover rounded-xl"
+                        className="w-full h-44 sm:h-56 object-cover rounded-xl"
                       />
                       <div className="absolute top-2 left-2 flex items-center space-x-1.5 bg-black/75 backdrop-blur-md px-2.5 py-1 rounded-full text-[10px] text-rose-400 font-bold border border-rose-500/40">
                         <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
@@ -683,7 +683,7 @@ export default function RaiseIssueModal({ onClose }) {
                       <button
                         type="button"
                         onClick={stopCamera}
-                        className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-semibold transition-colors"
+                        className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-semibold transition-colors touch-press"
                       >
                         Cancel
                       </button>
@@ -691,7 +691,7 @@ export default function RaiseIssueModal({ onClose }) {
                       <button
                         type="button"
                         onClick={capturePhoto}
-                        className="btn-primary py-2 px-5 text-xs font-bold flex items-center space-x-2 shadow-lg ring-2 ring-emerald-400"
+                        className="btn-primary py-2 px-4 sm:px-5 text-xs font-bold flex items-center space-x-2 shadow-lg ring-2 ring-emerald-400 touch-press"
                       >
                         <Camera className="w-4 h-4" />
                         <span>Capture Photo</span>
@@ -700,7 +700,7 @@ export default function RaiseIssueModal({ onClose }) {
                       <button
                         type="button"
                         onClick={() => nativeCameraInputRef.current?.click()}
-                        className="px-2.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-mint-300 text-[11px] font-medium transition-colors"
+                        className="px-2.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-mint-300 text-[11px] font-medium transition-colors touch-press"
                         title="Open device camera application"
                       >
                         Native App
@@ -1151,12 +1151,12 @@ export default function RaiseIssueModal({ onClose }) {
         </div>
 
         {/* Wizard Footer Controls */}
-        <div className="pt-4 border-t border-ivory-200 flex items-center justify-between">
+        <div className="pt-3 sm:pt-4 border-t border-ivory-200 flex items-center justify-between pb-safe sm:pb-0">
           {step > 1 ? (
             <button
               type="button"
               onClick={handleBackStep}
-              className="flex items-center space-x-1 px-3 py-1.5 rounded-xl text-charcoal-600 hover:text-forest-950 hover:bg-ivory-200 text-xs font-semibold"
+              className="flex items-center space-x-1 px-3 py-2 rounded-xl text-charcoal-600 hover:text-forest-950 hover:bg-ivory-200 text-xs font-semibold touch-press"
             >
               <ChevronLeft className="w-4 h-4" />
               <span>Back</span>
@@ -1169,7 +1169,7 @@ export default function RaiseIssueModal({ onClose }) {
             <button
               type="button"
               onClick={handleNextStep}
-              className="btn-primary text-xs py-2 px-4 font-bold"
+              className="btn-primary text-xs py-2 sm:py-2.5 px-4 sm:px-5 font-bold touch-press"
             >
               <span>Continue</span>
               <ChevronRight className="w-4 h-4" />
@@ -1178,7 +1178,7 @@ export default function RaiseIssueModal({ onClose }) {
             <button
               type="button"
               onClick={handleModalClose}
-              className="text-xs text-charcoal-500 hover:text-charcoal-800"
+              className="text-xs text-charcoal-500 hover:text-charcoal-800 touch-press py-2 px-3"
             >
               Cancel
             </button>

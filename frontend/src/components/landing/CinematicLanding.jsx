@@ -43,47 +43,47 @@ export default function CinematicLanding({ onEnterWorkspace }) {
 
       {/* Landing Navigation Header */}
       <header className="relative z-20 border-b border-[#e2e9e3] bg-[#f7f8f3]/85 backdrop-blur-md sticky top-0">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 sm:h-20 flex items-center justify-between">
           
-          <div className="flex items-center space-x-3.5">
+          <div className="flex items-center space-x-2.5 sm:space-x-3.5">
             <div 
-              className="w-10 h-10 rounded-xl flex items-center justify-center font-black text-lg shadow-md"
+              className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center font-black text-base sm:text-lg shadow-md shrink-0"
               style={{ background: 'linear-gradient(135deg, #13a879 0%, #a6f2d0 100%)', color: '#092d25' }}
             >
               C1
             </div>
             <div>
-              <div className="flex items-center space-x-2">
-                <span className="text-xl font-bold tracking-tight text-[#092d25]">CampusOne</span>
-                <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+              <div className="flex items-center space-x-1.5 sm:space-x-2">
+                <span className="text-lg sm:text-xl font-bold tracking-tight text-[#092d25]">CampusOne</span>
+                <span className="text-[9px] sm:text-[10px] font-mono uppercase px-1.5 sm:px-2 py-0.5 rounded-full font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
                   GENESIS'26
                 </span>
               </div>
-              <p className="text-[11px] font-medium text-[#485c53]">
+              <p className="text-[10px] sm:text-[11px] font-medium text-[#485c53] hidden sm:block">
                 Amrita Vishwa Vidyapeetham • CMRS Platform
               </p>
             </div>
           </div>
 
-          <div className="flex items-center space-x-2.5">
+          <div className="flex items-center space-x-1.5 sm:space-x-2.5">
             <button
               onClick={scrollToPillars}
-              className="text-xs px-3 py-2 rounded-lg font-medium text-[#485c53] hover:text-[#092d25] transition-colors hidden sm:inline-block"
+              className="text-xs px-2.5 py-1.5 rounded-lg font-medium text-[#485c53] hover:text-[#092d25] transition-colors hidden md:inline-block"
             >
               How It Works
             </button>
 
             {currentUser ? (
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-1.5 sm:space-x-2">
                 <button
                   onClick={() => setShowLoginModal(true)}
-                  className="flex items-center space-x-2 bg-white/95 border border-[#cbdad0] px-3 py-1.5 rounded-xl shadow-xs hover:border-emerald-400 transition-all text-left"
+                  className="flex items-center space-x-2 bg-white/95 border border-[#cbdad0] px-2 py-1.5 sm:px-3 sm:py-1.5 rounded-xl shadow-xs hover:border-emerald-400 transition-all text-left touch-press"
                   title="Institutional Profile & Switch Account"
                 >
                   <img
                     src={currentUser.avatar}
                     alt={currentUser.name}
-                    className="w-7 h-7 rounded-full object-cover ring-2 ring-emerald-500/40"
+                    className="w-6 h-6 sm:w-7 sm:h-7 rounded-full object-cover ring-2 ring-emerald-500/40"
                   />
                   <div className="hidden sm:block">
                     <div className="text-xs font-bold text-[#092d25]">{currentUser.name}</div>
@@ -95,35 +95,38 @@ export default function CinematicLanding({ onEnterWorkspace }) {
 
                 <button
                   onClick={() => onEnterWorkspace('feed')}
-                  className="text-xs py-2 px-3.5 rounded-xl font-bold flex items-center space-x-1.5 shadow-md bg-[#13a879] hover:bg-[#0f8e65] text-white transition-all hover:scale-105"
+                  className="text-xs py-2 px-3 sm:px-3.5 rounded-xl font-bold flex items-center space-x-1.5 shadow-md bg-[#13a879] hover:bg-[#0f8e65] text-white transition-all touch-press"
                 >
-                  <span>Go to Workspace</span>
+                  <span className="hidden xs:inline sm:inline">Go to Workspace</span>
+                  <span className="xs:hidden">Workspace</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </button>
 
                 <button
                   onClick={logout}
-                  className="p-2 text-[#485c53] hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors"
+                  className="p-1.5 sm:p-2 text-[#485c53] hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors hidden xs:block sm:block"
                   title="Sign Out"
                 >
                   <LogOut className="w-4 h-4" />
                 </button>
               </div>
             ) : (
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-1.5 sm:space-x-2">
                 <button
                   onClick={() => setShowLoginModal(true)}
-                  className="text-xs py-2 px-3.5 rounded-xl font-bold flex items-center space-x-1.5 shadow-sm bg-white hover:bg-slate-50 text-[#092d25] border border-[#cbdad0] transition-all"
+                  className="text-xs py-1.5 sm:py-2 px-2.5 sm:px-3.5 rounded-xl font-bold flex items-center space-x-1 sm:space-x-1.5 shadow-sm bg-white hover:bg-slate-50 text-[#092d25] border border-[#cbdad0] transition-all touch-press"
                 >
                   <LogIn className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Institutional Sign-In</span>
+                  <span className="hidden xs:inline sm:inline">Sign-In</span>
+                  <span className="xs:hidden">Sign In</span>
                 </button>
 
                 <button
                   onClick={() => onEnterWorkspace('feed')}
-                  className="text-xs py-2 px-3.5 rounded-xl font-bold flex items-center space-x-1.5 shadow-md bg-[#13a879] hover:bg-[#0f8e65] text-white transition-all hover:scale-105"
+                  className="text-xs py-1.5 sm:py-2 px-3 sm:px-3.5 rounded-xl font-bold flex items-center space-x-1 sm:space-x-1.5 shadow-md bg-[#13a879] hover:bg-[#0f8e65] text-white transition-all touch-press"
                 >
-                  <span>Launch Workspace</span>
+                  <span className="hidden xs:inline sm:inline">Workspace</span>
+                  <span className="xs:hidden">Launch</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </button>
               </div>
@@ -134,16 +137,16 @@ export default function CinematicLanding({ onEnterWorkspace }) {
       </header>
 
       {/* HERO SECTION — Cinematic Full-Viewport */}
-      <section className="relative z-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 sm:pt-24 pb-28 flex flex-col items-center text-center">
+      <section className="relative z-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 sm:pt-24 pb-20 sm:pb-28 flex flex-col items-center text-center">
         
         {/* Subtle Pill Tag */}
-        <div className="inline-flex items-center space-x-2 px-4 py-1.5 rounded-full text-xs font-semibold mb-8 animate-fade-in shadow-sm bg-emerald-100/80 border border-emerald-300 text-emerald-900">
+        <div className="inline-flex items-center space-x-2 px-3 sm:px-4 py-1.5 rounded-full text-[11px] sm:text-xs font-semibold mb-6 sm:mb-8 animate-fade-in shadow-sm bg-emerald-100/80 border border-emerald-300 text-emerald-900">
           <span className="w-2 h-2 rounded-full bg-emerald-500 status-pulse" />
           <span className="tracking-wide">Unified Campus Service & E-Governance</span>
         </div>
 
         {/* Cinematic Headline — High-Contrast Deep Forest & Vivid Emerald */}
-        <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight text-[#092d25] max-w-4xl leading-[1.08] animate-fade-up">
+        <h1 className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold tracking-tight text-[#092d25] max-w-4xl leading-[1.14] sm:leading-[1.08] animate-fade-up">
           Every issue deserves <br className="hidden sm:inline" />
           <span className="text-[#13a879]">
             to be heard.
@@ -151,7 +154,7 @@ export default function CinematicLanding({ onEnterWorkspace }) {
         </h1>
 
         {/* Supporting Copy */}
-        <p className="mt-6 text-base sm:text-xl max-w-2xl font-normal leading-relaxed text-[#2b3d35] animate-fade-up stagger-1">
+        <p className="mt-4 sm:mt-6 text-sm sm:text-xl max-w-2xl font-normal leading-relaxed text-[#2b3d35] animate-fade-up stagger-1 px-2">
           CampusOne turns individual grievances into visible, verified, and accountable improvements — ensuring no classroom fault, hostel concern, or campus hazard disappears into a void.
         </p>
 
@@ -182,39 +185,39 @@ export default function CinematicLanding({ onEnterWorkspace }) {
         )}
 
         {/* Hero Interactive Node Diagram (Visualizing Connection & Transparency) */}
-        <div className="mt-16 w-full max-w-4xl p-1 rounded-3xl bg-white/95 backdrop-blur-md border border-[#e2e9e3] shadow-card animate-fade-up stagger-3">
-          <div className="p-6 sm:p-8 rounded-[22px] bg-[#fbfcf9] grid grid-cols-1 md:grid-cols-4 gap-4 text-left">
+        <div className="mt-12 sm:mt-16 w-full max-w-4xl p-1 rounded-3xl bg-white/95 backdrop-blur-md border border-[#e2e9e3] shadow-card animate-fade-up stagger-3">
+          <div className="p-4 sm:p-8 rounded-[22px] bg-[#fbfcf9] grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 text-left">
             
-            <div className="p-4 rounded-xl bg-white border border-[#e2e9e3] shadow-subtle">
-              <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center mb-3">
-                <GitFork className="w-4 h-4" />
+            <div className="p-3.5 sm:p-4 rounded-xl bg-white border border-[#e2e9e3] shadow-subtle">
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center mb-2.5 sm:mb-3">
+                <GitFork className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </div>
-              <h4 className="text-xs font-bold text-[#092d25] uppercase tracking-wider">1. Decision Tree</h4>
-              <p className="text-xs text-[#485c53] mt-1">Refines location scope to preserve classroom privacy.</p>
+              <h4 className="text-[11px] sm:text-xs font-bold text-[#092d25] uppercase tracking-wider">1. Decision Tree</h4>
+              <p className="text-[11px] sm:text-xs text-[#485c53] mt-0.5 sm:mt-1">Preserves classroom privacy.</p>
             </div>
 
-            <div className="p-4 rounded-xl bg-white border border-[#e2e9e3] shadow-subtle">
-              <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center mb-3">
-                <Users className="w-4 h-4" />
+            <div className="p-3.5 sm:p-4 rounded-xl bg-white border border-[#e2e9e3] shadow-subtle">
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center mb-2.5 sm:mb-3">
+                <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </div>
-              <h4 className="text-xs font-bold text-[#092d25] uppercase tracking-wider">2. Peer Validation</h4>
-              <p className="text-xs text-[#485c53] mt-1">Classmates confirm impact, boosting priority score.</p>
+              <h4 className="text-[11px] sm:text-xs font-bold text-[#092d25] uppercase tracking-wider">2. Peer Validation</h4>
+              <p className="text-[11px] sm:text-xs text-[#485c53] mt-0.5 sm:mt-1">Community confirms impact.</p>
             </div>
 
-            <div className="p-4 rounded-xl bg-white border border-[#e2e9e3] shadow-subtle">
-              <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center mb-3">
-                <Wrench className="w-4 h-4" />
+            <div className="p-3.5 sm:p-4 rounded-xl bg-white border border-[#e2e9e3] shadow-subtle">
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center mb-2.5 sm:mb-3">
+                <Wrench className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </div>
-              <h4 className="text-xs font-bold text-[#092d25] uppercase tracking-wider">3. Domain ETA</h4>
-              <p className="text-xs text-[#485c53] mt-1">Maintenance allocates technician and broadcasts timeline.</p>
+              <h4 className="text-[11px] sm:text-xs font-bold text-[#092d25] uppercase tracking-wider">3. Domain ETA</h4>
+              <p className="text-[11px] sm:text-xs text-[#485c53] mt-0.5 sm:mt-1">Broadcasts technician timeline.</p>
             </div>
 
-            <div className="p-4 rounded-xl bg-white border border-[#e2e9e3] shadow-subtle">
-              <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center mb-3">
-                <ShieldCheck className="w-4 h-4" />
+            <div className="p-3.5 sm:p-4 rounded-xl bg-white border border-[#e2e9e3] shadow-subtle">
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center mb-2.5 sm:mb-3">
+                <ShieldCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </div>
-              <h4 className="text-xs font-bold text-[#092d25] uppercase tracking-wider">4. Two-Way Signoff</h4>
-              <p className="text-xs text-[#485c53] mt-1">Ticket closes only after reporting student verifies on-site.</p>
+              <h4 className="text-[11px] sm:text-xs font-bold text-[#092d25] uppercase tracking-wider">4. Two-Way Signoff</h4>
+              <p className="text-[11px] sm:text-xs text-[#485c53] mt-0.5 sm:mt-1">Student verifies on-site.</p>
             </div>
 
           </div>

@@ -73,7 +73,7 @@ function MainContent() {
     <>
       {/* Toast Notification Alert (Shared across Story and Workspace views) */}
       {notification && (
-        <div className="fixed bottom-6 right-6 z-50 animate-fade-up">
+        <div className="fixed bottom-20 left-4 right-4 sm:left-auto sm:right-6 sm:bottom-6 z-50 animate-fade-up">
           <div className={`px-4 py-3 rounded-2xl shadow-xl border text-xs font-semibold flex items-center space-x-2.5 backdrop-blur-md ${
             notification.type === 'success'
               ? 'bg-emerald-50/95 border-emerald-300 text-emerald-900'
@@ -89,9 +89,9 @@ function MainContent() {
       {viewMode === 'story' ? (
         <CinematicLanding onEnterWorkspace={handleEnterWorkspace} />
       ) : (
-        <div className="min-h-screen flex flex-col bg-ivory-100 text-charcoal-900 pb-20 selection:bg-emerald-500 selection:text-white">
+        <div className="min-h-screen flex flex-col bg-ivory-100 text-charcoal-900 pb-28 md:pb-12 selection:bg-emerald-500 selection:text-white">
           
-          {/* Top Navbar */}
+          {/* Top Navbar & Fixed Mobile Bottom App Bar */}
           <Navbar onToggleLanding={() => setViewMode('story')} />
 
           {/* Main Role-Based Workspaces */}
@@ -117,7 +117,7 @@ function MainContent() {
             />
           )}
 
-          {/* Floating Action Button to Report Issue */}
+          {/* Floating Action Button to Report Issue (Desktop only; Mobile has central button in bottom bar) */}
           {activeTab !== 'raise' && (
             <button
               onClick={() => {
@@ -127,7 +127,7 @@ function MainContent() {
                   setActiveTab('raise');
                 }
               }}
-              className="fixed bottom-6 left-6 z-30 flex items-center space-x-2.5 px-5 py-3 rounded-2xl bg-[#092d25] hover:bg-[#061c18] text-white font-bold text-xs shadow-2xl button-glow transition-all border border-[#0e3b31]"
+              className="hidden md:flex fixed bottom-6 left-6 z-30 items-center space-x-2.5 px-5 py-3 rounded-2xl bg-[#092d25] hover:bg-[#061c18] text-white font-bold text-xs shadow-2xl button-glow transition-all border border-[#0e3b31] touch-press"
               style={{ backgroundColor: '#092d25', color: '#ffffff' }}
             >
               <PlusCircle className="w-4 h-4 text-mint-300" />

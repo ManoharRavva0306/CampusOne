@@ -150,14 +150,14 @@ export default function AdminDashboard() {
         </div>
 
         {/* Domain Selection Tabs */}
-        <div className="flex items-center space-x-2 overflow-x-auto mt-6 pt-4 border-t border-ivory-200">
+        <div className="flex items-center space-x-2 overflow-x-auto mt-6 pt-4 border-t border-ivory-200 no-scrollbar touch-pan-y">
           {DOMAINS.map(dom => {
             const isSelected = selectedDomain === dom.id;
             return (
               <button
                 key={dom.id}
                 onClick={() => setSelectedDomain(dom.id)}
-                className={`px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+                className={`px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all touch-press ${
                   isSelected
                     ? 'bg-[#092d25] text-white shadow-md border border-[#092d25]'
                     : 'bg-white text-[#192822] hover:text-[#092d25] hover:bg-[#eef2ec] border border-ivory-300'
@@ -177,15 +177,15 @@ export default function AdminDashboard() {
 
       {/* Filter Chips & Count */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center space-x-1.5 text-xs">
-          <span className="text-charcoal-500 font-semibold">Status:</span>
+        <div className="flex items-center space-x-1.5 text-xs overflow-x-auto no-scrollbar touch-pan-y pb-1">
+          <span className="text-charcoal-500 font-semibold shrink-0">Status:</span>
           {['all', 'reported', 'in_progress', 'awaiting_verification', 'resolved'].map(st => {
             const isSelected = statusFilter === st;
             return (
               <button
                 key={st}
                 onClick={() => setStatusFilter(st)}
-                className={`px-2.5 py-1 rounded-lg capitalize transition-all ${
+                className={`px-2.5 py-1 rounded-lg capitalize whitespace-nowrap transition-all touch-press shrink-0 ${
                   isSelected
                     ? 'bg-[#0f8e65] text-white font-bold shadow-xs border border-[#0f8e65]'
                     : 'bg-white text-[#192822] hover:text-[#092d25] hover:bg-[#eef2ec] border border-ivory-300'
@@ -344,15 +344,15 @@ export default function AdminDashboard() {
 
       {/* Modal to Update Ticket (Status, ETA, Technician, Notes) */}
       {editingTicket && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-forest-950/70 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white border border-ivory-300 rounded-3xl max-w-lg w-full p-6 shadow-2xl animate-scale-in max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 bg-forest-950/70 backdrop-blur-sm animate-fade-in overscroll-contain">
+          <div className="bg-white border border-ivory-300 rounded-2xl sm:rounded-3xl max-w-lg w-full p-4 sm:p-6 shadow-2xl animate-scale-in max-h-[96dvh] overflow-y-auto">
             
             <div className="flex items-center justify-between pb-3 border-b border-ivory-200">
               <div>
                 <h3 className="text-base font-bold text-forest-950">Update Ticket #{editingTicket.id}</h3>
                 <p className="text-xs text-charcoal-500 truncate max-w-sm">{editingTicket.title}</p>
               </div>
-              <button onClick={() => setEditingTicket(null)} className="text-charcoal-400 hover:text-forest-950">✕</button>
+              <button onClick={() => setEditingTicket(null)} className="text-charcoal-400 hover:text-forest-950 touch-press p-1">✕</button>
             </div>
 
             {/* ✨ CAMPUSONE AI DISPATCH & SLA COPILOT */}

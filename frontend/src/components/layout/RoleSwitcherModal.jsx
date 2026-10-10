@@ -75,24 +75,24 @@ export default function RoleSwitcherModal({ onClose, onAuthSuccess }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-forest-950/70 backdrop-blur-sm animate-fade-in">
-      <div className="bg-white border border-ivory-300 rounded-3xl max-w-xl w-full p-6 shadow-2xl overflow-hidden animate-scale-in max-h-[92vh] flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 bg-forest-950/70 backdrop-blur-sm animate-fade-in overscroll-contain">
+      <div className="bg-white border border-ivory-300 rounded-2xl sm:rounded-3xl max-w-xl w-full p-4 sm:p-6 shadow-2xl overflow-hidden animate-scale-in max-h-[96dvh] flex flex-col">
         
         {/* Header */}
-        <div className="flex items-center justify-between pb-4 border-b border-ivory-200 shrink-0">
+        <div className="flex items-center justify-between pb-3 sm:pb-4 border-b border-ivory-200 shrink-0 gap-2">
           <div>
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-1.5 sm:space-x-2">
               <span className="p-1.5 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200">
                 {currentUser ? <User className="w-4 h-4 text-emerald-700" /> : <Lock className="w-4 h-4 text-emerald-700" />}
               </span>
-              <h3 className="text-base font-bold text-forest-950">
+              <h3 className="text-sm sm:text-base font-bold text-forest-950">
                 {currentUser ? 'My Institutional Profile' : 'Amrita Institutional Sign-In'}
               </h3>
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 font-mono font-bold border border-emerald-200">
                 GENESIS'26
               </span>
             </div>
-            <p className="text-xs text-charcoal-500 mt-0.5">
+            <p className="text-[11px] sm:text-xs text-charcoal-500 mt-0.5 line-clamp-1 sm:line-clamp-none">
               {currentUser 
                 ? 'Amrita Vishwa Vidyapeetham • Official Identity & Governance Record'
                 : 'Unified Campus Service & E-Governance Portal • Amrita Vishwa Vidyapeetham'
@@ -101,7 +101,7 @@ export default function RoleSwitcherModal({ onClose, onAuthSuccess }) {
           </div>
           <button 
             onClick={onClose} 
-            className="p-1.5 rounded-lg text-charcoal-400 hover:text-forest-950 hover:bg-ivory-200 transition-colors"
+            className="p-1.5 rounded-lg text-charcoal-400 hover:text-forest-950 hover:bg-ivory-200 transition-colors touch-press shrink-0"
           >
             <X className="w-4 h-4" />
           </button>

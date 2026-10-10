@@ -266,9 +266,9 @@ export default function Navbar({ onToggleLanding }) {
                   )}
                 </button>
 
-                {/* Notification Dropdown */}
+                {/* Notification Dropdown (Responsive Width on Mobile) */}
                 {showNotifications && (
-                  <div className="absolute right-0 mt-2 w-80 bg-white border border-ivory-300 rounded-2xl shadow-xl z-50 p-4 animate-scale-in">
+                  <div className="absolute right-0 mt-2 w-[calc(100vw-2rem)] max-w-sm sm:w-80 bg-white border border-ivory-300 rounded-2xl shadow-xl z-50 p-4 animate-scale-in">
                     <div className="flex items-center justify-between pb-3 border-b border-ivory-200">
                       <div className="text-xs font-bold text-forest-950 uppercase tracking-wide">
                         Activity Updates
@@ -309,7 +309,7 @@ export default function Navbar({ onToggleLanding }) {
                 <div className="flex items-center space-x-1">
                   <button
                     onClick={() => setShowLoginModal(true)}
-                    className="flex items-center space-x-2 bg-ivory-100 hover:bg-emerald-50/80 border border-ivory-300 hover:border-emerald-300 px-2.5 py-1.5 rounded-xl transition-all shadow-subtle"
+                    className="flex items-center space-x-2 bg-ivory-100 hover:bg-emerald-50/80 border border-ivory-300 hover:border-emerald-300 px-2 py-1.5 sm:px-2.5 sm:py-1.5 rounded-xl transition-all shadow-subtle touch-press"
                     title="Click to switch role / persona (Student, Class Advisor, Hostel Warden, Main Admin)"
                   >
                     <div className="relative shrink-0">
@@ -352,87 +352,149 @@ export default function Navbar({ onToggleLanding }) {
               ) : (
                 <button
                   onClick={() => setShowLoginModal(true)}
-                  className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl text-xs font-bold shadow-md bg-[#092d25] hover:bg-[#061c18] text-white transition-all border border-[#092d25]"
+                  className="flex items-center space-x-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs font-bold shadow-md bg-[#092d25] hover:bg-[#061c18] text-white transition-all border border-[#092d25] touch-press"
                   style={{ backgroundColor: '#092d25', color: '#ffffff' }}
                 >
                   <LogIn className="w-3.5 h-3.5 text-mint-300" />
-                  <span>Institutional Sign-In</span>
+                  <span className="hidden xs:inline sm:inline">Institutional Sign-In</span>
+                  <span className="xs:hidden">Sign In</span>
                 </button>
               )}
 
             </div>
 
           </div>
-
-          {/* Mobile Bottom Sub-nav */}
-          <div className="flex md:hidden items-center justify-between overflow-x-auto py-2 px-1 border-t border-ivory-200 text-[11px] bg-white gap-2">
-            <button
-              onClick={onToggleLanding}
-              className="flex flex-col items-center py-1 px-1.5 text-charcoal-500 hover:text-forest-950 shrink-0"
-            >
-              <Home className="w-4 h-4 text-emerald-600" />
-              <span>Home</span>
-            </button>
-            <button
-              onClick={() => {
-                if (!currentUser) setShowLoginModal(true);
-                else setActiveTab('feed');
-              }}
-              className={`flex flex-col items-center py-1 px-1.5 shrink-0 ${activeTab === 'feed' ? 'text-forest-900 font-bold' : 'text-charcoal-500'}`}
-            >
-              <Layers className="w-4 h-4" />
-              <span>Feed</span>
-            </button>
-            <button
-              onClick={() => {
-                if (!currentUser) setShowLoginModal(true);
-                else setActiveTab('raise');
-              }}
-              className={`flex flex-col items-center py-1 px-1.5 shrink-0 ${activeTab === 'raise' ? 'text-emerald-600 font-bold' : 'text-charcoal-500'}`}
-            >
-              <PlusCircle className="w-4 h-4" />
-              <span>Report</span>
-            </button>
-            {(currentUser?.role === 'faculty_advisor' || currentUser?.role === 'central_admin') && (
-              <button
-                onClick={() => setActiveTab('advisor')}
-                className={`flex flex-col items-center py-1 px-1.5 shrink-0 ${activeTab === 'advisor' ? 'text-forest-900 font-bold' : 'text-charcoal-500'}`}
-              >
-                <GraduationCap className="w-4 h-4" />
-                <span>Advisor</span>
-              </button>
-            )}
-            {(currentUser?.role === 'hostel_warden' || currentUser?.role === 'central_admin') && (
-              <button
-                onClick={() => setActiveTab('warden')}
-                className={`flex flex-col items-center py-1 px-1.5 shrink-0 ${activeTab === 'warden' ? 'text-forest-900 font-bold' : 'text-charcoal-500'}`}
-              >
-                <Building2 className="w-4 h-4" />
-                <span>Warden</span>
-              </button>
-            )}
-            {currentUser?.role === 'central_admin' && (
-              <button
-                onClick={() => setActiveTab('super_admin')}
-                className={`flex flex-col items-center py-1 px-1.5 shrink-0 ${activeTab === 'super_admin' ? 'text-forest-900 font-bold' : 'text-charcoal-500'}`}
-              >
-                <Shield className="w-4 h-4" />
-                <span>Main Admin</span>
-              </button>
-            )}
-            {(currentUser?.role === 'domain_admin' || currentUser?.role === 'central_admin') && (
-              <button
-                onClick={() => setActiveTab('admin')}
-                className={`flex flex-col items-center py-1 px-1.5 shrink-0 ${activeTab === 'admin' ? 'text-forest-900 font-bold' : 'text-charcoal-500'}`}
-              >
-                <Wrench className="w-4 h-4" />
-                <span>Domain</span>
-              </button>
-            )}
-          </div>
-
         </div>
       </header>
+
+      {/* Mobile Fixed Native Bottom Navigation Bar */}
+      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-xl border-t border-ivory-300 shadow-[0_-4px_25px_rgba(0,0,0,0.08)] md:hidden pb-safe px-3 py-1.5 flex items-center justify-around">
+        {/* Home */}
+        <button
+          onClick={onToggleLanding}
+          className="flex flex-col items-center justify-center py-1 px-2.5 text-charcoal-500 hover:text-forest-950 touch-press transition-colors"
+        >
+          <Home className="w-5 h-5 text-emerald-700" />
+          <span className="text-[10px] font-semibold mt-0.5 text-charcoal-700">Home</span>
+        </button>
+
+        {/* Issue Feed */}
+        <button
+          onClick={() => {
+            if (!currentUser) setShowLoginModal(true);
+            else setActiveTab('feed');
+          }}
+          className={`flex flex-col items-center justify-center py-1 px-2.5 touch-press transition-colors ${
+            activeTab === 'feed' ? 'text-forest-950 font-bold' : 'text-charcoal-500'
+          }`}
+        >
+          <Layers className={`w-5 h-5 ${activeTab === 'feed' ? 'text-emerald-700' : 'text-charcoal-500'}`} />
+          <span className="text-[10px] font-semibold mt-0.5">Feed</span>
+        </button>
+
+        {/* Primary Action Button: Report Issue */}
+        <button
+          onClick={() => {
+            if (!currentUser) setShowLoginModal(true);
+            else setActiveTab('raise');
+          }}
+          className="flex flex-col items-center justify-center -mt-6 touch-press group"
+          title="Report Campus Issue (Wizard)"
+        >
+          <div className="w-12 h-12 rounded-full bg-[#092d25] group-hover:bg-[#061c18] text-white flex items-center justify-center shadow-lg border-2 border-white ring-4 ring-emerald-500/20 transition-transform group-active:scale-95">
+            <PlusCircle className="w-6 h-6 text-mint-300" />
+          </div>
+          <span className="text-[10px] font-bold text-forest-950 mt-0.5">Report</span>
+        </button>
+
+        {/* Dynamic Role Supervisory Desk / SLA */}
+        {currentUser?.role === 'faculty_advisor' ? (
+          <button
+            onClick={() => setActiveTab('advisor')}
+            className={`relative flex flex-col items-center justify-center py-1 px-2.5 touch-press transition-colors ${
+              activeTab === 'advisor' ? 'text-forest-950 font-bold' : 'text-charcoal-500'
+            }`}
+          >
+            <GraduationCap className={`w-5 h-5 ${activeTab === 'advisor' ? 'text-emerald-700' : 'text-charcoal-500'}`} />
+            <span className="text-[10px] font-semibold mt-0.5">Advisor</span>
+            {pendingAdvisorCount > 0 && (
+              <span className="absolute top-0 right-1.5 w-4 h-4 rounded-full bg-amber-500 text-white text-[9px] font-bold flex items-center justify-center">
+                {pendingAdvisorCount}
+              </span>
+            )}
+          </button>
+        ) : currentUser?.role === 'hostel_warden' ? (
+          <button
+            onClick={() => setActiveTab('warden')}
+            className={`relative flex flex-col items-center justify-center py-1 px-2.5 touch-press transition-colors ${
+              activeTab === 'warden' ? 'text-forest-950 font-bold' : 'text-charcoal-500'
+            }`}
+          >
+            <Building2 className={`w-5 h-5 ${activeTab === 'warden' ? 'text-amber-700' : 'text-charcoal-500'}`} />
+            <span className="text-[10px] font-semibold mt-0.5">Warden</span>
+            {pendingWardenCount > 0 && (
+              <span className="absolute top-0 right-1.5 w-4 h-4 rounded-full bg-amber-500 text-white text-[9px] font-bold flex items-center justify-center">
+                {pendingWardenCount}
+              </span>
+            )}
+          </button>
+        ) : currentUser?.role === 'central_admin' ? (
+          <button
+            onClick={() => setActiveTab('super_admin')}
+            className={`flex flex-col items-center justify-center py-1 px-2.5 touch-press transition-colors ${
+              activeTab === 'super_admin' ? 'text-forest-950 font-bold' : 'text-charcoal-500'
+            }`}
+          >
+            <Shield className={`w-5 h-5 ${activeTab === 'super_admin' ? 'text-emerald-700' : 'text-charcoal-500'}`} />
+            <span className="text-[10px] font-semibold mt-0.5">Admin</span>
+          </button>
+        ) : currentUser?.role === 'domain_admin' ? (
+          <button
+            onClick={() => setActiveTab('admin')}
+            className={`flex flex-col items-center justify-center py-1 px-2.5 touch-press transition-colors ${
+              activeTab === 'admin' ? 'text-forest-950 font-bold' : 'text-charcoal-500'
+            }`}
+          >
+            <Wrench className={`w-5 h-5 ${activeTab === 'admin' ? 'text-amber-700' : 'text-charcoal-500'}`} />
+            <span className="text-[10px] font-semibold mt-0.5">Ops</span>
+          </button>
+        ) : (
+          <button
+            onClick={() => setActiveTab('analytics')}
+            className={`flex flex-col items-center justify-center py-1 px-2.5 touch-press transition-colors ${
+              activeTab === 'analytics' ? 'text-forest-950 font-bold' : 'text-charcoal-500'
+            }`}
+          >
+            <BarChart3 className={`w-5 h-5 ${activeTab === 'analytics' ? 'text-emerald-700' : 'text-charcoal-500'}`} />
+            <span className="text-[10px] font-semibold mt-0.5">SLA</span>
+          </button>
+        )}
+
+        {/* Profile / Account Switcher */}
+        <button
+          onClick={() => setShowLoginModal(true)}
+          className="flex flex-col items-center justify-center py-1 px-2.5 touch-press transition-colors text-charcoal-500"
+          title="Account / Switch Persona"
+        >
+          {currentUser ? (
+            <div className="relative">
+              <img
+                src={currentUser.avatar}
+                alt={currentUser.name}
+                className="w-5 h-5 rounded-full object-cover ring-1 ring-emerald-500"
+              />
+              {pendingVerificationCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber-500 ring-1 ring-white" />
+              )}
+            </div>
+          ) : (
+            <User className="w-5 h-5 text-charcoal-600" />
+          )}
+          <span className="text-[10px] font-semibold mt-0.5 text-charcoal-700">
+            {currentUser ? 'Profile' : 'Login'}
+          </span>
+        </button>
+      </nav>
     </>
   );
 }
