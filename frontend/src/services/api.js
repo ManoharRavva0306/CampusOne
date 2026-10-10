@@ -141,5 +141,22 @@ export const api = {
       console.warn('API createUser offline:', err.message);
       return null;
     }
+  },
+
+  // Delete ticket (student self-service or admin)
+  async deleteTicket(ticketId, userId) {
+    try {
+      const res = await fetch(`${API_BASE}/tickets/${ticketId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': userId || ''
+        }
+      });
+      return await res.json();
+    } catch (err) {
+      console.warn('API deleteTicket offline:', err.message);
+      return null;
+    }
   }
 };

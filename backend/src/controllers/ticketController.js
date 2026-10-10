@@ -2,7 +2,8 @@ import {
   getUsersFromDB, 
   getTicketsFromDB, 
   addTicketToDB, 
-  updateTicketInDB 
+  updateTicketInDB,
+  deleteTicketFromDB 
 } from '../models/ticketModel.js';
 import { calculatePriorityScore } from '../services/priorityService.js';
 import { findDuplicateTickets } from '../services/aiDuplicateService.js';
@@ -187,3 +188,37 @@ export function addComment(req, res) {
   if (!updatedTicket) return res.status(404).json({ success: false, message: 'Ticket not found' });
   res.status(201).json({ success: true, comment, ticket: updatedTicket });
 }
+
+// Delete Ticket (Student can delete own ticket, or central/domain admin)
+export function deleteTicket(req, res) {
+  const { id } = req.params;
+  const users = getUsersFromDB();
+  const userId = req.headers['x-user-id'] || req.body?.userId;
+  const user = users.find(u => u.id === userId) || users.find(u => u.rollNo === userId);
+
+  const tickets = getTicketsFromDB();
+  const ticket = tickets.find(t => t.id === id);
+
+  if (!ticket) {
+    return res.status(404).json({ success: false, message: 'Ticket not found' });
+  }
+
+  // Permission check: student who raised it or admin
+  const isOwner = ticket.raisedBy?.id === userId || (user && ticket.raisedBy?.id === user.id);
+  const isAdmin = user && (user.role === 'central_admin' || user.role === 'domain_admin');
+
+  if (!isOwner && !isAdmin) {
+    return res.status(403).json({ 
+      success: false, 
+      message: 'Unauthorized: Only the student who raised this request or an administrator can delete it.' 
+    });
+  }
+
+  const success = deleteTicketFromDB(id);
+  if (!success) {
+    return res.status(500).json({ success: false, message: 'Failed to delete ticket from database.' });
+  }
+
+  res.json({ success: true, message: `Ticket #${id} deleted successfully.`, ticketId: id });
+}
+

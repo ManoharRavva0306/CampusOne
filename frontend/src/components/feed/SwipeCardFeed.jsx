@@ -25,7 +25,8 @@ import {
   LayoutGrid,
   RotateCcw,
   ChevronRight,
-  ArrowLeft
+  ArrowLeft,
+  Trash2
 } from 'lucide-react';
 import StudentVerificationBanner from '../verification/StudentVerificationBanner';
 
@@ -34,6 +35,7 @@ export default function SwipeCardFeed() {
     tickets, 
     currentUser, 
     voteTicket, 
+    deleteTicket,
     isTicketVisibleToUser, 
     feedFilter, 
     setFeedFilter,
@@ -63,11 +65,13 @@ export default function SwipeCardFeed() {
   // Filtered tickets
   const filteredTickets = useMemo(() => {
     return authorizedTickets.filter(ticket => {
-      // Scope Tab
-      if (feedFilter === 'class' && ticket.scope !== 'class') return false;
-      if (feedFilter === 'room' && ticket.scope !== 'room' && ticket.scope !== 'hostel_generic') return false;
-      if (feedFilter === 'department' && ticket.scope !== 'department') return false;
-      if (feedFilter === 'campus' && ticket.scope !== 'campus') return false;
+      // Scope Tab / My Requests Tab
+      if (feedFilter === 'my_requests') {
+        if (ticket.raisedBy?.id !== currentUser?.id) return false;
+      } else if (feedFilter === 'class' && ticket.scope !== 'class') return false;
+      else if (feedFilter === 'room' && ticket.scope !== 'room' && ticket.scope !== 'hostel_generic') return false;
+      else if (feedFilter === 'department' && ticket.scope !== 'department') return false;
+      else if (feedFilter === 'campus' && ticket.scope !== 'campus') return false;
 
       // Category filter
       if (categoryFilter !== 'all' && ticket.category !== categoryFilter) return false;
@@ -84,7 +88,7 @@ export default function SwipeCardFeed() {
 
       return true;
     }).sort((a, b) => b.priorityScore - a.priorityScore);
-  }, [authorizedTickets, feedFilter, categoryFilter, statusFilter, searchQuery]);
+  }, [authorizedTickets, feedFilter, categoryFilter, statusFilter, searchQuery, currentUser]);
 
   // Reset active swipe index when filters change
   useEffect(() => {
@@ -225,13 +229,23 @@ export default function SwipeCardFeed() {
       {/* Metric Summary Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-ivory-300 shadow-card">
+        <div 
+          onClick={() => { setFeedFilter('my_requests'); setActiveSwipeIndex(0); }}
+          className={`p-4 sm:p-5 rounded-2xl border shadow-card cursor-pointer transition-all hover:scale-[1.01] ${
+            feedFilter === 'my_requests'
+              ? 'bg-emerald-50/80 border-emerald-400 ring-2 ring-emerald-500/20'
+              : 'bg-white border-ivory-300 hover:border-emerald-300'
+          }`}
+          title="Click to view and track status of only your requests"
+        >
           <div className="text-xs text-charcoal-500 font-semibold flex items-center justify-between">
-            <span>My Reports</span>
-            <User className="w-4 h-4 text-charcoal-400" />
+            <span className="font-bold text-forest-950">My Requests</span>
+            <User className={`w-4 h-4 ${feedFilter === 'my_requests' ? 'text-emerald-700' : 'text-charcoal-400'}`} />
           </div>
           <div className="text-2xl font-black text-forest-950 mt-2">{myReportsCount}</div>
-          <div className="text-[11px] text-charcoal-500 mt-1">Submitted by you</div>
+          <div className="text-[11px] text-emerald-700 font-medium mt-1 flex items-center space-x-1">
+            <span>Track & Manage →</span>
+          </div>
         </div>
 
         <div className={`p-4 sm:p-5 rounded-2xl border shadow-card transition-all ${
@@ -288,6 +302,19 @@ export default function SwipeCardFeed() {
             }
           >
             All Relevant ({authorizedTickets.length})
+          </button>
+
+          {/* Dedicated My Raised Requests tab */}
+          <button
+            onClick={() => { setFeedFilter('my_requests'); setActiveSwipeIndex(0); }}
+            className={`px-3 py-1.5 rounded-xl whitespace-nowrap transition-all flex items-center space-x-1.5 ${
+              feedFilter === 'my_requests'
+                ? 'bg-emerald-700 text-white shadow-md border border-emerald-700'
+                : 'text-emerald-900 hover:bg-emerald-50 bg-emerald-50/50 border border-emerald-200'
+            }`}
+          >
+            <User className={`w-3.5 h-3.5 ${feedFilter === 'my_requests' ? 'text-white' : 'text-emerald-700'}`} />
+            <span>My Raised Issues ({myReportsCount})</span>
           </button>
 
           <button
@@ -547,6 +574,23 @@ export default function SwipeCardFeed() {
                     </button>
                   </div>
 
+                  {/* Owner / Admin Quick Delete Action */}
+                  {(currentSwipeTicket.raisedBy?.id === currentUser?.id || currentUser?.role === 'central_admin' || currentUser?.role === 'domain_admin') && (
+                    <div className="pt-1 flex justify-center">
+                      <button
+                        onClick={() => {
+                          if (window.confirm(`Are you sure you want to delete your request "${currentSwipeTicket.title}"?`)) {
+                            deleteTicket(currentSwipeTicket.id);
+                          }
+                        }}
+                        className="text-xs text-rose-600 hover:text-rose-800 hover:bg-rose-50 px-3 py-1.5 rounded-xl border border-rose-200 flex items-center space-x-1.5 font-medium transition-colors"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Delete My Request</span>
+                      </button>
+                    </div>
+                  )}
+
                   {/* Dot Card Selectors */}
                   <div className="flex items-center justify-center space-x-1.5 pt-2">
                     {filteredTickets.map((_, idx) => (
@@ -780,6 +824,22 @@ export default function SwipeCardFeed() {
                         >
                           <MessageSquare className="w-4 h-4" />
                         </button>
+
+                        {/* Owner / Admin Delete Action */}
+                        {(ticket.raisedBy?.id === currentUser?.id || currentUser?.role === 'central_admin' || currentUser?.role === 'domain_admin') && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (window.confirm(`Are you sure you want to delete your ticket "${ticket.title}"? This cannot be undone.`)) {
+                                deleteTicket(ticket.id);
+                              }
+                            }}
+                            className="p-1.5 rounded-xl text-rose-500 hover:text-rose-700 hover:bg-rose-50 border border-rose-200 transition-colors"
+                            title="Delete this request"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
                       </div>
 
                     </div>

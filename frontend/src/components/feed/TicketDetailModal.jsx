@@ -13,7 +13,8 @@ import {
   Wrench, 
   RotateCcw,
   Sparkles,
-  AlertCircle
+  AlertCircle,
+  Trash2
 } from 'lucide-react';
 
 export default function TicketDetailModal({ ticket, onClose }) {
@@ -22,6 +23,7 @@ export default function TicketDetailModal({ ticket, onClose }) {
     voteTicket, 
     addComment, 
     verifyResolution, 
+    deleteTicket,
     tickets 
   } = useApp();
 
@@ -273,7 +275,24 @@ export default function TicketDetailModal({ ticket, onClose }) {
         </div>
 
         {/* Footer */}
-        <div className="pt-4 border-t border-ivory-200 flex justify-end">
+        <div className="pt-4 border-t border-ivory-200 flex items-center justify-between">
+          <div>
+            {(isReporter || currentUser?.role === 'central_admin' || currentUser?.role === 'domain_admin') && (
+              <button
+                onClick={() => {
+                  if (window.confirm(`Are you sure you want to delete this ticket (#${currentTicket.id})? This will permanently remove it.`)) {
+                    deleteTicket(currentTicket.id);
+                    onClose();
+                  }
+                }}
+                className="px-3 py-2 rounded-xl text-xs font-semibold text-rose-600 hover:text-white hover:bg-rose-600 border border-rose-300 transition-colors flex items-center space-x-1.5"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Delete This Request</span>
+              </button>
+            )}
+          </div>
+
           <button
             onClick={onClose}
             className="btn-secondary text-xs py-2 px-4"

@@ -7,7 +7,8 @@ import {
   updateTicketAdmin, 
   verifyResolution, 
   endorseTicket, 
-  addComment 
+  addComment,
+  deleteTicket 
 } from '../controllers/ticketController.js';
 
 const router = Router();
@@ -20,5 +21,6 @@ router.patch('/:id/admin', updateTicketAdmin);
 router.post('/:id/verify', verifyResolution);
 router.post('/:id/endorse', endorseTicket);
 router.post('/:id/comments', addComment);
+router.delete('/:id', deleteTicket);
 
 export default router;

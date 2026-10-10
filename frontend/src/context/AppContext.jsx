@@ -416,6 +416,35 @@ export function AppProvider({ children }) {
     showNotification('Faculty Advisor endorsement added (+20 Priority Score)!', 'success');
   };
 
+  // Delete ticket (Reporter or Admin)
+  const deleteTicket = async (ticketId) => {
+    if (!currentUser) {
+      setShowLoginModal(true);
+      showNotification('Please sign in to delete a request.', 'info');
+      return false;
+    }
+
+    const ticketToDelete = tickets.find(t => t.id === ticketId);
+    if (!ticketToDelete) return false;
+
+    // Remove from local state immediately
+    setTickets(prev => prev.filter(t => t.id !== ticketId));
+    if (selectedTicketForDetail?.id === ticketId) {
+      setSelectedTicketForDetail(null);
+    }
+
+    showNotification(`Request #${ticketId} ("${ticketToDelete.title.substring(0, 28)}...") has been removed.`, 'info');
+
+    // Sync with backend API
+    try {
+      await api.deleteTicket(ticketId, currentUser.id);
+    } catch (err) {
+      console.warn('Error deleting ticket from backend:', err);
+    }
+
+    return true;
+  };
+
   // Reset demo state
   const resetDemoData = () => {
     localStorage.removeItem(LOCAL_STORAGE_KEY);
@@ -479,6 +508,7 @@ export function AppProvider({ children }) {
         updateTicketAdmin,
         verifyResolution,
         endorseTicket,
+        deleteTicket,
         resetDemoData,
         isTicketVisibleToUser,
         selectedTicketForDetail,
