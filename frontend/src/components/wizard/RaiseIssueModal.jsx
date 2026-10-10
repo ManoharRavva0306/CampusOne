@@ -19,6 +19,7 @@ import {
   Lock, 
   X,
   ShieldAlert,
+  ShieldCheck,
   Upload,
   Trash2,
   RefreshCw,
