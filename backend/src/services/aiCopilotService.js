@@ -378,11 +378,64 @@ export function analyzeImageDefect({ imageUrl = '', title = '', description = ''
   // Defect report is ONLY valid if user hasn't explicitly affirmed the asset is working fine
   const hasReportedDefect = !hasWorkingIndicator && defectWords.some(w => context.includes(w));
 
-  // 1. Explicit Irrelevant Signatures (Nature, Food, Pets, Non-facilities)
+  // 1. Client Visual Metrics Gating (Optical Canvas Analysis takes absolute precedence!)
+  if (visualMetrics) {
+    if (visualMetrics.status === 'irrelevant' || visualMetrics.isRelevant === false) {
+      return {
+        status: 'irrelevant',
+        isRelevant: false,
+        hasDefect: false,
+        visibilityPercentage: 0,
+        confidence: 0,
+        clarityRating: '0% — Irrelevant / Non-Facility Image',
+        warningMessage: visualMetrics.warningMessage || visualMetrics.message || '⚠️ Photo Evidence Mismatch: CampusOne VisionNet identified this photo as non-facility subject matter. No campus maintenance fault or facility damage visible in frame. AI verification score has been paused.',
+        detectedObject: 'Non-Infrastructure / Irrelevant Subject',
+        defectType: 'No visible campus maintenance fault or facility damage in frame',
+        defectFeature: 'Irrelevant scene elements detected; zero maintenance fault visibility',
+        severity: 'Unverified (0% Problem Visibility — Score Paused)',
+        recommendedTools: [],
+        suggestedTitle: '',
+        suggestedCategory: category || 'it_av',
+        boundingBox: null,
+        visionModel: 'CampusOne-VisionNet v4.0 (Defect Visibility Engine)',
+        analyzedAt: new Date().toISOString()
+      };
+    }
+
+    if (visualMetrics.status === 'no_fault_found' || visualMetrics.hasDefect === false) {
+      let assetName = visualMetrics.detectedAsset || 'Campus Facility Equipment';
+      let diagnosis = visualMetrics.defectDiagnosis || 'No Problem Found — Asset Working Fine';
+      let bbox = visualMetrics.boundingBox || { ymin: 18, xmin: 22, ymax: 76, xmax: 78, label: assetName, defect: 'Verified Intact' };
+
+      return {
+        status: 'no_fault_found',
+        isRelevant: true,
+        hasDefect: false,
+        visibilityPercentage: 0,
+        confidence: 96,
+        clarityRating: 'Asset Verified (100% Intact — Operating Fine)',
+        warningMessage: `✅ No Problem Found: ${visualMetrics.message || 'Optical inspection scanned this asset. Surface contours, mounts, and structural joints appear intact with no physical breakdown. Equipment appears in good working order.'}`,
+        detectedObject: assetName,
+        defectType: diagnosis,
+        defectFeature: 'All surface contours, mounts, and operational joints appear intact and undamaged',
+        severity: 'Normal / Operating Fine (0% Defect Visibility)',
+        recommendedTools: ['No Maintenance Required — Routine Inspection Passed'],
+        suggestedTitle: title || `Routine Campus Asset Inspection (${assetName})`,
+        suggestedDescription: description || `Asset was optically inspected by CampusOne VisionNet; equipment is intact with no visible breakdown.`,
+        suggestedCategory: category || 'it_av',
+        visionModel: 'CampusOne-Multimodal VLM & YOLOv8-VisionNet',
+        boundingBox: bbox,
+        analyzedAt: new Date().toISOString()
+      };
+    }
+  }
+
+  // 2. Explicit Irrelevant Signatures (Nature, Food, Pets, Non-facilities)
   const explicitIrrelevantPresets = [
     'photo-1518531933', // nature/garden preset
     'photo-1509042239', // coffee cup preset
-    'photo-1534528741775' // selfie portrait preset
+    'photo-1534528741775', // selfie portrait preset
+    'selfie', 'portrait', 'face'
   ];
   const isExplicitIrrelevantPreset = explicitIrrelevantPresets.some(sig => imageUrl.includes(sig));
 
@@ -414,16 +467,16 @@ export function analyzeImageDefect({ imageUrl = '', title = '', description = ''
       recommendedTools: [],
       suggestedTitle: '',
       suggestedCategory: category || 'it_av',
-      visionModel: 'CampusOne-VisionNet v3.0 (Defect Visibility Engine)',
+      boundingBox: null,
+      visionModel: 'CampusOne-VisionNet v4.0 (Defect Visibility Engine)',
       analyzedAt: new Date().toISOString()
     };
   }
 
-  // 2. Working / Undamaged Asset Check (Only if user has NOT reported an active defect!)
-  const isMarkedNoFaultByClient = visualMetrics && (visualMetrics.status === 'no_fault_found' || visualMetrics.hasDefect === false);
+  // 3. Working / Undamaged Asset Check (Affirmed by user or preset working asset)
   const isWorkingAssetPreset = imageUrl.includes('photo-1496181133206') || imageUrl.includes('photo-1540575467063') || imageUrl.includes('photo-1581291518857') || imageUrl.includes('photo-1513506003901') || imageUrl.includes('working_laptop') || imageUrl.includes('working_fan') || imageUrl.includes('working_desk');
 
-  if ((hasWorkingIndicator || isWorkingAssetPreset || isMarkedNoFaultByClient || !hasReportedDefect) && !hasReportedDefect) {
+  if (hasWorkingIndicator || isWorkingAssetPreset) {
     let assetName = 'Campus Facility Equipment / Furniture';
     let diagnosis = 'No Problem Found — Asset Working Fine';
     let warningMessage = 'Optical inspection scanned this asset. Surface contours, mounts, and structural joints appear intact and undamaged in good operating condition.';

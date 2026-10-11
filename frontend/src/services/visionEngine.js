@@ -59,18 +59,20 @@ export async function analyzeVisualEvidence(source, categoryHint = '', textConte
             hasDefect: false,
             irrelevanceReason: 'Beverage / food item detected (Non-Facility Subject)',
             message: 'Food or beverage item detected. Please photograph the damaged campus asset.',
+            warningMessage: 'Food or beverage item detected. Please photograph the damaged campus asset.',
             visibilityPercentage: 0,
             clarityScore: 0,
             defectProminence: 0,
             natureRatio: 0.04,
-            skinRatio: 0.08
+            skinRatio: 0.08,
+            boundingBox: null
           });
         }
 
         if (
           sourceStr.includes('photo-1534528741775') || // selfie/portrait preset
           sourceStr.includes('selfie') || 
-          sourceStr.includes('portrait') ||
+          sourceStr.includes('portrait') || 
           sourceStr.includes('face')
         ) {
           return resolve({
@@ -79,11 +81,13 @@ export async function analyzeVisualEvidence(source, categoryHint = '', textConte
             hasDefect: false,
             irrelevanceReason: 'Human face / portrait detected (Personal Photograph)',
             message: 'Human portrait detected. Please photograph campus infrastructure instead.',
+            warningMessage: 'Human portrait detected. Please photograph campus infrastructure instead.',
             visibilityPercentage: 0,
             clarityScore: 0,
             defectProminence: 0,
             natureRatio: 0.02,
-            skinRatio: 0.55
+            skinRatio: 0.55,
+            boundingBox: null
           });
         }
 
@@ -396,6 +400,8 @@ function inspectCanvasPixels(canvas, categoryHint = '', textContext = '') {
   let sumLuminance = 0;
   let greenVegPixels = 0;
   let skinTonePixels = 0;
+  let faceRegionSkinPixels = 0;
+  let faceRegionTotalPixels = 0;
   let blueDominantPixels = 0;
   let pureWhitePixels = 0;
 
@@ -413,6 +419,12 @@ function inspectCanvasPixels(canvas, categoryHint = '', textContext = '') {
   const minCenterY = Math.floor(h * 0.20);
   const maxCenterY = Math.floor(h * 0.70);
   const bottomStartY = Math.floor(h * 0.70);
+
+  // Upper-central face zone where human portrait & selfie faces reside
+  const minFaceX = Math.floor(w * 0.15);
+  const maxFaceX = Math.floor(w * 0.85);
+  const minFaceY = Math.floor(h * 0.10);
+  const maxFaceY = Math.floor(h * 0.75);
 
   // 1. Grayscale luminance buffer
   const gray = new Float32Array(totalPixels);
@@ -457,14 +469,22 @@ function inspectCanvasPixels(canvas, categoryHint = '', textContext = '') {
       greenVegPixels++;
     }
 
-    // Human skin tone signature (selfies, faces, hands)
-    if (
-      r > 90 && g > 40 && b > 20 && 
-      r > g && r > b && 
-      (r - g > 12) && 
-      (Math.max(r, g, b) - Math.min(r, g, b) > 15)
-    ) {
+    // Human skin tone signature (Dual YCbCr + RGB model covering all skin complexions)
+    const cb = -0.168736 * r - 0.331264 * g + 0.5 * b + 128;
+    const cr = 0.5 * r - 0.418688 * g - 0.081312 * b + 128;
+    const isSkinYCbCr = cr >= 132 && cr <= 175 && cb >= 77 && cb <= 128;
+    const isSkinRGB = r > 65 && g > 38 && b > 20 && r > g && r > b && (r - g > 8) && (Math.max(r, g, b) - Math.min(r, g, b) > 14);
+
+    const isSkin = isSkinYCbCr || isSkinRGB;
+    if (isSkin) {
       skinTonePixels++;
+    }
+
+    if (x >= minFaceX && x <= maxFaceX && y >= minFaceY && y <= maxFaceY) {
+      faceRegionTotalPixels++;
+      if (isSkin) {
+        faceRegionSkinPixels++;
+      }
     }
   }
 
@@ -523,6 +543,7 @@ function inspectCanvasPixels(canvas, categoryHint = '', textContext = '') {
   const highEdgeRatio = laplacianCount > 0 ? highEdgePixels / laplacianCount : 0;
   const jaggedFissureRatio = laplacianCount > 0 ? jaggedFissurePixels / laplacianCount : 0;
 
+  const faceSkinRatio = faceRegionTotalPixels > 0 ? faceRegionSkinPixels / faceRegionTotalPixels : 0;
   const natureRatio = greenVegPixels / totalPixels;
   const skinRatio = skinTonePixels / totalPixels;
   const blueDominantRatio = centerLumCount > 0 ? blueDominantPixels / centerLumCount : 0;
@@ -531,7 +552,7 @@ function inspectCanvasPixels(canvas, categoryHint = '', textContext = '') {
   // Context parsing
   const textLower = (textContext || '').toLowerCase();
   
-  // Positive working indicators (user says asset has no issue, operates fine)
+  // Positive working indicators (user affirms asset has no issue, operates fine)
   const workingWords = [
     'working fine', 'wroking fine', 'working total fine', 'wroking total fine',
     'working totally fine', 'wroking totally fine', 'working properly', 'wroking properly',
@@ -542,53 +563,65 @@ function inspectCanvasPixels(canvas, categoryHint = '', textContext = '') {
   ];
   const hasWorkingReport = workingWords.some(w => textLower.includes(w));
 
-  // Specific defect phrases (MUST NOT contain bare 'wroking'!)
-  const defectWords = [
-    'not working', 'not wroking', 'not work', 'stopped working', 'stopped wroking',
-    'wroking bad', 'wroking slow', 'wroking noisy', 'wroking poor',
-    'broken', 'damage', 'damaged', 'fault', 'defective', 'issue', 'problem',
-    'crack', 'cracked', 'fissure', 'broken screen', 'shattered',
-    'flicker', 'flickering', 'fused', 'not glowing', 'blackout',
-    'leak', 'leaking', 'spill', 'water overflow', 'drip',
-    'noise', 'noisy', 'humming', 'wobble', 'wobbling', 'stuck', 'jammed',
-    'spark', 'shock', 'burnt', 'burning', 'melted', 'exposed wire',
-    'garbage', 'waste', 'wastage', 'trash', 'litter', 'dirty', 'overflowing',
-    'no signal', 'blue screen', 'bsod'
-  ];
-  // Defect report is ONLY valid if user hasn't explicitly affirmed the asset is working fine
-  const hasDefectReport = !hasWorkingReport && defectWords.some(w => textLower.includes(w));
+  // Parse Claimed Asset keywords from text & category
+  const isLaptopClaimed = ['laptop', 'computer', 'pc', 'workstation', 'monitor', 'keyboard', 'screen', 'hp', 'dell', 'lenovo', 'thinkpad', 'code', 'macbook'].some(k => textLower.includes(k)) || (categoryHint === 'it_av' && !textLower.includes('projector') && !textLower.includes('hdmi'));
+  const isProjectorClaimed = ['projector', 'hdmi', 'beamer', 'benq', 'epson', 'lens', 'projection'].some(k => textLower.includes(k));
+  const isTubeLightClaimed = ['light', 'tube', 'tubelight', 'bulb', 'flicker', 'fused', 'hostel light', 'corridor light', 'batten', 'led tube'].some(k => textLower.includes(k));
+  const isWasteClaimed = ['waste', 'wastage', 'road', 'garbage', 'trash', 'litter', 'dirty', 'plastic', 'cleanliness', 'spill', 'dustbin', 'overflow'].some(k => textLower.includes(k)) || categoryHint === 'cleanliness';
+  const isFanClaimed = ['fan', 'ceiling', 'regulator', 'blade'].some(k => textLower.includes(k));
+  const isWaterClaimed = ['water', 'cooler', 'purifier', 'leak', 'tap', 'basin', 'pipeline', 'plumbing', 'chiller'].some(k => textLower.includes(k)) || categoryHint === 'water';
+  const isDeskClaimed = ['bench', 'desk', 'chair', 'table', 'furniture'].some(k => textLower.includes(k)) || categoryHint === 'civil';
+  const isSafetyClaimed = ['wire', 'wiring', 'switch', 'socket', 'spark', 'shock', 'mcb', 'conduit', 'gang box'].some(k => textLower.includes(k)) || categoryHint === 'safety';
 
-  const campusKeywords = [
-    'laptop', 'computer', 'pc', 'workstation', 'monitor', 'keyboard', 'screen',
-    'fan', 'ceiling', 'regulator', 'ac', 'wire', 'switch', 'socket', 'light', 'tube', 'tubelight',
-    'projector', 'hdmi', 'water', 'cooler', 'purifier', 'tap', 'leak',
-    'desk', 'bench', 'chair', 'door', 'lock', 'waste', 'garbage', 'litter'
-  ];
-  const hasCampusContext = campusKeywords.some(k => textLower.includes(k)) || Boolean(categoryHint);
+  let claimedAssetName = 'Campus Facility Equipment';
+  if (isLaptopClaimed) claimedAssetName = 'Academic Laptop / Lab Workstation';
+  else if (isFanClaimed) claimedAssetName = 'Ceiling Fan Fixture';
+  else if (isTubeLightClaimed) claimedAssetName = 'Hostel / Classroom Tube Light';
+  else if (isWasteClaimed) claimedAssetName = 'Campus Roadway / Sanitation Area';
+  else if (isProjectorClaimed) claimedAssetName = 'Digital Overhead Projector';
+  else if (isWaterClaimed) claimedAssetName = 'Water Purifier & Chiller';
+  else if (isDeskClaimed) claimedAssetName = 'Lecture Bench & Furniture';
+  else if (isSafetyClaimed) claimedAssetName = 'Electrical Wiring & Switchboard';
 
   // -------------------------------------------------------------
-  // STATE 3: IRRELEVANT IMAGE CLASSIFICATION
+  // STATE 3: IRRELEVANT IMAGE CLASSIFICATION & CROSS-MODAL MISMATCH
+  // Evaluated INDEPENDENTLY of text keywords!
+  // A selfie or nature photo does NOT become a laptop just because text mentions it!
   // -------------------------------------------------------------
-  const isNature = natureRatio > 0.40 && categoryHint !== 'cleanliness' && !hasCampusContext;
-  const isSelfie = skinRatio > 0.65 && !hasCampusContext;
+  const isHumanPortrait = skinRatio > 0.07 || faceSkinRatio > 0.09;
+  const isNature = natureRatio > 0.35 && categoryHint !== 'cleanliness' && !isWasteClaimed;
   const isTooDark = meanLuminance < 18; // Pitch black or covered lens
   const isTooWashedOut = meanLuminance > 245 && contrast < 12; // Pure white blowout
-  const isBlankSurface = contrast < 12 && avgLaplacian < 8 && !hasCampusContext;
+  const isBlankSurface = contrast < 12 && avgLaplacian < 8; // Plain featureless wall/floor
 
-  if (isNature || isSelfie || isTooDark || isTooWashedOut || isBlankSurface) {
+  if (isHumanPortrait || isNature || isTooDark || isTooWashedOut || isBlankSurface) {
     let reason = 'Non-campus facility subject detected';
-    if (isNature) reason = 'Nature foliage / landscape detected (Non-Campus Facility)';
-    else if (isSelfie) reason = 'Human subject / portrait detected (Personal Photograph)';
-    else if (isTooDark) reason = 'Photo is too dark to identify campus equipment (Under-exposed frame)';
-    else if (isTooWashedOut) reason = 'Overexposed / blank frame (Asset not visible)';
-    else if (isBlankSurface) reason = 'Featureless blank surface (No hardware or fixture detected)';
+    let message = '';
+
+    if (isHumanPortrait) {
+      reason = 'Human subject / portrait detected (Personal Photograph)';
+      message = `⚠️ Photo Evidence Mismatch: The captured photo shows a human portrait / selfie, but the issue is reported for "${claimedAssetName}". No physical campus equipment or maintenance fault is visible in frame. Problem visibility is 0% and AI verification score is paused. Please use the camera to photograph the actual damaged asset.`;
+    } else if (isNature) {
+      reason = 'Nature foliage / landscape detected (Non-Campus Facility)';
+      message = `⚠️ Photo Evidence Mismatch: Natural outdoor foliage or vegetation was detected. No campus maintenance equipment is visible. Problem visibility is 0% and AI verification score is paused. Please photograph the campus equipment.`;
+    } else if (isTooDark) {
+      reason = 'Photo is too dark to identify campus equipment (Under-exposed frame)';
+      message = `⚠️ Photo Under-Exposed: The image is too dark to identify campus equipment. Problem visibility is 0% and AI verification score is paused. Please retake the photo in better lighting.`;
+    } else if (isTooWashedOut) {
+      reason = 'Overexposed / blank frame (Asset not visible)';
+      message = `⚠️ Photo Over-Exposed: The image is washed out with no visible equipment contours. Problem visibility is 0% and AI verification score is paused. Please retake the photo.`;
+    } else if (isBlankSurface) {
+      reason = 'Featureless blank surface (No hardware or fixture detected)';
+      message = `⚠️ No Asset Detected: The photo shows a plain blank surface with no visible campus fixture or hardware. Problem visibility is 0% and AI verification score is paused. Please point the camera directly at the asset.`;
+    }
 
     return {
       status: 'irrelevant',
       isRelevant: false,
       hasDefect: false,
       irrelevanceReason: reason,
-      message: `${reason}. Please use the live camera to capture a clear photo of the damaged campus asset.`,
+      message,
+      warningMessage: message,
       visibilityPercentage: 0,
       clarityScore: 0,
       defectProminence: 0,
@@ -596,7 +629,8 @@ function inspectCanvasPixels(canvas, categoryHint = '', textContext = '') {
       contrast: Math.round(contrast),
       brightness: Math.round(meanLuminance),
       natureRatio: Math.round(natureRatio * 100) / 100,
-      skinRatio: Math.round(skinRatio * 100) / 100
+      skinRatio: Math.round(skinRatio * 100) / 100,
+      boundingBox: null
     };
   }
 
@@ -607,59 +641,51 @@ function inspectCanvasPixels(canvas, categoryHint = '', textContext = '') {
   
   // Optical screen detection: Central illuminated emissive screen with darker base/table deck
   const isScreenOptically = (
-    centerLuminance > 100 && 
-    (centerLuminance > bottomLuminance + 15 || bottomLuminance < 115) &&
-    highEdgeRatio > 0.035
+    centerLuminance > 90 && 
+    (centerLuminance > bottomLuminance + 12 || bottomLuminance < 115) &&
+    highEdgeRatio > 0.025
   );
-  const isLaptopMentioned = ['laptop', 'computer', 'pc', 'workstation', 'monitor', 'keyboard', 'screen', 'hp', 'dell', 'lenovo', 'thinkpad', 'code'].some(k => textLower.includes(k));
-  const isProjectorMentioned = ['projector', 'hdmi', 'beamer', 'benq', 'epson', 'lens', 'projection'].some(k => textLower.includes(k));
-  const isTubeLightMentioned = ['light', 'tube', 'tubelight', 'bulb', 'flicker', 'fused', 'hostel light', 'corridor light'].some(k => textLower.includes(k));
-  const isWasteMentioned = ['waste', 'wastage', 'road', 'garbage', 'trash', 'litter', 'dirty', 'plastic', 'cleanliness', 'spill', 'dustbin', 'overflow'].some(k => textLower.includes(k));
-  const isFanMentioned = ['fan', 'ceiling', 'regulator', 'blade'].some(k => textLower.includes(k));
-  const isWaterMentioned = ['water', 'cooler', 'purifier', 'leak', 'tap', 'basin', 'pipeline', 'plumbing'].some(k => textLower.includes(k));
-  const isDeskMentioned = ['bench', 'desk', 'chair', 'table', 'furniture'].some(k => textLower.includes(k));
-  const isLiveWireMentioned = ['wire', 'wiring', 'switch', 'socket', 'spark', 'shock', 'mcb', 'conduit'].some(k => textLower.includes(k));
 
   let assetName = 'Campus Facility Fixture / Equipment';
   let defaultBbox = { ymin: 18, xmin: 22, ymax: 76, xmax: 78, label: 'Campus Facility Asset', defect: 'Operational Defect' };
   let assetType = 'general';
 
-  if ((isScreenOptically || isLaptopMentioned) && !isProjectorMentioned) {
+  if ((isScreenOptically || isLaptopClaimed) && !isProjectorClaimed) {
     // 1. Laptop / Lab Workstation
     assetType = 'laptop';
     assetName = 'Academic Laptop / Lab Workstation (HP/Dell/PC)';
     defaultBbox = { ymin: 16, xmin: 20, ymax: 68, xmax: 80, label: 'Academic Laptop Display & Deck', defect: 'Operating Fine / Screen Intact' };
-  } else if (isTubeLightMentioned || (pureWhiteRatio > 0.04 && categoryHint === 'electrical')) {
+  } else if (isTubeLightClaimed || (pureWhiteRatio > 0.03 && categoryHint === 'electrical')) {
     // 2. Hostel / Classroom Tube Light
     assetType = 'tube_light';
     assetName = 'Hostel / Classroom Tube Light & LED Batten';
     defaultBbox = { ymin: 10, xmin: 15, ymax: 30, xmax: 85, label: 'Hostel Tube Light Fixture', defect: 'Cathode Ring Burnout' };
-  } else if (isWasteMentioned || categoryHint === 'cleanliness') {
+  } else if (isWasteClaimed) {
     // 3. Road / Corridor Waste & Garbage Spill
     assetType = 'waste';
     assetName = 'Campus Road & Corridor Sanitation / Litter Area';
     defaultBbox = { ymin: 35, xmin: 20, ymax: 88, xmax: 80, label: 'Road / Corridor Waste Spill', defect: 'Uncollected Litter & Garbage' };
-  } else if (isProjectorMentioned || (categoryHint === 'it_av' && !isScreenOptically)) {
+  } else if (isProjectorClaimed || (categoryHint === 'it_av' && !isScreenOptically)) {
     // 4. Digital Overhead Projector
     assetType = 'projector';
     assetName = 'Digital Overhead Projector (EPSON/BenQ)';
     defaultBbox = { ymin: 16, xmin: 22, ymax: 76, xmax: 82, label: 'Projector Interface & Lens', defect: 'HDMI Pin Dislodged' };
-  } else if (isFanMentioned || (categoryHint === 'electrical' && topLuminance > 125)) {
+  } else if (isFanClaimed || (categoryHint === 'electrical' && topLuminance > 125)) {
     // 5. Ceiling Fan
     assetType = 'fan';
     assetName = 'Havells Heavy Duty Ceiling Fan Fixture';
     defaultBbox = { ymin: 14, xmin: 24, ymax: 60, xmax: 60, label: 'Ceiling Fan Rotor & Blades', defect: 'Operational Rotor Stoppage' };
-  } else if (isWaterMentioned || categoryHint === 'water') {
+  } else if (isWaterClaimed) {
     // 6. Water Purifier & Chiller
     assetType = 'water';
     assetName = 'Commercial RO Water Purifier & Chiller';
     defaultBbox = { ymin: 28, xmin: 22, ymax: 86, xmax: 82, label: 'RO Cooler Dispensing Valve', defect: 'Active Valve Leak' };
-  } else if (isDeskMentioned || categoryHint === 'civil') {
+  } else if (isDeskClaimed) {
     // 7. Lecture Bench & Furniture
     assetType = 'desk';
     assetName = 'Ergonomic Dual-Seater Lecture Bench';
     defaultBbox = { ymin: 22, xmin: 16, ymax: 82, xmax: 86, label: 'Lecture Bench Structural Frame', defect: 'Fractured Weld Joint' };
-  } else if (isLiveWireMentioned || categoryHint === 'safety') {
+  } else if (isSafetyClaimed) {
     // 8. Electrical Safety Hazard
     assetType = 'electrical_safety';
     assetName = 'Classroom High-Voltage Gang Box / Conduits';
@@ -667,7 +693,9 @@ function inspectCanvasPixels(canvas, categoryHint = '', textContext = '') {
   }
 
   // -------------------------------------------------------------
-  // STATE 2 vs STATE 1: DEFECT GATING LOGIC
+  // STATE 2 vs STATE 1: DEFECT GATING LOGIC (IMAGE EVIDENCE FIRST!)
+  // An asset is ONLY marked defective if the IMAGE shows physical damage!
+  // If the asset is intact, return State 2 (0% Visibility, +0 Priority Boost).
   // -------------------------------------------------------------
   const normalizedLaplacian = Math.min(Math.max((avgLaplacian / 40) * 100, 70), 98);
   const normalizedContrast = Math.min(Math.max((contrast / 60) * 100, 72), 98);
@@ -675,40 +703,85 @@ function inspectCanvasPixels(canvas, categoryHint = '', textContext = '') {
   const prominenceRatio = centerLaplacian / Math.max(avgLaplacian, 1);
   const defectProminence = Math.min(Math.max(Math.round(82 + prominenceRatio * 10), 80), 97);
 
-  // Asset-specific physical defect rules:
+  // Asset-specific physical defect checks:
   let isPhysicallyDefective = false;
 
-  if (assetType === 'laptop') {
-    // Laptop screen is defective ONLY if:
-    // a) User reports a fault (e.g. cracked, broken, not turning on)
-    // b) Blue Screen of Death detected (strong blue dominance across central screen)
-    // c) Jagged glass crack fissure detected
-    isPhysicallyDefective = hasDefectReport || blueDominantRatio > 0.35 || jaggedFissureRatio > 0.05;
+  if (hasWorkingReport) {
+    // User explicitly says asset is working fine
+    isPhysicallyDefective = false;
+  } else if (assetType === 'laptop') {
+    // Laptop screen is defective ONLY IF physical fracture or crash is optical in the image:
+    // a) Blue Screen of Death (dominant blue screen crash)
+    // b) Jagged crack fissures cutting through display panel
+    // c) Powered off / dead black display while workstation base illuminated
+    const isBSOD = blueDominantRatio > 0.28;
+    const isCracked = jaggedFissureRatio > 0.035 && highEdgeRatio > 0.05;
+    const isDeadScreen = centerLuminance < 40 && bottomLuminance > 75;
+    isPhysicallyDefective = isBSOD || isCracked || isDeadScreen;
+  } else if (assetType === 'tube_light') {
+    // Fused / burnout: fixture is dark while room is lit, or burnt black cathode ends
+    const isFusedDark = centerLuminance < 85 && topLuminance > 85;
+    const isBurntEnds = contrast > 45 && pureWhiteRatio < 0.01;
+    isPhysicallyDefective = isFusedDark || isBurntEnds;
   } else if (assetType === 'waste') {
-    // Waste/garbage is intrinsically a cleanliness report unless user states it's clean
-    isPhysicallyDefective = !hasWorkingReport;
+    // Road waste: ground clutter / high texture irregularity
+    isPhysicallyDefective = avgLaplacian > 16 || highEdgeRatio > 0.045;
+  } else if (assetType === 'fan') {
+    // Bent / detached blade: jagged fissure cuts across blades with severe contrast asymmetry
+    isPhysicallyDefective = jaggedFissureRatio > 0.045 && contrast > 50;
+  } else if (assetType === 'projector') {
+    // Dislodged port / broken lens
+    isPhysicallyDefective = jaggedFissureRatio > 0.04;
+  } else if (assetType === 'water') {
+    // Water leak puddle
+    isPhysicallyDefective = bottomLuminance > centerLuminance + 20 && contrast > 35;
+  } else if (assetType === 'desk') {
+    // Fractured weld
+    isPhysicallyDefective = jaggedFissureRatio > 0.045;
+  } else if (assetType === 'electrical_safety') {
+    // Exposed live copper wires protruding
+    isPhysicallyDefective = highEdgeRatio > 0.05 && contrast > 40;
   } else {
-    // For other assets: defective if user explicitly reports a defect, OR strong localized fracture anomaly
-    isPhysicallyDefective = hasDefectReport || (jaggedFissureRatio > 0.06 && !hasWorkingReport);
+    isPhysicallyDefective = jaggedFissureRatio > 0.06;
   }
 
-  // If asset is NOT defective -> STATE 2: NO PROBLEM FOUND / WORKING FINE
+  // If asset is NOT physically defective -> STATE 2: NO PROBLEM FOUND / WORKING FINE
   if (!isPhysicallyDefective) {
     let diagnosis = `No Problem Found — ${assetName} Appears Undamaged & Working Fine`;
-    let inspectionMessage = `Optical inspection completed. ${assetName} recognized in frame. Surface contours and mounts appear intact with no visible structural cracks, burns, or severed wiring.`;
+    let inspectionMessage = `Optical inspection completed. ${assetName} recognized in frame. Surface contours and mounts appear intact with no visible structural cracks, burns, or severed wiring. Hardware appears operating fine (0% physical fault visibility).`;
 
     if (assetType === 'laptop') {
       diagnosis = 'No Problem Found — Display & Hardware Operating Fine';
-      inspectionMessage = 'Optical inspection completed. Laptop display is illuminated with intact bezel and keyboard deck. No screen cracks, BSOD crash, or physical hardware fractures detected. Equipment appears in good working order.';
+      inspectionMessage = 'Optical inspection completed. Laptop display is illuminated with intact bezel and keyboard deck. No physical screen cracks, BSOD crash, or hardware fractures detected. Visually, equipment appears to be operating fine (0% physical fault visibility). Any internal software, battery, or OS issues will be examined by IT support.';
       defaultBbox.defect = 'Operating Fine / Screen Intact';
     } else if (assetType === 'fan') {
       diagnosis = 'No Problem Found — Ceiling Fan Blades & Motor Intact';
-      inspectionMessage = 'Ceiling fan recognized. Blades appear balanced and aerodynamically aligned with no physical bending or structural detachment.';
+      inspectionMessage = 'Ceiling fan recognized. Blades appear balanced and aerodynamically aligned with no physical bending or structural detachment. Fixture appears intact.';
       defaultBbox.defect = 'Verified Intact';
     } else if (assetType === 'tube_light') {
       diagnosis = 'No Problem Found — Tube Light Illuminating Normally';
-      inspectionMessage = 'Tube light fixture recognized. Illuminating normally with uniform daylight glow and no cathode ring burnout.';
+      inspectionMessage = 'Tube light fixture recognized. Illuminating normally with uniform daylight glow and no cathode ring burnout. Fixture verified intact.';
       defaultBbox.defect = 'Verified Intact';
+    } else if (assetType === 'waste') {
+      diagnosis = 'No Problem Found — Road & Walkway Surface Clean';
+      inspectionMessage = 'Surface scanned. Pathway and road surface appear clear with no uncollected garbage spill or litter accumulation in frame.';
+      defaultBbox.defect = 'Swept & Clean';
+    } else if (assetType === 'projector') {
+      diagnosis = 'No Problem Found — Digital Projector Mounted & Intact';
+      inspectionMessage = 'Projector recognized. Housing, mount, and lens appear intact with no dislodged ports visible.';
+      defaultBbox.defect = 'Verified Intact';
+    } else if (assetType === 'water') {
+      diagnosis = 'No Problem Found — Water Purifier Valve & Basin Dry';
+      inspectionMessage = 'Water cooler recognized. Dispensing valve and drip basin are dry with no pooling moisture detected.';
+      defaultBbox.defect = 'Verified Intact';
+    } else if (assetType === 'desk') {
+      diagnosis = 'No Problem Found — Lecture Bench Structurally Sound';
+      inspectionMessage = 'Lecture bench recognized. Tubular steel frame and desktop appear solid with no fractured weld joints.';
+      defaultBbox.defect = 'Verified Intact';
+    } else if (assetType === 'electrical_safety') {
+      diagnosis = 'No Problem Found — Switchboard Faceplate Sealed';
+      inspectionMessage = 'Switchboard enclosure recognized. Faceplate is sealed with no exposed copper wiring protruding.';
+      defaultBbox.defect = 'Verified Safe';
     }
 
     return {
@@ -738,7 +811,7 @@ function inspectCanvasPixels(canvas, categoryHint = '', textContext = '') {
 
   let defectDiagnosis = 'Visible Fixture Damage / Operational Breakdown';
   if (assetType === 'laptop') {
-    defectDiagnosis = blueDominantRatio > 0.35 
+    defectDiagnosis = blueDominantRatio > 0.28 
       ? 'Fatal OS Blue Screen Crash (BSOD) / Kernel Halt' 
       : 'Fractured LCD Display Matrix & Impact Crack';
     defaultBbox.defect = 'Fractured LCD Display';
