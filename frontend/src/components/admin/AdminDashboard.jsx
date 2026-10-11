@@ -23,7 +23,12 @@ import {
   Layers,
   Cpu,
   RefreshCw,
-  Box
+  Box,
+  PackageSearch,
+  Lock,
+  ShieldCheck,
+  Send,
+  CheckSquare
 } from 'lucide-react';
 
 export default function AdminDashboard() {
@@ -32,7 +37,8 @@ export default function AdminDashboard() {
     currentUser, 
     updateTicketAdmin, 
     setSelectedTicketForDetail,
-    canViewStudentDetails
+    canViewStudentDetails,
+    reviewClaimRequest
   } = useApp();
 
   if (!currentUser) return null;
@@ -42,6 +48,7 @@ export default function AdminDashboard() {
   );
 
   const [statusFilter, setStatusFilter] = useState('all');
+  const [lnfSubFilter, setLnfSubFilter] = useState('claims'); // 'claims' | 'custody' | 'lost' | 'all'
   const [editingTicket, setEditingTicket] = useState(null);
 
   // Edit form state
@@ -54,8 +61,27 @@ export default function AdminDashboard() {
   const [adminCopilotData, setAdminCopilotData] = useState(null);
   const [isGeneratingCopilot, setIsGeneratingCopilot] = useState(false);
 
+  // Lost & Found records and Student Claims
+  const lostFoundTickets = tickets.filter(t => t.scope === 'lost_found' || t.category === 'lost_found');
+  
+  const allClaimRequests = React.useMemo(() => {
+    const list = [];
+    lostFoundTickets.forEach(ticket => {
+      (ticket.claimRequests || []).forEach(claim => {
+        list.push({ ...claim, ticket });
+      });
+    });
+    return list.sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
+  }, [lostFoundTickets]);
+
+  const pendingClaimsCount = allClaimRequests.filter(c => c.status === 'pending').length;
+  const custodyFoundTickets = lostFoundTickets.filter(t => t.lostFoundType === 'found');
+  const lostAlertTickets = lostFoundTickets.filter(t => t.lostFoundType === 'lost');
+  const handedOverCount = lostFoundTickets.filter(t => t.claimedStatus === 'claimed' || t.status === 'resolved').length;
+
   // Domain operations only receive tickets after Stage-1 approval (or direct panel/campus emergency)
   const domainTickets = tickets.filter(t => {
+    if (selectedDomain === 'lost_found') return false;
     if (selectedDomain !== 'all' && t.domain !== selectedDomain) return false;
     if (statusFilter !== 'all' && t.status !== statusFilter) return false;
     if (t.advisorApprovalStatus === 'rejected' || t.wardenApprovalStatus === 'rejected') return false;
@@ -114,6 +140,7 @@ export default function AdminDashboard() {
     { id: 'electrical_av', label: 'Electrical & AV', icon: 'Zap' },
     { id: 'carpentry_civil', label: 'Carpentry & Civil', icon: 'Hammer' },
     { id: 'hostel_mess', label: 'Hostels & Mess', icon: 'Utensils' },
+    { id: 'lost_found', label: `🎒 Lost & Found Hub ${pendingClaimsCount > 0 ? `(${pendingClaimsCount} Claims)` : ''}`, icon: 'PackageSearch', isLNF: true, badge: pendingClaimsCount },
     { id: 'all', label: 'All Campus Domains', icon: 'Layers' },
   ];
 
@@ -175,6 +202,307 @@ export default function AdminDashboard() {
         </div>
       </div>
 
+      {selectedDomain === 'lost_found' ? (
+        /* LOST & FOUND CUSTODY & STUDENT CLAIMS OPERATIONS */
+        <div className="space-y-6 animate-fade-in">
+          {/* Top 4 Metric Cards for Lost & Found */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+            <div className="p-4 rounded-2xl bg-white border border-ivory-300 shadow-subtle">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-charcoal-500 block">Total L&F Records</span>
+              <div className="text-2xl font-black text-forest-950 mt-1">{lostFoundTickets.length}</div>
+              <span className="text-[10px] text-charcoal-500">Registered on campus</span>
+            </div>
+            <div className="p-4 rounded-2xl bg-white border border-ivory-300 shadow-subtle">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 block">In Safe Custody</span>
+              <div className="text-2xl font-black text-emerald-700 mt-1">{custodyFoundTickets.length}</div>
+              <span className="text-[10px] text-emerald-700 font-semibold">Held in Dept / Security</span>
+            </div>
+            <div className={`p-4 rounded-2xl border shadow-subtle ${
+              pendingClaimsCount > 0 ? 'bg-amber-50/80 border-amber-300 text-amber-950' : 'bg-white border-ivory-300'
+            }`}>
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-900 block">Pending Claims</span>
+                {pendingClaimsCount > 0 && (
+                  <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
+                )}
+              </div>
+              <div className="text-2xl font-black text-amber-900 mt-1">{pendingClaimsCount}</div>
+              <span className="text-[10px] text-amber-800 font-semibold">Requires admin authentication</span>
+            </div>
+            <div className="p-4 rounded-2xl bg-white border border-ivory-300 shadow-subtle">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-charcoal-500 block">Handed Over / Returned</span>
+              <div className="text-2xl font-black text-forest-950 mt-1">{handedOverCount}</div>
+              <span className="text-[10px] text-emerald-700 font-semibold">Reunited with students</span>
+            </div>
+          </div>
+
+          {/* Sub-Filter Switcher */}
+          <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-ivory-300">
+            <div className="flex items-center space-x-1.5 overflow-x-auto no-scrollbar">
+              <button
+                onClick={() => setLnfSubFilter('claims')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 ${
+                  lnfSubFilter === 'claims'
+                    ? 'bg-amber-700 text-white shadow-sm'
+                    : 'bg-ivory-100 text-charcoal-700 hover:bg-ivory-200'
+                }`}
+              >
+                <PackageSearch className="w-3.5 h-3.5" />
+                <span>Student Claim Requests ({allClaimRequests.length})</span>
+                {pendingClaimsCount > 0 && (
+                  <span className="px-1.5 py-0.2 rounded-full bg-amber-300 text-amber-950 text-[10px] font-extrabold ml-1">
+                    {pendingClaimsCount} new
+                  </span>
+                )}
+              </button>
+              <button
+                onClick={() => setLnfSubFilter('custody')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 ${
+                  lnfSubFilter === 'custody'
+                    ? 'bg-emerald-800 text-white shadow-sm'
+                    : 'bg-ivory-100 text-charcoal-700 hover:bg-ivory-200'
+                }`}
+              >
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>Found in Custody ({custodyFoundTickets.length})</span>
+              </button>
+              <button
+                onClick={() => setLnfSubFilter('lost')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 ${
+                  lnfSubFilter === 'lost'
+                    ? 'bg-blue-800 text-white shadow-sm'
+                    : 'bg-ivory-100 text-charcoal-700 hover:bg-ivory-200'
+                }`}
+              >
+                <span>📢 Lost Item Alerts ({lostAlertTickets.length})</span>
+              </button>
+              <button
+                onClick={() => setLnfSubFilter('all')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                  lnfSubFilter === 'all'
+                    ? 'bg-[#092d25] text-white shadow-sm'
+                    : 'bg-ivory-100 text-charcoal-700 hover:bg-ivory-200'
+                }`}
+              >
+                All Records ({lostFoundTickets.length})
+              </button>
+            </div>
+          </div>
+
+          {/* Claims Review Sub-View */}
+          {lnfSubFilter === 'claims' && (
+            <div className="space-y-4">
+              {allClaimRequests.length === 0 ? (
+                <div className="bg-white rounded-2xl border border-ivory-300 p-8 text-center text-charcoal-500 text-xs">
+                  No student claim requests have been filed yet.
+                </div>
+              ) : (
+                allClaimRequests.map(claim => (
+                  <div 
+                    key={claim.claimId}
+                    className={`bg-white rounded-2xl border-2 p-5 shadow-subtle transition-all space-y-4 ${
+                      claim.status === 'approved'
+                        ? 'border-emerald-300'
+                        : claim.status === 'rejected'
+                        ? 'border-rose-200 opacity-80'
+                        : 'border-amber-300 bg-amber-50/20'
+                    }`}
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-ivory-200 pb-3">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 rounded-2xl bg-forest-950 text-mint-300 font-extrabold flex items-center justify-center text-sm shadow">
+                          {claim.claimant?.name?.charAt(0) || 'S'}
+                        </div>
+                        <div>
+                          <div className="flex items-center space-x-2">
+                            <span className="font-extrabold text-sm text-forest-950">{claim.claimant?.name}</span>
+                            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-ivory-200 font-bold text-charcoal-700">
+                              {claim.claimant?.rollNo}
+                            </span>
+                            <span className="text-xs text-charcoal-500">
+                              • {claim.claimant?.classSection} • {claim.claimant?.hostel}
+                            </span>
+                          </div>
+                          <div className="text-[11px] text-charcoal-600 mt-0.5">
+                            Contact Phone: <strong className="text-forest-950 font-mono">{claim.contactPhone || claim.claimant?.phone || 'N/A'}</strong> • Email: {claim.claimant?.email || 'N/A'}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center space-x-2">
+                        <span className="text-[10px] font-mono text-charcoal-400">Claim ID: {claim.claimId}</span>
+                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase border ${
+                          claim.status === 'approved'
+                            ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                            : claim.status === 'rejected'
+                            ? 'bg-rose-100 text-rose-800 border-rose-300'
+                            : 'bg-amber-100 text-amber-800 border-amber-300 animate-pulse'
+                        }`}>
+                          {claim.status === 'approved' ? '✓ Handed Over' : claim.status === 'rejected' ? '✕ Rejected' : 'Pending Verification'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Associated Product Dossier Snapshot */}
+                    <div className="flex flex-col md:flex-row gap-4 items-start bg-ivory-50/80 p-3.5 rounded-xl border border-ivory-200">
+                      <img 
+                        src={claim.ticket?.imageUrl} 
+                        alt={claim.ticket?.title}
+                        className="w-20 h-20 rounded-xl object-cover border border-ivory-300 shrink-0"
+                      />
+                      <div className="flex-1 space-y-1">
+                        <div className="flex items-center space-x-2">
+                          <span className="text-xs font-mono font-bold text-charcoal-500">#{claim.ticket?.id}</span>
+                          <span className="font-extrabold text-sm text-forest-950 hover:text-emerald-700 cursor-pointer" onClick={() => setSelectedTicketForDetail(claim.ticket)}>
+                            {claim.ticket?.title}
+                          </span>
+                        </div>
+                        <div className="text-xs text-charcoal-600">
+                          Current Custody: <strong className="text-emerald-800">{claim.ticket?.safekeepingLocation || 'Department Office'}</strong>
+                        </div>
+                        <div className="text-[11px] text-charcoal-500">
+                          Found at: {claim.ticket?.location} • Timing: {claim.ticket?.timings || 'Reported during class'}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Side-by-Side Proof Comparison */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                      <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-300 space-y-1">
+                        <span className="text-[10px] font-bold text-emerald-900 uppercase block flex items-center space-x-1">
+                          <Lock className="w-3.5 h-3.5 text-emerald-700" />
+                          <span>Confidential Secret Record (From Finder):</span>
+                        </span>
+                        <p className="text-emerald-950 font-medium leading-relaxed bg-white/70 p-2.5 rounded-lg border border-emerald-200 text-[11px]">
+                          {claim.ticket?.secretDetails || 'No private marks provided.'}
+                        </p>
+                      </div>
+
+                      <div className="p-3 rounded-xl bg-amber-50 border border-amber-300 space-y-1">
+                        <span className="text-[10px] font-bold text-amber-900 uppercase block flex items-center space-x-1">
+                          <PackageSearch className="w-3.5 h-3.5 text-amber-700" />
+                          <span>Claimant Student's Submitted Proof:</span>
+                        </span>
+                        <p className="text-amber-950 font-medium leading-relaxed bg-white/70 p-2.5 rounded-lg border border-amber-200 text-[11px]">
+                          "{claim.proofDetails}"
+                        </p>
+                        {claim.lostLocation && (
+                          <div className="text-[10px] text-charcoal-600 pt-0.5">
+                            Claimant Stated Lost Location: <strong>{claim.lostLocation}</strong>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Action Buttons for Pending Claims */}
+                    {claim.status === 'pending' ? (
+                      <div className="flex flex-wrap items-center justify-end gap-2 pt-2 border-t border-ivory-200">
+                        <button
+                          onClick={() => setSelectedTicketForDetail(claim.ticket)}
+                          className="px-3.5 py-2 rounded-xl border border-ivory-300 hover:bg-ivory-100 text-charcoal-700 text-xs font-bold transition-all"
+                        >
+                          View Full Item Dossier
+                        </button>
+                        <button
+                          onClick={() => {
+                            const reason = window.prompt('Reason for rejecting this claim:', 'Private markings and description did not match custodial record.');
+                            if (reason !== null) {
+                              reviewClaimRequest(claim.ticket.id, {
+                                claimId: claim.claimId,
+                                action: 'reject',
+                                adminRemarks: reason
+                              });
+                            }
+                          }}
+                          className="px-4 py-2 rounded-xl bg-white hover:bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold transition-all"
+                        >
+                          ✕ Reject Claim
+                        </button>
+                        <button
+                          onClick={() => {
+                            const confirmReturn = window.confirm(`Approve claim: Authenticate ${claim.claimant?.name} (${claim.claimant?.rollNo}) and confirm hand-over of product from ${claim.ticket?.safekeepingLocation || 'custody'}?`);
+                            if (confirmReturn) {
+                              reviewClaimRequest(claim.ticket.id, {
+                                claimId: claim.claimId,
+                                action: 'approve',
+                                adminRemarks: `Verified in person by Admin. Handed over from ${claim.ticket?.safekeepingLocation || 'Department Office'}.`
+                              });
+                            }
+                          }}
+                          className="px-5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold shadow-md transition-all flex items-center space-x-1.5"
+                        >
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span>✓ Approve Claim & Hand Over Product</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="p-2.5 rounded-xl bg-ivory-100 border border-ivory-200 text-xs text-charcoal-700 flex items-center justify-between">
+                        <span><strong>Decision Note:</strong> {claim.adminRemarks}</span>
+                        {claim.reviewedBy && (
+                          <span className="text-[10px] text-charcoal-500 font-mono">Reviewed by {claim.reviewedBy.name}</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+
+          {/* Custody Inventory Sub-View (Found / Lost / All) */}
+          {lnfSubFilter !== 'claims' && (
+            <div className="space-y-3.5">
+              {(lnfSubFilter === 'custody' ? custodyFoundTickets : lnfSubFilter === 'lost' ? lostAlertTickets : lostFoundTickets).map(item => (
+                <div key={item.id} className="bg-white rounded-2xl border border-ivory-300 hover:border-charcoal-400 p-5 shadow-subtle transition-all">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div className="flex items-start space-x-4 flex-1">
+                      <img src={item.imageUrl} alt={item.title} className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl object-cover shrink-0 border border-ivory-300" />
+                      <div className="space-y-1 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-xs font-mono text-charcoal-500 font-bold">{item.id}</span>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                            item.lostFoundType === 'found' ? 'bg-emerald-50 text-emerald-800 border-emerald-300' : 'bg-amber-50 text-amber-900 border-amber-300'
+                          }`}>
+                            {item.lostFoundType === 'found' ? 'Found Item in Custody' : 'Lost Alert Broadcast'}
+                          </span>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                            item.claimedStatus === 'claimed' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-900'
+                          }`}>
+                            {item.claimedStatus === 'claimed' ? '✓ Claimed / Resolved' : 'Unclaimed'}
+                          </span>
+                        </div>
+                        <h4 onClick={() => setSelectedTicketForDetail(item)} className="text-base font-extrabold text-forest-950 hover:text-emerald-700 cursor-pointer">
+                          {item.title}
+                        </h4>
+                        <div className="text-xs text-charcoal-600">
+                          {item.safekeepingLocation ? `Custody: ${item.safekeepingLocation}` : `Location: ${item.location}`} • Reported by {item.raisedBy?.name}
+                        </div>
+                        {item.secretDetails && (
+                          <div className="text-[11px] text-emerald-900 bg-emerald-50 p-1.5 rounded-lg border border-emerald-200">
+                            <strong>Secret Markings:</strong> {item.secretDetails}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center space-x-2 shrink-0 self-end sm:self-center">
+                      <button
+                        onClick={() => setSelectedTicketForDetail(item)}
+                        className="px-4 py-2 rounded-xl bg-forest-900 hover:bg-forest-950 text-white font-bold text-xs shadow-md transition-all flex items-center space-x-1.5"
+                      >
+                        <PackageSearch className="w-3.5 h-3.5 text-mint-300" />
+                        <span>Inspect / Claims ({(item.claimRequests || []).length})</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : (
+        /* STANDARD MAINTENANCE TICKETS VIEW */
+        <>
       {/* Filter Chips & Count */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center space-x-1.5 text-xs overflow-x-auto no-scrollbar touch-pan-y pb-1">
@@ -341,6 +669,8 @@ export default function AdminDashboard() {
           </div>
         )}
       </div>
+        </>
+      )}
 
       {/* Modal to Update Ticket (Status, ETA, Technician, Notes) */}
       {editingTicket && (

@@ -768,6 +768,161 @@ export function AppProvider({ children }) {
     reviewTicketByPanel(ticketId, { panelType, decision: 'approved', note });
   };
 
+  // Student Submits Ownership Claim Request for a Found Product
+  const submitClaimRequest = async (ticketId, claimData) => {
+    if (!currentUser) {
+      setShowLoginModal(true);
+      showNotification('Please sign in to claim this product.', 'info');
+      return null;
+    }
+
+    const claimId = `CLM-${Date.now().toString(36).toUpperCase()}-${Math.floor(100 + Math.random() * 900)}`;
+    const newClaim = {
+      claimId,
+      ticketId,
+      claimant: {
+        id: currentUser.id,
+        name: currentUser.name,
+        rollNo: currentUser.rollNo || 'N/A',
+        email: currentUser.email || '',
+        phone: claimData.contactPhone || currentUser.phone || 'N/A',
+        classSection: currentUser.classSection || 'N/A',
+        hostel: currentUser.hostel || 'N/A',
+        avatar: currentUser.avatar || ''
+      },
+      proofDetails: (claimData.proofDetails || '').trim(),
+      lostLocation: (claimData.lostLocation || '').trim(),
+      contactPhone: (claimData.contactPhone || '').trim(),
+      status: 'pending',
+      submittedAt: new Date().toISOString(),
+      adminRemarks: null,
+      reviewedBy: null,
+      reviewedAt: null
+    };
+
+    setTickets(prev => prev.map(t => {
+      if (t.id === ticketId) {
+        const claimRequests = [...(t.claimRequests || []), newClaim];
+        const comments = [...(t.comments || []), {
+          id: `c_${Date.now()}`,
+          userName: currentUser.name,
+          userRole: currentUser.role,
+          avatar: currentUser.avatar,
+          text: `Submitted ownership claim request (${claimId}) with proof details for administrative review.`,
+          timestamp: 'Just now',
+          isOfficial: false
+        }];
+        return { ...t, claimRequests, comments };
+      }
+      return t;
+    }));
+
+    appendAuditLog(`Ownership Claim Submitted (#${ticketId})`, `${currentUser.name} (${claimId})`, '🎒');
+    showNotification(`Ownership claim request ${claimId} submitted! Sent to Department Admin & Main Admin for authentication.`, 'success');
+
+    try {
+      const res = await api.submitClaimRequest(ticketId, {
+        ...claimData,
+        userId: currentUser.id
+      });
+      if (res && res.success && res.ticket) {
+        const validated = sanitizeTicket(res.ticket);
+        setTickets(prev => prev.map(t => t.id === ticketId ? validated : t));
+      }
+    } catch (err) {
+      console.warn('Backend claim submission error:', err);
+    }
+
+    return newClaim;
+  };
+
+  // Admin / Main Admin Reviews and Verifies a Claim Request
+  const reviewClaimRequest = async (ticketId, { claimId, action, adminRemarks }) => {
+    if (!currentUser) return;
+
+    setTickets(prev => prev.map(t => {
+      if (t.id === ticketId) {
+        const claimRequests = (t.claimRequests || []).map(c => {
+          if (c.claimId === claimId) {
+            return {
+              ...c,
+              status: action === 'approve' ? 'approved' : 'rejected',
+              adminRemarks: adminRemarks || (action === 'approve' ? 'Ownership authenticated and verified. Handed over from safe custody.' : 'Private markings did not match custodial record.'),
+              reviewedBy: { id: currentUser.id, name: currentUser.name, role: currentUser.role },
+              reviewedAt: new Date().toISOString()
+            };
+          }
+          if (action === 'approve' && c.status === 'pending') {
+            return {
+              ...c,
+              status: 'rejected',
+              adminRemarks: 'Item was authenticated and claimed by verified owner.'
+            };
+          }
+          return c;
+        });
+
+        const targetClaim = claimRequests.find(c => c.claimId === claimId);
+        const updated = { ...t, claimRequests };
+
+        if (action === 'approve') {
+          updated.claimedStatus = 'claimed';
+          updated.status = 'resolved';
+          updated.claimedBy = targetClaim?.claimant || null;
+          updated.claimedAt = new Date().toISOString();
+          updated.adminNote = `[Claim Approved] ${adminRemarks || 'Ownership authenticated.'} Handed over to ${targetClaim?.claimant?.name || 'claimant'} (${targetClaim?.claimant?.rollNo || 'ID'}).`;
+          try {
+            confetti({ particleCount: 90, spread: 60, origin: { y: 0.6 } });
+          } catch (_) {}
+        } else {
+          const hasApproved = claimRequests.some(c => c.status === 'approved');
+          if (!hasApproved) {
+            updated.claimedStatus = 'unclaimed';
+          }
+        }
+
+        const comments = [...(t.comments || []), {
+          id: `c_${Date.now()}`,
+          userName: currentUser.name,
+          userRole: currentUser.role,
+          avatar: currentUser.avatar,
+          text: action === 'approve'
+            ? `Official Custody Handover: Ownership authenticated for ${targetClaim?.claimant?.name} (${targetClaim?.claimant?.rollNo || 'Student'}). Item successfully handed over.`
+            : `Claim Verification Review: Claim request (${claimId}) by ${targetClaim?.claimant?.name} was rejected. Note: ${adminRemarks || 'Details did not match'}`,
+          timestamp: 'Just now',
+          isOfficial: true
+        }];
+        updated.comments = comments;
+
+        return updated;
+      }
+      return t;
+    }));
+
+    if (action === 'approve') {
+      appendAuditLog(`Item Claim Approved (#${ticketId})`, `${currentUser.name} → Claim ${claimId} Handed Over`, '✅');
+      showNotification(`Claim ${claimId} approved! Product marked as returned to student 🎉`, 'success');
+    } else {
+      appendAuditLog(`Item Claim Rejected (#${ticketId})`, `${currentUser.name} → Claim ${claimId} Rejected`, '❌');
+      showNotification(`Claim ${claimId} rejected with feedback.`, 'info');
+    }
+
+    try {
+      const res = await api.reviewClaimRequest(ticketId, {
+        claimId,
+        action,
+        adminRemarks,
+        userId: currentUser.id
+      });
+      if (res && res.success && res.ticket) {
+        const validated = sanitizeTicket(res.ticket);
+        setTickets(prev => prev.map(t => t.id === ticketId ? validated : t));
+      }
+    } catch (err) {
+      console.warn('Backend claim review error:', err);
+    }
+  };
+
   // Delete a ticket (Student deletes own raised request or Admin deletes)
   const deleteTicket = (ticketId) => {
     setTickets(prev => prev.filter(t => t.id !== ticketId));
@@ -1172,6 +1327,8 @@ export function AppProvider({ children }) {
         boostExistingTicket,
         addComment,
         updateTicketAdmin,
+        submitClaimRequest,
+        reviewClaimRequest,
         verifyResolution,
         reviewTicketByPanel,
         endorseTicket,

@@ -9,7 +9,9 @@ import {
   reviewTicketByPanel,
   endorseTicket, 
   addComment,
-  deleteTicket
+  deleteTicket,
+  submitClaimRequest,
+  reviewClaimRequest
 } from '../controllers/ticketController.js';
 
 const router = Router();
@@ -24,5 +26,7 @@ router.post('/:id/review', reviewTicketByPanel);
 router.post('/:id/endorse', endorseTicket);
 router.post('/:id/comments', addComment);
 router.delete('/:id', deleteTicket);
+router.post('/:id/claim-request', submitClaimRequest);
+router.post('/:id/review-claim', reviewClaimRequest);
 
 export default router;

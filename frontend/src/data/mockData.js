@@ -1705,7 +1705,32 @@ export const INITIAL_TICKETS = [
     upvotes: ['user_arjun'],
     downvotes: [],
     status: 'reported',
+    claimedStatus: 'unclaimed',
     createdAt: new Date().toISOString(),
+    claimRequests: [
+      {
+        claimId: 'CLM-LNF-901',
+        ticketId: 'TICK-LNF-101',
+        claimant: {
+          id: 'user_arjun',
+          name: 'Arjun K.',
+          rollNo: 'CB.EN.U4CSE23045',
+          email: 'arjun@amrita.edu',
+          phone: '+91 98765 43210',
+          classSection: 'CSE-B 3rd Year',
+          hostel: 'Agastya Bhavan',
+          avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'
+        },
+        proofDetails: 'I left my white Boat Airdopes case on the 3rd row desk during 3rd period DBMS lecture. It has a lime-green Pikachu sticker on the lid and only the right earbud is inside (left earbud is in my hostel room). Serial ends with 84.',
+        lostLocation: 'LH-4 3rd Row Desk around 11:30 AM',
+        contactPhone: '+91 98765 43210',
+        status: 'pending',
+        submittedAt: '2026-10-11T10:15:00.000Z',
+        adminRemarks: null,
+        reviewedBy: null,
+        reviewedAt: null
+      }
+    ],
     raisedBy: {
       id: 'student_7',
       name: 'Reyansh Sharma',

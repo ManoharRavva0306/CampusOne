@@ -61,6 +61,7 @@ export function writeDB(data) {
         const noteSafe = (t.adminNote || '').replace(/'/g, "''");
         const imgSafe = (t.imageUrl && t.imageUrl.startsWith('data:') ? 'data:image_camera_evidence' : (t.imageUrl || '')).replace(/'/g, "''");
         const raisedById = (typeof t.raisedBy === 'object' ? t.raisedBy?.id : t.raisedBy) || 'user_arjun';
+        const raisedByIdSafe = String(raisedById).replace(/'/g, "''");
         const lnfTypeSafe = t.lostFoundType ? `'${t.lostFoundType}'` : 'NULL';
         const itemCatSafe = t.itemCategory ? `'${String(t.itemCategory).replace(/'/g, "''")}'` : 'NULL';
         const timingsSafe = t.timings ? `'${String(t.timings).replace(/'/g, "''")}'` : 'NULL';

@@ -31,11 +31,17 @@ export default function TicketDetailModal({ ticket, onClose }) {
     canViewStudentDetails,
     canViewLostFoundDetails,
     reviewTicketByPanel,
+    submitClaimRequest,
+    reviewClaimRequest,
     tickets 
   } = useApp();
 
   const [commentText, setCommentText] = useState('');
   const [claimSent, setClaimSent] = useState(false);
+  const [isClaimFormOpen, setIsClaimFormOpen] = useState(false);
+  const [claimProof, setClaimProof] = useState('');
+  const [claimLostLocation, setClaimLostLocation] = useState('');
+  const [claimPhone, setClaimPhone] = useState(currentUser?.phone || '');
 
   const currentTicket = tickets.find(t => t.id === ticket.id) || ticket;
   const isLostFound = currentTicket.scope === 'lost_found' || currentTicket.category === 'lost_found';
@@ -296,7 +302,7 @@ export default function TicketDetailModal({ ticket, onClose }) {
               currentTicket.lostFoundType === 'found' ? (
                 canSeeLostFoundSecrets ? (
                   /* Authorized Official Dossier: Dept Head, Advisor, Warden, Admin, or Finder */
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     <div className="p-4 rounded-2xl bg-emerald-50 border-2 border-emerald-300 space-y-3">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-2 text-emerald-950 font-bold text-sm">
@@ -335,47 +341,345 @@ export default function TicketDetailModal({ ticket, onClose }) {
 
                       <div className="text-xs text-charcoal-700 bg-white/60 p-2.5 rounded-xl border border-emerald-200 flex items-center justify-between">
                         <span>Finder: <strong>{currentTicket.raisedBy?.name}</strong> ({currentTicket.raisedBy?.rollNo || 'Roll ID'})</span>
-                        <span className="font-semibold text-emerald-700">Status: {currentTicket.claimedStatus || 'Unclaimed in Safe Custody'}</span>
+                        <span className={`font-semibold px-2 py-0.5 rounded-md text-[11px] ${
+                          currentTicket.claimedStatus === 'claimed' ? 'bg-emerald-200 text-emerald-900 font-bold' : 'bg-amber-100 text-amber-900'
+                        }`}>
+                          Status: {currentTicket.claimedStatus === 'claimed' ? '✓ Claimed & Handed Over' : 'Unclaimed in Safe Custody'}
+                        </span>
                       </div>
+                    </div>
+
+                    {/* Official Review of Incoming Student Claim Requests */}
+                    <div className="bg-white border-2 border-ivory-300 rounded-2xl p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <PackageSearch className="w-4 h-4 text-emerald-700" />
+                          <h4 className="text-xs sm:text-sm font-extrabold text-forest-950">
+                            Student Ownership Claim Requests ({(currentTicket.claimRequests || []).length})
+                          </h4>
+                        </div>
+                        <span className="text-[10px] font-semibold text-charcoal-500">
+                          Verify student proof against secret markings
+                        </span>
+                      </div>
+
+                      {(!currentTicket.claimRequests || currentTicket.claimRequests.length === 0) ? (
+                        <div className="p-4 rounded-xl bg-ivory-100 border border-ivory-200 text-xs text-charcoal-500 text-center">
+                          No student claim requests submitted yet for this product.
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          {currentTicket.claimRequests.map((claim) => (
+                            <div 
+                              key={claim.claimId} 
+                              className={`p-3.5 rounded-xl border-2 transition-all space-y-2.5 ${
+                                claim.status === 'approved'
+                                  ? 'bg-emerald-50/70 border-emerald-300'
+                                  : claim.status === 'rejected'
+                                  ? 'bg-rose-50/60 border-rose-200'
+                                  : 'bg-amber-50/50 border-amber-300'
+                              }`}
+                            >
+                              {/* Claimant Profile Bar */}
+                              <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-2 border-ivory-200">
+                                <div className="flex items-center space-x-2">
+                                  <div className="w-7 h-7 rounded-full bg-forest-900 text-white font-bold text-xs flex items-center justify-center shrink-0">
+                                    {claim.claimant?.name?.charAt(0) || 'S'}
+                                  </div>
+                                  <div>
+                                    <div className="text-xs font-bold text-forest-950">
+                                      {claim.claimant?.name} <span className="font-mono text-[10px] text-charcoal-500">({claim.claimant?.rollNo})</span>
+                                    </div>
+                                    <div className="text-[10px] text-charcoal-600">
+                                      {claim.claimant?.classSection} • {claim.claimant?.hostel} • Phone: <strong className="text-forest-950">{claim.claimant?.phone || claim.contactPhone}</strong>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center space-x-1.5">
+                                  <span className="text-[10px] font-mono text-charcoal-400">ID: {claim.claimId}</span>
+                                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border ${
+                                    claim.status === 'approved'
+                                      ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                                      : claim.status === 'rejected'
+                                      ? 'bg-rose-100 text-rose-800 border-rose-300'
+                                      : 'bg-amber-100 text-amber-800 border-amber-300 animate-pulse'
+                                  }`}>
+                                    {claim.status === 'approved' ? '✓ Handed Over' : claim.status === 'rejected' ? '✕ Rejected' : 'Pending Verification'}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Proof Comparison */}
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                                <div className="p-2.5 rounded-lg bg-white border border-emerald-300">
+                                  <span className="text-[10px] font-bold text-emerald-800 uppercase block mb-0.5">
+                                    🔒 True Secret Record (Finder):
+                                  </span>
+                                  <p className="text-charcoal-800 text-[11px] leading-relaxed">
+                                    {currentTicket.secretDetails || 'No private marks recorded.'}
+                                  </p>
+                                </div>
+                                <div className="p-2.5 rounded-lg bg-white border border-amber-300">
+                                  <span className="text-[10px] font-bold text-amber-800 uppercase block mb-0.5">
+                                    📝 Claimant Student's Submitted Proof:
+                                  </span>
+                                  <p className="text-charcoal-800 text-[11px] leading-relaxed font-medium">
+                                    "{claim.proofDetails}"
+                                  </p>
+                                  {claim.lostLocation && (
+                                    <div className="text-[10px] text-charcoal-500 mt-1">
+                                      Reported Lost Location: <strong>{claim.lostLocation}</strong>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Admin Feedback or Verification Actions */}
+                              {claim.status === 'pending' ? (
+                                <div className="flex items-center justify-end space-x-2 pt-1">
+                                  <button
+                                    onClick={() => {
+                                      const reason = window.prompt('Reason for rejecting this claim request:', 'Private details or serial number did not match custodial record.');
+                                      if (reason !== null) {
+                                        reviewClaimRequest(currentTicket.id, {
+                                          claimId: claim.claimId,
+                                          action: 'reject',
+                                          adminRemarks: reason
+                                        });
+                                      }
+                                    }}
+                                    className="px-3 py-1.5 rounded-xl bg-white hover:bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold transition-all"
+                                  >
+                                    ✕ Reject Claim
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      const confirmReturn = window.confirm(`Confirm handover: Have you authenticated student ${claim.claimant?.name} (${claim.claimant?.rollNo}) and verified their identity card?`);
+                                      if (confirmReturn) {
+                                        reviewClaimRequest(currentTicket.id, {
+                                          claimId: claim.claimId,
+                                          action: 'approve',
+                                          adminRemarks: `Identity and secret marks verified. Handed over from ${currentTicket.safekeepingLocation || 'Department Office'}.`
+                                        });
+                                      }
+                                    }}
+                                    className="px-4 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold shadow-md transition-all flex items-center space-x-1"
+                                  >
+                                    <CheckCircle2 className="w-3.5 h-3.5" />
+                                    <span>✓ Approve Claim & Return Item</span>
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="text-[11px] text-charcoal-600 bg-white/60 p-2 rounded-lg border border-ivory-200">
+                                  <strong>Admin Remark:</strong> {claim.adminRemarks} {claim.reviewedBy?.name ? `(Reviewed by ${claim.reviewedBy.name})` : ''}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 ) : (
-                  /* Student View: Strict Anti-Fraud Redaction */
+                  /* Student View: Strict Anti-Fraud Redaction + Interactive Claim Request Form */
                   <div className="p-4 sm:p-5 rounded-2xl bg-amber-50 border-2 border-amber-300 space-y-3.5">
-                    <div className="flex items-center space-x-2 text-amber-950 font-bold text-sm">
-                      <Lock className="w-5 h-5 text-amber-600" />
-                      <span>Anti-Fraud Protected: Description & Private Nuances Hidden</span>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2 text-amber-950 font-bold text-sm">
+                        <Lock className="w-5 h-5 text-amber-600" />
+                        <span>Anti-Fraud Protected: Description & Private Nuances Hidden</span>
+                      </div>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-200 text-amber-900">
+                        CUSTODY PROTECTED
+                      </span>
                     </div>
 
                     <p className="text-xs text-amber-900 leading-relaxed">
                       To prevent unauthorized claims and fraud, the finder's specific description, secret markings, exact discovery timestamps, and safe storage spot are <strong>restricted from student view</strong>.
                     </p>
 
-                    <div className="p-3.5 bg-white rounded-xl border border-amber-200 text-xs text-charcoal-800 space-y-2">
-                      <div className="font-bold text-forest-950 flex items-center space-x-1.5">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                        <span>How to Claim This Item:</span>
-                      </div>
-                      <ol className="list-decimal ml-4 space-y-1 text-[11px] text-charcoal-600">
-                        <li>Verify the photo and item title shown above.</li>
-                        <li>Visit your <strong>Department Head ({currentTicket.department || 'CSE'} Dept Office)</strong> or <strong>Security Control</strong>.</li>
-                        <li>Authenticate ownership by stating the secret markings, contents, or serial numbers.</li>
-                      </ol>
-                    </div>
+                    {/* Check if student has already submitted a claim for this product */}
+                    {(() => {
+                      const studentClaim = (currentTicket.claimRequests || []).find(
+                        c => c.claimant?.id === currentUser?.id || c.claimant?.rollNo === currentUser?.rollNo
+                      );
 
-                    {claimSent ? (
-                      <div className="p-2.5 rounded-xl bg-emerald-100 border border-emerald-300 text-xs text-emerald-800 font-bold text-center">
-                        ✓ Claim Inquiry Logged. Please proceed to the {currentTicket.department || 'CSE'} Department Office with your College ID card.
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => setClaimSent(true)}
-                        className="w-full py-2.5 rounded-xl bg-amber-700 hover:bg-amber-800 text-white font-bold text-xs shadow-md transition-colors flex items-center justify-center space-x-1.5"
-                      >
-                        <PackageSearch className="w-4 h-4" />
-                        <span>This Belongs to Me - Request Department Verification</span>
-                      </button>
-                    )}
+                      if (studentClaim) {
+                        return (
+                          <div className={`p-4 rounded-xl border-2 space-y-2 ${
+                            studentClaim.status === 'approved'
+                              ? 'bg-emerald-50 border-emerald-300 text-emerald-950'
+                              : studentClaim.status === 'rejected'
+                              ? 'bg-rose-50 border-rose-300 text-rose-950'
+                              : 'bg-white border-amber-400 text-amber-950'
+                          }`}>
+                            <div className="flex items-center justify-between">
+                              <span className="font-bold text-xs flex items-center space-x-1.5">
+                                {studentClaim.status === 'approved' ? (
+                                  <>
+                                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                                    <span>🎉 Your Ownership Claim was Approved!</span>
+                                  </>
+                                ) : studentClaim.status === 'rejected' ? (
+                                  <>
+                                    <AlertCircle className="w-4 h-4 text-rose-600" />
+                                    <span>❌ Claim Not Authenticated</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Clock className="w-4 h-4 text-amber-600 animate-spin" />
+                                    <span>⏳ Claim Request Under Administrative Review</span>
+                                  </>
+                                )}
+                              </span>
+                              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-ivory-200 text-charcoal-700">
+                                {studentClaim.claimId}
+                              </span>
+                            </div>
+
+                            <p className="text-xs leading-relaxed">
+                              {studentClaim.status === 'approved'
+                                ? `The administration verified your proof of ownership. The item has been marked as returned to you.`
+                                : studentClaim.status === 'rejected'
+                                ? `Administration note: "${studentClaim.adminRemarks || 'Provided details did not match secret markings.'}". If this was in error, please visit the department office with additional proof.`
+                                : `Your claim request has been sent to the Department Admin & Main Admin. Please proceed to the ${currentTicket.department || 'CSE'} Department Office with your College ID card.`}
+                            </p>
+
+                            <div className="p-2.5 rounded-lg bg-ivory-50 border border-ivory-200 text-[11px] text-charcoal-700">
+                              <strong className="block text-charcoal-900 mb-0.5">Your Submitted Proof:</strong>
+                              "{studentClaim.proofDetails}"
+                            </div>
+                          </div>
+                        );
+                      }
+
+                      if (currentTicket.claimedStatus === 'claimed') {
+                        return (
+                          <div className="p-3.5 bg-emerald-100/80 border border-emerald-300 rounded-xl text-xs text-emerald-900 font-bold flex items-center space-x-2">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />
+                            <span>This product has already been successfully authenticated and returned to its verified owner.</span>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div className="space-y-3">
+                          <div className="p-3.5 bg-white rounded-xl border border-amber-200 text-xs text-charcoal-800 space-y-2">
+                            <div className="font-bold text-forest-950 flex items-center space-x-1.5">
+                              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                              <span>How to Claim This Item:</span>
+                            </div>
+                            <ol className="list-decimal ml-4 space-y-1 text-[11px] text-charcoal-600">
+                              <li>Verify the photo and item title shown above.</li>
+                              <li>Submit an ownership claim with private distinguishing details only you know (sticker, scratches, wallpaper, serial number).</li>
+                              <li>Department Head or Main Admin will authenticate your request and hand over the item.</li>
+                            </ol>
+                          </div>
+
+                          {!isClaimFormOpen ? (
+                            <button
+                              onClick={() => setIsClaimFormOpen(true)}
+                              className="w-full py-3 rounded-xl bg-amber-700 hover:bg-amber-800 text-white font-bold text-xs shadow-md transition-colors flex items-center justify-center space-x-2 touch-press"
+                            >
+                              <PackageSearch className="w-4 h-4" />
+                              <span>This Belongs to Me — Submit Ownership Claim Request</span>
+                            </button>
+                          ) : (
+                            <form 
+                              onSubmit={(e) => {
+                                e.preventDefault();
+                                if (!claimProof.trim()) {
+                                  alert('Please provide distinguishing proof of ownership.');
+                                  return;
+                                }
+                                submitClaimRequest(currentTicket.id, {
+                                  proofDetails: claimProof.trim(),
+                                  lostLocation: claimLostLocation.trim(),
+                                  contactPhone: claimPhone.trim()
+                                });
+                                setIsClaimFormOpen(false);
+                                setClaimProof('');
+                                setClaimLostLocation('');
+                                setClaimPhone('');
+                              }}
+                              className="p-4 bg-white rounded-xl border-2 border-amber-400 space-y-3 text-xs"
+                            >
+                              <div className="flex items-center justify-between pb-2 border-b border-ivory-200">
+                                <span className="font-bold text-amber-950 text-xs flex items-center space-x-1.5">
+                                  <PackageSearch className="w-4 h-4 text-amber-600" />
+                                  <span>Submit Ownership Claim to Administration</span>
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => setIsClaimFormOpen(false)}
+                                  className="text-charcoal-400 hover:text-charcoal-700 text-xs font-bold"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+
+                              <div>
+                                <label className="block text-[11px] font-bold text-charcoal-800 mb-1">
+                                  Private Marks / Proof of Ownership <span className="text-rose-600">*</span>
+                                </label>
+                                <textarea
+                                  rows={3}
+                                  value={claimProof}
+                                  onChange={(e) => setClaimProof(e.target.value)}
+                                  placeholder="Describe details not visible in photo: unique stickers, serial number, scratches, wallpaper, contents inside..."
+                                  className="w-full p-2.5 rounded-xl border border-ivory-300 text-xs focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                                  required
+                                />
+                              </div>
+
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                <div>
+                                  <label className="block text-[11px] font-bold text-charcoal-800 mb-1">
+                                    Where / When Did You Lose It?
+                                  </label>
+                                  <input
+                                    type="text"
+                                    value={claimLostLocation}
+                                    onChange={(e) => setClaimLostLocation(e.target.value)}
+                                    placeholder="e.g. LH-4 3rd Row ~11:30 AM"
+                                    className="w-full p-2 rounded-xl border border-ivory-300 text-xs focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-[11px] font-bold text-charcoal-800 mb-1">
+                                    Your Contact Mobile Phone
+                                  </label>
+                                  <input
+                                    type="tel"
+                                    value={claimPhone}
+                                    onChange={(e) => setClaimPhone(e.target.value)}
+                                    placeholder="+91 98765 43210"
+                                    className="w-full p-2 rounded-xl border border-ivory-300 text-xs focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                                  />
+                                </div>
+                              </div>
+
+                              <div className="flex items-center justify-end space-x-2 pt-2 border-t border-ivory-200">
+                                <button
+                                  type="button"
+                                  onClick={() => setIsClaimFormOpen(false)}
+                                  className="px-3 py-2 rounded-xl border border-ivory-300 text-charcoal-600 font-bold text-xs"
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  type="submit"
+                                  className="px-4 py-2 rounded-xl bg-amber-700 hover:bg-amber-800 text-white font-bold text-xs shadow-md transition-colors flex items-center space-x-1.5"
+                                >
+                                  <Send className="w-3.5 h-3.5" />
+                                  <span>Send Claim to Admin Portal</span>
+                                </button>
+                              </div>
+                            </form>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
                 )
               ) : (

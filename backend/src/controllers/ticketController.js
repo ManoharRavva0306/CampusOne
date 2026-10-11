@@ -296,3 +296,129 @@ export function deleteTicket(req, res) {
 
   res.json({ success: true, message: `Ticket #${id} deleted successfully.`, ticketId: id });
 }
+
+// Student Submits Ownership Claim Request for a Found Product
+export function submitClaimRequest(req, res) {
+  const { id } = req.params;
+  const { proofDetails, lostLocation, contactPhone } = req.body;
+  const users = getUsersFromDB();
+  const userId = req.headers['x-user-id'] || req.body?.userId || 'user_arjun';
+  const user = users.find(u => u.id === userId) || users.find(u => u.rollNo === userId) || users[0];
+
+  if (!proofDetails || !proofDetails.trim()) {
+    return res.status(400).json({ success: false, message: 'Please provide proof of ownership details (distinguishing marks, serial, etc.).' });
+  }
+
+  const claimId = `CLM-${Date.now().toString(36).toUpperCase()}-${Math.floor(100 + Math.random() * 900)}`;
+  const claimRequest = {
+    claimId,
+    ticketId: id,
+    claimant: {
+      id: user.id,
+      name: user.name,
+      rollNo: user.rollNo || 'N/A',
+      email: user.email || '',
+      phone: contactPhone || user.phone || 'N/A',
+      classSection: user.classSection || 'N/A',
+      hostel: user.hostel || 'N/A',
+      avatar: user.avatar || ''
+    },
+    proofDetails: proofDetails.trim(),
+    lostLocation: (lostLocation || '').trim(),
+    contactPhone: (contactPhone || '').trim(),
+    status: 'pending', // 'pending' | 'approved' | 'rejected'
+    submittedAt: new Date().toISOString(),
+    adminRemarks: null,
+    reviewedBy: null,
+    reviewedAt: null
+  };
+
+  const updatedTicket = updateTicketInDB(id, (ticket) => {
+    ticket.claimRequests = ticket.claimRequests || [];
+    ticket.claimRequests.push(claimRequest);
+    ticket.comments = ticket.comments || [];
+    ticket.comments.push({
+      id: `c_${Date.now()}`,
+      userName: user.name,
+      userRole: user.role,
+      avatar: user.avatar,
+      text: `Submitted ownership claim request (${claimId}) with proof details for administrative review.`,
+      timestamp: 'Just now',
+      isOfficial: false
+    });
+    return ticket;
+  });
+
+  if (!updatedTicket) {
+    return res.status(404).json({ success: false, message: 'Item not found in custody registry' });
+  }
+
+  res.status(201).json({ success: true, claimRequest, ticket: updatedTicket });
+}
+
+// Admin / Main Admin Reviews and Verifies a Claim Request
+export function reviewClaimRequest(req, res) {
+  const { id } = req.params;
+  const { claimId, action, adminRemarks } = req.body; // action: 'approve' | 'reject'
+  const users = getUsersFromDB();
+  const userId = req.headers['x-user-id'] || req.body?.userId || 'admin_super';
+  const user = users.find(u => u.id === userId) || users.find(u => u.role === 'central_admin') || users[0];
+
+  const updatedTicket = updateTicketInDB(id, (ticket) => {
+    ticket.claimRequests = ticket.claimRequests || [];
+    const claim = ticket.claimRequests.find(c => c.claimId === claimId);
+    if (!claim) return ticket;
+
+    claim.status = action === 'approve' ? 'approved' : 'rejected';
+    claim.adminRemarks = adminRemarks || (action === 'approve' ? 'Ownership verified and authenticated. Handed over from custody.' : 'Private details did not match secret custodial record.');
+    claim.reviewedBy = {
+      id: user.id,
+      name: user.name,
+      role: user.role
+    };
+    claim.reviewedAt = new Date().toISOString();
+
+    if (action === 'approve') {
+      ticket.claimedStatus = 'claimed';
+      ticket.status = 'resolved';
+      ticket.claimedBy = claim.claimant;
+      ticket.claimedAt = new Date().toISOString();
+      ticket.adminNote = `[Claim Approved] ${claim.adminRemarks} Handed over to ${claim.claimant.name} (${claim.claimant.rollNo}).`;
+      
+      // Auto-reject any other pending claims for this item
+      ticket.claimRequests.forEach(otherClaim => {
+        if (otherClaim.claimId !== claimId && otherClaim.status === 'pending') {
+          otherClaim.status = 'rejected';
+          otherClaim.adminRemarks = 'Item was authenticated and claimed by verified owner.';
+        }
+      });
+    } else {
+      const hasApproved = ticket.claimRequests.some(c => c.status === 'approved');
+      if (!hasApproved) {
+        ticket.claimedStatus = 'unclaimed';
+      }
+    }
+
+    ticket.comments = ticket.comments || [];
+    ticket.comments.push({
+      id: `c_${Date.now()}`,
+      userName: user.name,
+      userRole: user.role,
+      avatar: user.avatar,
+      text: action === 'approve'
+        ? `Official Custody Handover: Ownership authenticated for ${claim.claimant.name} (${claim.claimant.rollNo}). Item successfully handed over.`
+        : `Claim Verification Review: Claim request (${claimId}) by ${claim.claimant.name} was rejected. Note: ${claim.adminRemarks}`,
+      timestamp: 'Just now',
+      isOfficial: true
+    });
+
+    return ticket;
+  });
+
+  if (!updatedTicket) {
+    return res.status(404).json({ success: false, message: 'Item not found in registry' });
+  }
+
+  res.json({ success: true, ticket: updatedTicket });
+}
+

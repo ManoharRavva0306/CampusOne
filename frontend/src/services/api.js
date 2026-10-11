@@ -98,6 +98,30 @@ export const api = {
     });
   },
 
+  // Student Submits Ownership Claim Request for a Found Product
+  async submitClaimRequest(ticketId, payload) {
+    return await requestWithFallback(`/tickets/${ticketId}/claim-request`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-user-id': payload.userId || 'user_arjun'
+      },
+      body: JSON.stringify(payload)
+    });
+  },
+
+  // Admin / Main Admin Reviews and Verifies a Claim Request
+  async reviewClaimRequest(ticketId, payload) {
+    return await requestWithFallback(`/tickets/${ticketId}/review-claim`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-user-id': payload.userId || 'admin_super'
+      },
+      body: JSON.stringify(payload)
+    });
+  },
+
   // Student Two-Way Verification
   async verifyResolution(ticketId, isApproved, feedback) {
     return await requestWithFallback(`/tickets/${ticketId}/verify`, {
