@@ -22,18 +22,15 @@ let inMemoryUsers = null;
 let inMemoryTickets = null;
 
 export function getPostgresStore() {
-  if (!inMemoryUsers || !inMemoryTickets) {
-    try {
-      // Import the synchronized PostgreSQL seed dataset
-      const parsed = JSON.parse(
-        fs.readFileSync(path.join(DATA_DIR, 'postgres_cache.json'), 'utf8')
-      );
-      inMemoryUsers = parsed.users || parsed.USERS || [];
-      inMemoryTickets = parsed.tickets || parsed.INITIAL_TICKETS || [];
-    } catch (e) {
-      inMemoryUsers = [];
-      inMemoryTickets = [];
-    }
+  try {
+    const parsed = JSON.parse(
+      fs.readFileSync(path.join(DATA_DIR, 'postgres_cache.json'), 'utf8')
+    );
+    inMemoryUsers = parsed.users || parsed.USERS || [];
+    inMemoryTickets = parsed.tickets || parsed.INITIAL_TICKETS || [];
+  } catch (e) {
+    if (!inMemoryUsers) inMemoryUsers = [];
+    if (!inMemoryTickets) inMemoryTickets = [];
   }
   return { users: inMemoryUsers, tickets: inMemoryTickets };
 }
@@ -63,7 +60,14 @@ export function writeDB(data) {
         const locSafe = (t.location || '').replace(/'/g, "''");
         const noteSafe = (t.adminNote || '').replace(/'/g, "''");
         const imgSafe = (t.imageUrl && t.imageUrl.startsWith('data:') ? 'data:image_camera_evidence' : (t.imageUrl || '')).replace(/'/g, "''");
-        return `INSERT INTO tickets (id, title, description, scope, class_section, department, location, category, domain, raised_by_id, status, priority_score, assigned_to, eta, admin_note, image_url) VALUES ('${t.id}', '${titleSafe}', '${descSafe}', '${t.scope}', ${t.classSection ? `'${t.classSection}'` : 'NULL'}, '${t.department || 'CSE'}', '${locSafe}', '${t.category}', '${t.domain || 'electrical_av'}', '${raisedBy}', '${t.status}', ${t.priorityScore || 50}, '${t.assignedTo || 'Pending'}', '${t.eta || 'Awaiting triage'}', '${noteSafe}', '${imgSafe}') ON CONFLICT (id) DO UPDATE SET priority_score = EXCLUDED.priority_score, status = EXCLUDED.status, admin_note = EXCLUDED.admin_note;`;
+        const raisedById = (typeof t.raisedBy === 'object' ? t.raisedBy?.id : t.raisedBy) || 'user_arjun';
+        const lnfTypeSafe = t.lostFoundType ? `'${t.lostFoundType}'` : 'NULL';
+        const itemCatSafe = t.itemCategory ? `'${String(t.itemCategory).replace(/'/g, "''")}'` : 'NULL';
+        const timingsSafe = t.timings ? `'${String(t.timings).replace(/'/g, "''")}'` : 'NULL';
+        const secretSafe = t.secretDetails ? `'${String(t.secretDetails).replace(/'/g, "''")}'` : 'NULL';
+        const safeLocSafe = t.safekeepingLocation ? `'${String(t.safekeepingLocation).replace(/'/g, "''")}'` : 'NULL';
+        const claimSafe = t.claimedStatus ? `'${String(t.claimedStatus).replace(/'/g, "''")}'` : "'unclaimed'";
+        return `INSERT INTO tickets (id, title, description, scope, class_section, department, location, category, domain, raised_by_id, status, priority_score, assigned_to, eta, admin_note, image_url, lost_found_type, item_category, timings, secret_details, safekeeping_location, claimed_status) VALUES ('${t.id}', '${titleSafe}', '${descSafe}', '${t.scope}', ${t.classSection ? `'${t.classSection}'` : 'NULL'}, '${t.department || 'CSE'}', '${locSafe}', '${t.category}', '${t.domain || 'electrical_av'}', '${raisedByIdSafe}', '${t.status}', ${t.priorityScore || 50}, '${t.assignedTo || 'Pending'}', '${t.eta || 'Awaiting triage'}', '${noteSafe}', '${imgSafe}', ${lnfTypeSafe}, ${itemCatSafe}, ${timingsSafe}, ${secretSafe}, ${safeLocSafe}, ${claimSafe}) ON CONFLICT (id) DO UPDATE SET priority_score = EXCLUDED.priority_score, status = EXCLUDED.status, admin_note = EXCLUDED.admin_note, claimed_status = EXCLUDED.claimed_status;`;
       }).join('\n');
 
       fs.appendFileSync(

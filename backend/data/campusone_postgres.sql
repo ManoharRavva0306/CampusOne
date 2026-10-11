@@ -40,7 +40,7 @@ CREATE TABLE tickets (
     id VARCHAR(32) PRIMARY KEY,
     title VARCHAR(255) NOT NULL,
     description TEXT NOT NULL,
-    scope VARCHAR(32) NOT NULL CHECK (scope IN ('class', 'room', 'department', 'hostel_generic', 'campus')),
+    scope VARCHAR(32) NOT NULL CHECK (scope IN ('class', 'room', 'department', 'hostel_generic', 'campus', 'lost_found')),
     class_section VARCHAR(64),
     department VARCHAR(64) NOT NULL,
     hostel VARCHAR(64),
@@ -59,7 +59,13 @@ CREATE TABLE tickets (
     assigned_to VARCHAR(128) DEFAULT 'Pending Assignment',
     eta VARCHAR(128) DEFAULT 'Awaiting triage',
     admin_note TEXT DEFAULT '',
-    image_url TEXT
+    image_url TEXT,
+    lost_found_type VARCHAR(16),
+    item_category VARCHAR(64),
+    timings VARCHAR(128),
+    secret_details TEXT,
+    safekeeping_location VARCHAR(255),
+    claimed_status VARCHAR(32) DEFAULT 'unclaimed'
 );
 
 CREATE INDEX idx_tickets_status ON tickets(status);

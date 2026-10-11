@@ -1683,10 +1683,67 @@ export const CATEGORIES = [
   { id: 'plumbing', label: 'Plumbing & Water', icon: 'Droplets', domain: 'carpentry_civil', color: 'text-cyan-400 bg-cyan-400/10 border-cyan-400/20' },
   { id: 'mess_food', label: 'Mess & Food Quality', icon: 'Utensils', domain: 'hostel_mess', color: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20' },
   { id: 'sanitation', label: 'Sanitation & Cleanliness', icon: 'Sparkles', domain: 'hostel_mess', color: 'text-teal-400 bg-teal-400/10 border-teal-400/20' },
-  { id: 'safety', label: 'Hazard & Campus Safety', icon: 'AlertTriangle', domain: 'electrical_av', color: 'text-rose-400 bg-rose-400/10 border-rose-400/20' }
+  { id: 'safety', label: 'Hazard & Campus Safety', icon: 'AlertTriangle', domain: 'electrical_av', color: 'text-rose-400 bg-rose-400/10 border-rose-400/20' },
+  { id: 'lost_found', label: 'Lost & Found Products', icon: 'PackageSearch', domain: 'campus', color: 'text-amber-500 bg-amber-500/10 border-amber-500/20' }
 ];
 
 export const INITIAL_TICKETS = [
+  {
+    id: 'TICK-LNF-101',
+    title: 'Found: White Boat Airdopes Earbuds Case in LH-4',
+    description: 'Found on 3rd row desk right side in Lecture Hall 4 after 3rd period. Case is white with a lime-green cartoon sticker on the charging lid. Contains 1 earbud inside.',
+    secretDetails: 'Lime-green Pikachu sticker on top lid, only right earbud present inside, serial ending in 84',
+    timings: 'Today ~11:45 AM',
+    scope: 'lost_found',
+    category: 'lost_found',
+    lostFoundType: 'found',
+    itemCategory: 'electronics',
+    location: 'Lecture Hall 4 (LH-4) 3rd Row Desk',
+    safekeepingLocation: 'Deposited at CSE Department Office (Room 102)',
+    imageUrl: 'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=800&auto=format&fit=crop&q=80',
+    priorityScore: 72,
+    upvotes: ['user_arjun'],
+    downvotes: [],
+    status: 'reported',
+    createdAt: new Date().toISOString(),
+    raisedBy: {
+      id: 'student_7',
+      name: 'Reyansh Sharma',
+      role: 'student',
+      rollNo: 'CB.EN.U4CSE23106',
+      classSection: 'CSE-A 3rd Year',
+      hostel: 'Gargi Bhavan',
+      room: '208',
+      avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'
+    }
+  },
+  {
+    id: 'TICK-LNF-102',
+    title: 'Lost: Casio FX-991CW Calculator with Transparent Sleeve',
+    description: 'Misplaced during tutorial session in Central Library 1st floor study room or staircase. Has student initials "A.K." engraved in silver ink on back cover.',
+    timings: 'Yesterday around 3:30 PM',
+    scope: 'lost_found',
+    category: 'lost_found',
+    lostFoundType: 'lost',
+    itemCategory: 'electronics',
+    location: 'Central Library 1st Floor Study Hall',
+    imageUrl: 'https://images.unsplash.com/photo-1587145820266-a5951ee6f620?w=800&auto=format&fit=crop&q=80',
+    priorityScore: 78,
+    upvotes: ['user_arjun', 'user_sneha', 'student_4'],
+    downvotes: [],
+    status: 'reported',
+    createdAt: new Date().toISOString(),
+    raisedBy: {
+      id: 'user_arjun',
+      name: 'Arjun K.',
+      role: 'student',
+      rollNo: 'CB.EN.U4CSE23045',
+      classSection: 'CSE-B 3rd Year',
+      hostel: 'Agastya Bhavan',
+      room: '304',
+      avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'
+    }
+  },
   {
     id: 'TICK-101',
     title: 'Ceiling Projector HDMI Flickering & Purple Tint in Room 302',

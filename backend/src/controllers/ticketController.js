@@ -87,6 +87,13 @@ export function createTicket(req, res) {
     eta: data.eta || (isAdvisor || isWarden ? 'Priority Admin Review' : 'Pending Stage-1 Approval'),
     adminNote: data.adminNote || '',
     imageUrl: data.imageUrl || 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=800&auto=format&fit=crop&q=80',
+    // Lost & Found Specific Metadata
+    lostFoundType: data.lostFoundType || (scope === 'lost_found' ? 'found' : null),
+    itemCategory: data.itemCategory || null,
+    timings: data.timings || null,
+    secretDetails: data.secretDetails || null,
+    safekeepingLocation: data.safekeepingLocation || null,
+    claimedStatus: data.claimedStatus || 'unclaimed',
     comments: Array.isArray(data.comments) ? data.comments : []
   };
 

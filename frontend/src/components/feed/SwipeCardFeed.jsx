@@ -26,7 +26,9 @@ import {
   RotateCcw,
   ChevronRight,
   ArrowLeft,
-  Trash2
+  Trash2,
+  PackageSearch,
+  Package
 } from 'lucide-react';
 import StudentVerificationBanner from '../verification/StudentVerificationBanner';
 
@@ -38,6 +40,7 @@ export default function SwipeCardFeed() {
     deleteTicket,
     isTicketVisibleToUser,
     canViewStudentDetails, 
+    canViewLostFoundDetails,
     feedFilter, 
     setFeedFilter,
     feedMode,
@@ -51,6 +54,7 @@ export default function SwipeCardFeed() {
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [lostFoundSubFilter, setLostFoundSubFilter] = useState('all'); // 'all' | 'found' | 'lost'
 
   // Touch gesture state for native mobile swiping
   const [touchStartX, setTouchStartX] = useState(0);
@@ -69,10 +73,20 @@ export default function SwipeCardFeed() {
   const inProgressCount = authorizedTickets.filter(t => t?.status === 'in_progress').length;
   const resolvedCount = authorizedTickets.filter(t => t?.status === 'resolved').length;
 
+  // Lost & Found counts
+  const lostFoundTickets = authorizedTickets.filter(t => t.scope === 'lost_found' || t.category === 'lost_found');
+  const lostFoundCount = lostFoundTickets.length;
+  const foundCount = lostFoundTickets.filter(t => t.lostFoundType === 'found').length;
+  const lostCount = lostFoundTickets.filter(t => t.lostFoundType === 'lost').length;
+
   // Filtered tickets
   const filteredTickets = useMemo(() => {
     return authorizedTickets.filter(ticket => {
       // Scope Tab
+      if (feedFilter === 'lost_found') {
+        if (ticket.scope !== 'lost_found' && ticket.category !== 'lost_found') return false;
+        if (lostFoundSubFilter !== 'all' && ticket.lostFoundType !== lostFoundSubFilter) return false;
+      }
       if (feedFilter === 'my_requests' && ticket.raisedBy?.id !== currentUser?.id) return false;
       if (feedFilter === 'class' && ticket.scope !== 'class') return false;
       if (feedFilter === 'room' && ticket.scope !== 'room' && ticket.scope !== 'hostel_generic') return false;
@@ -94,12 +108,12 @@ export default function SwipeCardFeed() {
 
       return true;
     }).sort((a, b) => b.priorityScore - a.priorityScore);
-  }, [authorizedTickets, feedFilter, categoryFilter, statusFilter, searchQuery]);
+  }, [authorizedTickets, feedFilter, lostFoundSubFilter, categoryFilter, statusFilter, searchQuery]);
 
   // Reset active swipe index when filters change
   useEffect(() => {
     setActiveSwipeIndex(0);
-  }, [feedFilter, categoryFilter, statusFilter]);
+  }, [feedFilter, lostFoundSubFilter, categoryFilter, statusFilter]);
 
   // Current active ticket in swipe stack
   const currentSwipeTicket = filteredTickets[activeSwipeIndex] || null;
@@ -110,11 +124,15 @@ export default function SwipeCardFeed() {
 
     setSwipeDirection(direction);
 
-    // Vote accordingly to boost or lower priority
-    if (direction === 'right') {
-      voteTicket(currentSwipeTicket.id, 'up');
-    } else if (direction === 'left') {
-      voteTicket(currentSwipeTicket.id, 'down');
+    const isLNF = currentSwipeTicket.scope === 'lost_found' || currentSwipeTicket.category === 'lost_found';
+
+    // Only vote on normal issue tickets (Lost & Found items have no like/oppose)
+    if (!isLNF) {
+      if (direction === 'right') {
+        voteTicket(currentSwipeTicket.id, 'up');
+      } else if (direction === 'left') {
+        voteTicket(currentSwipeTicket.id, 'down');
+      }
     }
 
     // Advance to next card with smooth transition
@@ -127,6 +145,22 @@ export default function SwipeCardFeed() {
         setActiveSwipeIndex(0); // Loop back or complete
       }
     }, 320);
+  };
+
+  const handleNextCard = () => {
+    if (activeSwipeIndex < filteredTickets.length - 1) {
+      setActiveSwipeIndex(prev => prev + 1);
+    } else {
+      setActiveSwipeIndex(0);
+    }
+  };
+
+  const handlePrevCard = () => {
+    if (activeSwipeIndex > 0) {
+      setActiveSwipeIndex(prev => prev - 1);
+    } else {
+      setActiveSwipeIndex(filteredTickets.length - 1);
+    }
   };
 
   // Mobile Touch Handlers for Genuine Swipe Physics
@@ -206,6 +240,26 @@ export default function SwipeCardFeed() {
         return (
           <span className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-teal-50 text-teal-800 border border-teal-200">
             <span>Hostel Common Area</span>
+          </span>
+        );
+      case 'lost_found':
+        return (
+          <span className={`inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+            ticket.lostFoundType === 'found'
+              ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+              : 'bg-amber-50 text-amber-900 border-amber-300'
+          }`}>
+            {ticket.lostFoundType === 'found' ? (
+              <>
+                <ShieldCheck className="w-2.5 h-2.5 text-emerald-600" />
+                <span>Found Item (In Safe Custody)</span>
+              </>
+            ) : (
+              <>
+                <PackageSearch className="w-2.5 h-2.5 text-amber-600" />
+                <span>Lost Item (Broadcast Alert)</span>
+              </>
+            )}
           </span>
         );
       case 'campus':
@@ -325,6 +379,24 @@ export default function SwipeCardFeed() {
         
         {/* Scope Privacy Tabs */}
         <div className="flex items-center space-x-1.5 overflow-x-auto pb-1 text-xs font-semibold no-scrollbar touch-pan-y">
+          {/* Lost & Found Tab - Placed at the Start */}
+          <button
+            onClick={() => { setFeedFilter('lost_found'); setActiveSwipeIndex(0); }}
+            className={`px-3 py-1.5 rounded-xl whitespace-nowrap transition-all flex items-center space-x-1.5 touch-press ${
+              feedFilter === 'lost_found'
+                ? 'bg-amber-600 text-white shadow-md border border-amber-600'
+                : 'text-amber-950 hover:bg-amber-100 bg-amber-50 border border-amber-300'
+            }`}
+            style={
+              feedFilter === 'lost_found'
+                ? { backgroundColor: '#d97706', color: '#ffffff', borderColor: '#d97706' }
+                : undefined
+            }
+          >
+            <PackageSearch className={`w-3.5 h-3.5 ${feedFilter === 'lost_found' ? 'text-white' : 'text-amber-600'}`} />
+            <span className="font-bold">Lost & Found Hub ({lostFoundCount})</span>
+          </button>
+
           <button
             onClick={() => { setFeedFilter('all'); setActiveSwipeIndex(0); }}
             className={`px-3 py-1.5 rounded-xl whitespace-nowrap transition-all touch-press ${
@@ -456,6 +528,75 @@ export default function SwipeCardFeed() {
 
       </div>
 
+      {/* Dedicated Lost & Found Section Banner & Sub-filter Bar */}
+      {feedFilter === 'lost_found' && (
+        <div className="bg-gradient-to-r from-amber-50 via-amber-100/50 to-orange-50 border-2 border-amber-300 rounded-3xl p-4 sm:p-6 shadow-sm space-y-4 animate-fade-in">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-start space-x-3">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-amber-600 text-white flex items-center justify-center shrink-0 shadow-md">
+                <PackageSearch className="w-5 h-5 sm:w-6 sm:h-6" />
+              </div>
+              <div>
+                <div className="flex items-center space-x-2">
+                  <h2 className="text-lg sm:text-xl font-extrabold text-amber-950">Campus Lost & Found Registry</h2>
+                  <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-amber-200 text-amber-900 border border-amber-300">
+                    Anti-Fraud Protected
+                  </span>
+                </div>
+                <p className="text-xs text-amber-900/80 mt-1 max-w-2xl leading-relaxed">
+                  <strong>Role-Based Verification:</strong> For items <em>found</em> on campus, fellow students only see the Title and Image to prevent fraudulent claims. Only Department Heads & Admins can access secret identifying marks, discovery timings, and custody records.
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setActiveTab('raise')}
+              className="btn-primary text-xs py-2 px-4 shadow-sm flex items-center space-x-2 shrink-0 self-start sm:self-auto bg-amber-700 hover:bg-amber-800 border-amber-800"
+            >
+              <PlusCircle className="w-4 h-4" />
+              <span>Report Lost / Found</span>
+            </button>
+          </div>
+
+          {/* Sub-Filters: All, Found In Custody, Lost Broadcasts */}
+          <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-amber-200/80">
+            <span className="text-[11px] font-bold text-amber-900 mr-1">Filter Records:</span>
+            <button
+              onClick={() => { setLostFoundSubFilter('all'); setActiveSwipeIndex(0); }}
+              className={`px-3 py-1 rounded-xl text-xs font-bold transition-all ${
+                lostFoundSubFilter === 'all'
+                  ? 'bg-amber-800 text-white shadow-sm'
+                  : 'bg-white text-amber-900 hover:bg-amber-100 border border-amber-300'
+              }`}
+            >
+              All Items ({lostFoundCount})
+            </button>
+            <button
+              onClick={() => { setLostFoundSubFilter('found'); setActiveSwipeIndex(0); }}
+              className={`px-3 py-1 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition-all ${
+                lostFoundSubFilter === 'found'
+                  ? 'bg-emerald-700 text-white shadow-sm'
+                  : 'bg-white text-emerald-800 hover:bg-emerald-50 border border-emerald-300'
+              }`}
+            >
+              <ShieldCheck className="w-3.5 h-3.5" />
+              <span>Found in Custody ({foundCount})</span>
+            </button>
+            <button
+              onClick={() => { setLostFoundSubFilter('lost'); setActiveSwipeIndex(0); }}
+              className={`px-3 py-1 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition-all ${
+                lostFoundSubFilter === 'lost'
+                  ? 'bg-rose-700 text-white shadow-sm'
+                  : 'bg-white text-rose-800 hover:bg-rose-50 border border-rose-300'
+              }`}
+            >
+              <Search className="w-3.5 h-3.5" />
+              <span>Lost Items Broadcast ({lostCount})</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* =========================================================================
           MODE 1: TINDER-STYLE INTERACTIVE SWIPE DECK
           ========================================================================= */}
@@ -579,10 +720,63 @@ export default function SwipeCardFeed() {
                     {currentSwipeTicket.title}
                   </h3>
 
-                  {/* Description */}
-                  <p className="text-xs sm:text-sm text-charcoal-700 leading-relaxed">
-                    {currentSwipeTicket.description}
-                  </p>
+                  {/* Description Handling with Role-Based Privacy for Lost & Found */}
+                  {(currentSwipeTicket.scope === 'lost_found' || currentSwipeTicket.category === 'lost_found') ? (
+                    currentSwipeTicket.lostFoundType === 'found' ? (
+                      canViewLostFoundDetails(currentSwipeTicket) ? (
+                        <div className="space-y-2 p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs">
+                          <div className="font-bold text-emerald-950 flex items-center space-x-1.5">
+                            <ShieldCheck className="w-4 h-4 text-emerald-700" />
+                            <span>Authorized Official Record (Dept Head / Admin View)</span>
+                          </div>
+                          <p className="text-emerald-900 leading-relaxed">{currentSwipeTicket.description}</p>
+                          {currentSwipeTicket.secretDetails && (
+                            <div className="p-2 rounded-xl bg-white border border-emerald-200 text-[11px] text-emerald-900">
+                              <strong>Confidential Marks:</strong> {currentSwipeTicket.secretDetails}
+                            </div>
+                          )}
+                          <div className="flex flex-wrap gap-2 text-[11px] text-emerald-800 font-medium pt-1">
+                            {currentSwipeTicket.safekeepingLocation && (
+                              <span>Custody: <strong>{currentSwipeTicket.safekeepingLocation}</strong></span>
+                            )}
+                            {currentSwipeTicket.timings && (
+                              <span>• Found Timing: <strong>{currentSwipeTicket.timings}</strong></span>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-300 text-xs text-amber-950 space-y-1.5">
+                          <div className="font-bold text-amber-900 flex items-center space-x-1.5">
+                            <Lock className="w-4 h-4 text-amber-600" />
+                            <span>Confidential Details Guarded (Anti-Fraud Policy)</span>
+                          </div>
+                          <p className="text-[11px] text-amber-900/90 leading-relaxed">
+                            To ensure the item is returned only to its genuine owner, distinguishing marks and secret descriptions are withheld from fellow students. Only Department Heads & Admins can review full specifications.
+                          </p>
+                          <div className="text-[10px] text-amber-800 font-semibold pt-0.5">
+                            👉 Tap "View Details" to claim this item through Department Head / Security.
+                          </div>
+                        </div>
+                      )
+                    ) : (
+                      <div className="p-3.5 rounded-2xl bg-amber-50/80 border border-amber-200 text-xs space-y-1.5">
+                        <div className="font-bold text-amber-950 flex items-center space-x-1.5">
+                          <PackageSearch className="w-4 h-4 text-amber-700" />
+                          <span>Campus Lost Item Alert (Broadcast to All Students)</span>
+                        </div>
+                        <p className="text-charcoal-800 leading-relaxed">{currentSwipeTicket.description}</p>
+                        {currentSwipeTicket.timings && (
+                          <div className="text-[11px] text-amber-900 font-medium">
+                            Lost When/Timing: <strong>{currentSwipeTicket.timings}</strong>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  ) : (
+                    <p className="text-xs sm:text-sm text-charcoal-700 leading-relaxed">
+                      {currentSwipeTicket.description}
+                    </p>
+                  )}
 
                   {/* Stage-1 Panel Approval Status (Class Advisor or Hostel Resident Warden) */}
                   {(currentSwipeTicket.scope === 'class' || currentSwipeTicket.scope === 'department') && (
@@ -632,47 +826,104 @@ export default function SwipeCardFeed() {
                     </div>
                   )}
 
-                  {/* Voting Score Breakdown */}
-                  <div className="flex items-center justify-between text-xs text-charcoal-600 pt-2 border-t border-ivory-200">
-                    <div className="flex items-center space-x-3">
-                      <span className="text-emerald-700 font-bold flex items-center space-x-1">
-                        <ThumbsUp className="w-3.5 h-3.5" />
-                        <span>{currentSwipeTicket.upvotes?.length || 0} Confirmations</span>
-                      </span>
-                      <span className="text-rose-600 font-bold flex items-center space-x-1">
-                        <ThumbsDown className="w-3.5 h-3.5" />
-                        <span>{currentSwipeTicket.downvotes?.length || 0} Oppose</span>
-                      </span>
+                  {/* Voting Score Breakdown OR Lost & Found Status Bar */}
+                  {(currentSwipeTicket.scope === 'lost_found' || currentSwipeTicket.category === 'lost_found') ? (
+                    <div className="flex items-center justify-between text-xs text-charcoal-600 pt-2 border-t border-ivory-200">
+                      <div className="flex items-center space-x-2">
+                        <span className={`inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-xl text-xs font-bold border ${
+                          currentSwipeTicket.lostFoundType === 'found'
+                            ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                            : 'bg-amber-50 text-amber-900 border-amber-300'
+                        }`}>
+                          {currentSwipeTicket.lostFoundType === 'found' ? (
+                            <>
+                              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                              <span>Safe Custody: {currentSwipeTicket.claimedStatus === 'claimed' ? 'Claimed' : 'Unclaimed'}</span>
+                            </>
+                          ) : (
+                            <>
+                              <PackageSearch className="w-3.5 h-3.5 text-amber-600" />
+                              <span>Campus Alert: Active Broadcast</span>
+                            </>
+                          )}
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => setSelectedTicketForDetail(currentSwipeTicket)}
+                        className="text-xs text-emerald-700 hover:text-emerald-800 font-semibold flex items-center space-x-1 touch-press"
+                      >
+                        <span>{currentSwipeTicket.comments?.length || 0} Comments</span>
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
                     </div>
-                    <button
-                      onClick={() => setSelectedTicketForDetail(currentSwipeTicket)}
-                      className="text-xs text-emerald-700 hover:text-emerald-800 font-semibold flex items-center space-x-1 touch-press"
-                    >
-                      <span>{currentSwipeTicket.comments?.length || 0} Comments</span>
-                      <ChevronRight className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
+                  ) : (
+                    <div className="flex items-center justify-between text-xs text-charcoal-600 pt-2 border-t border-ivory-200">
+                      <div className="flex items-center space-x-3">
+                        <span className="text-emerald-700 font-bold flex items-center space-x-1">
+                          <ThumbsUp className="w-3.5 h-3.5" />
+                          <span>{currentSwipeTicket.upvotes?.length || 0} Confirmations</span>
+                        </span>
+                        <span className="text-rose-600 font-bold flex items-center space-x-1">
+                          <ThumbsDown className="w-3.5 h-3.5" />
+                          <span>{currentSwipeTicket.downvotes?.length || 0} Oppose</span>
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => setSelectedTicketForDetail(currentSwipeTicket)}
+                        className="text-xs text-emerald-700 hover:text-emerald-800 font-semibold flex items-center space-x-1 touch-press"
+                      >
+                        <span>{currentSwipeTicket.comments?.length || 0} Comments</span>
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
 
-                  {/* Tactile Big Swipe Action Buttons */}
-                  <div className="grid grid-cols-2 gap-2.5 sm:gap-3 pt-2">
-                    <button
-                      onClick={() => handleSwipe('left')}
-                      className="py-3 px-3 sm:px-4 rounded-2xl bg-white hover:bg-rose-50 border border-rose-200 hover:border-rose-400 text-rose-700 font-bold text-xs flex items-center justify-center space-x-2 transition-all shadow-subtle touch-press"
-                      title="Vote oppose or lower priority (or swipe left)"
-                    >
-                      <ThumbsDown className="w-4 h-4 text-rose-600" />
-                      <span>Swipe Left (Oppose)</span>
-                    </button>
+                  {/* Tactile Big Action Buttons: Oppose/Support for normal issues, Next/Claim for Lost & Found */}
+                  {(currentSwipeTicket.scope === 'lost_found' || currentSwipeTicket.category === 'lost_found') ? (
+                    <div className="grid grid-cols-2 gap-2.5 sm:gap-3 pt-2">
+                      <button
+                        onClick={handleNextCard}
+                        className="py-3 px-3 sm:px-4 rounded-2xl bg-white hover:bg-ivory-100 border border-ivory-300 text-charcoal-700 font-bold text-xs flex items-center justify-center space-x-2 transition-all shadow-subtle touch-press"
+                        title="Skip to next item in registry"
+                      >
+                        <ArrowRight className="w-4 h-4 text-charcoal-500" />
+                        <span>Next Item →</span>
+                      </button>
 
-                    <button
-                      onClick={() => handleSwipe('right')}
-                      className="py-3 px-3 sm:px-4 rounded-2xl bg-[#13a879] hover:bg-[#0f8e65] text-white font-bold text-xs flex items-center justify-center space-x-2 shadow-lg shadow-emerald-950/20 transition-all touch-press"
-                      title="Vote support and boost priority (or swipe right)"
-                    >
-                      <ThumbsUp className="w-4 h-4 text-white" />
-                      <span>Swipe Right (Support)</span>
-                    </button>
-                  </div>
+                      <button
+                        onClick={() => setSelectedTicketForDetail(currentSwipeTicket)}
+                        className={`py-3 px-3 sm:px-4 rounded-2xl text-white font-bold text-xs flex items-center justify-center space-x-2 shadow-lg transition-all touch-press ${
+                          currentSwipeTicket.lostFoundType === 'found'
+                            ? 'bg-emerald-700 hover:bg-emerald-800 shadow-emerald-950/20'
+                            : 'bg-amber-600 hover:bg-amber-700 shadow-amber-950/20'
+                        }`}
+                        title="View full details or claim this item"
+                      >
+                        <PackageSearch className="w-4 h-4 text-white" />
+                        <span>{currentSwipeTicket.lostFoundType === 'found' ? 'Claim / Verify Item' : 'View Lost Alert & Contact'}</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-2.5 sm:gap-3 pt-2">
+                      <button
+                        onClick={() => handleSwipe('left')}
+                        className="py-3 px-3 sm:px-4 rounded-2xl bg-white hover:bg-rose-50 border border-rose-200 hover:border-rose-400 text-rose-700 font-bold text-xs flex items-center justify-center space-x-2 transition-all shadow-subtle touch-press"
+                        title="Vote oppose or lower priority (or swipe left)"
+                      >
+                        <ThumbsDown className="w-4 h-4 text-rose-600" />
+                        <span>Swipe Left (Oppose)</span>
+                      </button>
+
+                      <button
+                        onClick={() => handleSwipe('right')}
+                        className="py-3 px-3 sm:px-4 rounded-2xl bg-[#13a879] hover:bg-[#0f8e65] text-white font-bold text-xs flex items-center justify-center space-x-2 shadow-lg shadow-emerald-950/20 transition-all touch-press"
+                        title="Vote support and boost priority (or swipe right)"
+                      >
+                        <ThumbsUp className="w-4 h-4 text-white" />
+                        <span>Swipe Right (Support)</span>
+                      </button>
+                    </div>
+                  )}
 
                   {/* Dot Card Selectors */}
                   <div className="flex items-center justify-center space-x-1.5 pt-2">
@@ -692,8 +943,14 @@ export default function SwipeCardFeed() {
 
                   {/* Touch swipe gesture hint for mobile & keyboard hint for desktop */}
                   <div className="text-center text-[10px] text-charcoal-500 pt-1">
-                    <span className="sm:hidden">👆 Drag card horizontally or tap buttons above</span>
-                    <span className="hidden sm:inline">Tip: You can also use <kbd className="px-1 py-0.5 bg-ivory-200 rounded border text-charcoal-700">← Left</kbd> or <kbd className="px-1 py-0.5 bg-ivory-200 rounded border text-charcoal-700">Right →</kbd> arrow keys to swipe</span>
+                    {(currentSwipeTicket.scope === 'lost_found' || currentSwipeTicket.category === 'lost_found') ? (
+                      <span>🎒 Lost & Found Item: Browse with <strong>Next Item</strong> or open to verify with Dept Head</span>
+                    ) : (
+                      <>
+                        <span className="sm:hidden">👆 Drag card horizontally or tap buttons above</span>
+                        <span className="hidden sm:inline">Tip: You can also use <kbd className="px-1 py-0.5 bg-ivory-200 rounded border text-charcoal-700">← Left</kbd> or <kbd className="px-1 py-0.5 bg-ivory-200 rounded border text-charcoal-700">Right →</kbd> arrow keys to swipe</span>
+                      </>
+                    )}
                   </div>
 
                 </div>
@@ -856,10 +1113,50 @@ export default function SwipeCardFeed() {
                           {ticket.title}
                         </h3>
 
-                        {/* Description preview */}
-                        <p className="text-xs text-charcoal-700 leading-relaxed line-clamp-2 max-w-2xl">
-                          {ticket.description}
-                        </p>
+                        {/* Description preview with Role-Based Privacy for Lost & Found */}
+                        {(ticket.scope === 'lost_found' || ticket.category === 'lost_found') ? (
+                          ticket.lostFoundType === 'found' ? (
+                            canViewLostFoundDetails(ticket) ? (
+                              <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-950 space-y-1">
+                                <div className="font-bold flex items-center space-x-1 text-emerald-800 text-[11px]">
+                                  <ShieldCheck className="w-3.5 h-3.5" />
+                                  <span>Authorized Dept Head / Admin Full View:</span>
+                                </div>
+                                <p className="line-clamp-2 leading-relaxed">{ticket.description}</p>
+                                {ticket.secretDetails && (
+                                  <div className="text-[10px] text-emerald-900 bg-white/80 px-2 py-0.5 rounded border border-emerald-200">
+                                    <strong>Secret Marks:</strong> {ticket.secretDetails}
+                                  </div>
+                                )}
+                                {ticket.safekeepingLocation && (
+                                  <span className="text-[10px] text-emerald-700 block font-medium">Custody: {ticket.safekeepingLocation}</span>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-300 text-xs text-amber-950 flex items-center space-x-2">
+                                <Lock className="w-4 h-4 text-amber-600 shrink-0" />
+                                <div className="text-[11px] leading-snug">
+                                  <strong className="text-amber-900">Anti-Fraud Protected:</strong> Secret description and discovery timings are hidden from fellow students. Tap to view and claim via Department Head.
+                                </div>
+                              </div>
+                            )
+                          ) : (
+                            <div className="p-2.5 rounded-xl bg-amber-50/70 border border-amber-200 text-xs text-charcoal-800 space-y-0.5">
+                              <span className="font-bold text-[11px] text-amber-900 block flex items-center space-x-1">
+                                <PackageSearch className="w-3 h-3 text-amber-600" />
+                                <span>Lost Item Campus Broadcast:</span>
+                              </span>
+                              <p className="line-clamp-2 leading-relaxed">{ticket.description}</p>
+                              {ticket.timings && (
+                                <span className="text-[10px] text-amber-800 block">Lost Timing: {ticket.timings}</span>
+                              )}
+                            </div>
+                          )
+                        ) : (
+                          <p className="text-xs text-charcoal-700 leading-relaxed line-clamp-2 max-w-2xl">
+                            {ticket.description}
+                          </p>
+                        )}
 
                         {/* Meta location and reporter */}
                         <div className="flex flex-wrap items-center gap-3 text-xs text-charcoal-500 pt-1">
@@ -901,38 +1198,65 @@ export default function SwipeCardFeed() {
                     {/* Right Action & Confirmation Column */}
                     <div className="flex items-center lg:flex-col lg:items-end justify-between lg:justify-start gap-3 shrink-0 pt-3 lg:pt-0 border-t lg:border-t-0 border-ivory-200">
                       
-                      {/* Priority Gauge */}
-                      <div className="text-right">
-                        <div className="text-[10px] uppercase font-bold text-charcoal-500">Priority Score</div>
-                        <div className="text-base font-black text-forest-950 flex items-center justify-end space-x-1">
-                          <Flame className="w-4 h-4 text-emerald-600 fill-emerald-600" />
-                          <span>{ticket.priorityScore}</span>
-                          <span className="text-[10px] text-charcoal-400 font-normal">/ 100</span>
+                      {/* Priority Gauge OR Lost & Found Registry Status */}
+                      {(ticket.scope === 'lost_found' || ticket.category === 'lost_found') ? (
+                        <div className="text-right">
+                          <div className="text-[10px] uppercase font-bold text-charcoal-500">Registry Status</div>
+                          <div className="text-xs font-bold text-forest-950 flex items-center justify-end space-x-1">
+                            <PackageSearch className="w-3.5 h-3.5 text-amber-600" />
+                            <span className="capitalize">{ticket.lostFoundType === 'found' ? (ticket.claimedStatus === 'claimed' ? 'Claimed' : 'In Custody') : 'Lost Alert'}</span>
+                          </div>
                         </div>
-                      </div>
+                      ) : (
+                        <div className="text-right">
+                          <div className="text-[10px] uppercase font-bold text-charcoal-500">Priority Score</div>
+                          <div className="text-base font-black text-forest-950 flex items-center justify-end space-x-1">
+                            <Flame className="w-4 h-4 text-emerald-600 fill-emerald-600" />
+                            <span>{ticket.priorityScore}</span>
+                            <span className="text-[10px] text-charcoal-400 font-normal">/ 100</span>
+                          </div>
+                        </div>
+                      )}
 
-                      {/* Community Confirmation Buttons */}
+                      {/* Community Confirmation Buttons OR Lost & Found Actions */}
                       <div className="flex items-center space-x-2">
-                        <button
-                          onClick={() => voteTicket(ticket.id, 'up')}
-                          className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center space-x-1.5 transition-all ${
-                            hasConfirmed
-                              ? 'bg-emerald-600 text-white shadow-sm'
-                              : 'bg-ivory-100 text-charcoal-700 hover:bg-emerald-50 hover:text-emerald-800 border border-ivory-300'
-                          }`}
-                          title="Confirm this issue exists (+ Priority)"
-                        >
-                          <ThumbsUp className="w-3.5 h-3.5" />
-                          <span>{hasConfirmed ? 'Confirmed' : 'Confirm'} ({ticket.upvotes?.length || 0})</span>
-                        </button>
+                        {(ticket.scope === 'lost_found' || ticket.category === 'lost_found') ? (
+                          <button
+                            onClick={() => setSelectedTicketForDetail(ticket)}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition-all text-white shadow-sm ${
+                              ticket.lostFoundType === 'found'
+                                ? 'bg-emerald-700 hover:bg-emerald-800'
+                                : 'bg-amber-600 hover:bg-amber-700'
+                            }`}
+                            title="View details or claim this item"
+                          >
+                            <PackageSearch className="w-3.5 h-3.5" />
+                            <span>{ticket.lostFoundType === 'found' ? 'Claim / Verify' : 'View Lost Alert'}</span>
+                          </button>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => voteTicket(ticket.id, 'up')}
+                              className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center space-x-1.5 transition-all ${
+                                hasConfirmed
+                                  ? 'bg-emerald-600 text-white shadow-sm'
+                                  : 'bg-ivory-100 text-charcoal-700 hover:bg-emerald-50 hover:text-emerald-800 border border-ivory-300'
+                              }`}
+                              title="Confirm this issue exists (+ Priority)"
+                            >
+                              <ThumbsUp className="w-3.5 h-3.5" />
+                              <span>{hasConfirmed ? 'Confirmed' : 'Confirm'} ({ticket.upvotes?.length || 0})</span>
+                            </button>
 
-                        <button
-                          onClick={() => voteTicket(ticket.id, 'down')}
-                          className="px-2.5 py-1.5 rounded-xl text-xs font-semibold text-charcoal-500 hover:text-rose-600 hover:bg-rose-50 border border-ivory-300 transition-colors"
-                          title="Vote down / low priority"
-                        >
-                          <ThumbsDown className="w-3.5 h-3.5" />
-                        </button>
+                            <button
+                              onClick={() => voteTicket(ticket.id, 'down')}
+                              className="px-2.5 py-1.5 rounded-xl text-xs font-semibold text-charcoal-500 hover:text-rose-600 hover:bg-rose-50 border border-ivory-300 transition-colors"
+                              title="Vote down / low priority"
+                            >
+                              <ThumbsDown className="w-3.5 h-3.5" />
+                            </button>
+                          </>
+                        )}
 
                         <button
                           onClick={() => setSelectedTicketForDetail(ticket)}

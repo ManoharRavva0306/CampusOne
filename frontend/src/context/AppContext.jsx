@@ -380,6 +380,10 @@ export function AppProvider({ children }) {
 
   // Dynamic priority calculation with Advisor + Warden Strong Approval Weightage
   const recalculatePriority = (ticket) => {
+    if (ticket.scope === 'lost_found' || ticket.category === 'lost_found') {
+      return ticket.priorityScore || (ticket.lostFoundType === 'lost' ? 78 : 72);
+    }
+
     let base = 50;
     if (ticket.category === 'safety') base = 85;
     if (ticket.scope === 'campus') base += 10;
@@ -411,8 +415,15 @@ export function AppProvider({ children }) {
       return;
     }
 
+    const targetTicket = tickets.find(t => t.id === ticketId);
+    if (targetTicket && (targetTicket.scope === 'lost_found' || targetTicket.category === 'lost_found')) {
+      // Like / Oppose is disabled for Lost & Found products
+      return;
+    }
+
     setTickets(prev => prev.map(ticket => {
       if (ticket.id !== ticketId) return ticket;
+      if (ticket.scope === 'lost_found' || ticket.category === 'lost_found') return ticket;
 
       let upvotes = [...(ticket.upvotes || [])];
       let downvotes = [...(ticket.downvotes || [])];
@@ -524,6 +535,9 @@ export function AppProvider({ children }) {
     } else if (isCollegeIssue) {
       appendAuditLog(`College Issue Raised (#${newId})`, `${actor.name} → ${actor.classSection} Advisor`, '🎓');
       showNotification(`Ticket #${newId} routed to your Class Advisor (${actor.classSection}) for approval!`, 'success');
+    } else if (ticketData.scope === 'lost_found' || ticketData.category === 'lost_found') {
+      appendAuditLog(`Lost & Found Registered (#${newId})`, `${actor.name} (${ticketData.lostFoundType === 'found' ? 'Found Item' : 'Lost Alert'})`, '🎒');
+      showNotification(`Lost & Found Item #${newId} saved to database & ${ticketData.lostFoundType === 'found' ? 'custody registry' : 'broadcast feed'}!`, 'success');
     } else {
       showNotification(`Emergency Hazard #${newId} logged and escalated!`, 'success');
     }
@@ -1065,8 +1079,25 @@ export function AppProvider({ children }) {
     return false;
   };
 
+  // Strict Privacy Check for Lost & Found Items:
+  // For 'found' items: fellow students see only Title & Image. Full details (secrets, exact location, timings)
+  // are accessible exclusively to Department Heads, Faculty Advisors, Wardens, Admins, and the finder.
+  // For 'lost' items: details are publicly broadcast to all students and staff.
+  const canViewLostFoundDetails = (ticket, viewer = currentUser) => {
+    if (!ticket) return false;
+    if (ticket.lostFoundType === 'lost') return true;
+    if (!viewer) return false;
+    if (viewer.role === 'central_admin' || viewer.role === 'super_admin' || viewer.role === 'domain_admin' || viewer.role === 'dept_admin') return true;
+    if (viewer.role === 'faculty_advisor' || viewer.role === 'hostel_warden') return true;
+    if (ticket.raisedBy?.id === viewer.id) return true;
+    return false;
+  };
+
   // Scope-based visibility check for current user
   const isTicketVisibleToUser = (ticket, user = currentUser) => {
+    // Lost & Found items are publicly visible across the whole university
+    if (ticket.scope === 'lost_found' || ticket.category === 'lost_found') return true;
+
     if (!user) {
       return ticket.scope === 'campus';
     }
@@ -1147,6 +1178,7 @@ export function AppProvider({ children }) {
         resetDemoData,
         isTicketVisibleToUser,
         canViewStudentDetails,
+        canViewLostFoundDetails,
         selectedTicketForDetail,
         setSelectedTicketForDetail,
         notification,

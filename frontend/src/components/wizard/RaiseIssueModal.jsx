@@ -28,7 +28,12 @@ import {
   Cpu,
   Eye,
   Scan,
-  Activity
+  Activity,
+  PackageSearch,
+  Package,
+  Search,
+  HelpCircle,
+  Tag
 } from 'lucide-react';
 
 export default function RaiseIssueModal({ onClose }) {
@@ -51,14 +56,14 @@ export default function RaiseIssueModal({ onClose }) {
   if (!currentUser) return null;
 
   // Step 1: Location & Scope
-  // Step 2: Issue Category
+  // Step 2: Issue Category / Lost & Found Product Type
   // Step 3: Description & Evidence
   // Step 4: Duplicate Detection Review & Priority Preview
   const [step, setStep] = useState(1);
 
   // Form State
   const [mainDomain, setMainDomain] = useState('college'); // 'college' | 'hostel' | 'campus'
-  const [subScope, setSubScope] = useState('class'); // 'class' | 'department' | 'room' | 'hostel_generic' | 'campus'
+  const [subScope, setSubScope] = useState('class'); // 'class' | 'department' | 'room' | 'hostel_generic' | 'campus' | 'lost_found'
   const [category, setCategory] = useState('it_av');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -67,6 +72,13 @@ export default function RaiseIssueModal({ onClose }) {
   const [selectedPhoto, setSelectedPhoto] = useState('https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=800&auto=format&fit=crop&q=80');
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState(null);
+
+  // Lost & Found Specific State
+  const [lostFoundType, setLostFoundType] = useState('found'); // 'found' | 'lost'
+  const [itemCategory, setItemCategory] = useState('electronics'); // 'electronics' | 'ids_cards' | 'books' | 'keys_bags' | 'wearables' | 'stationery' | 'clothing' | 'other'
+  const [timings, setTimings] = useState('');
+  const [secretDetails, setSecretDetails] = useState('');
+  const [safekeepingLocation, setSafekeepingLocation] = useState('Department Office');
 
   // AI Copilot & Vision Intelligence State
   const [aiAnalysis, setAiAnalysis] = useState(null);
@@ -272,8 +284,23 @@ export default function RaiseIssueModal({ onClose }) {
     { label: '⚠️ Selfie Portrait (Irrelevant)', url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=800&auto=format&fit=crop&q=80' }
   ];
 
+  const LOST_FOUND_PHOTO_PRESETS = [
+    { label: '📱 Earbuds Case', url: 'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=800&auto=format&fit=crop&q=80' },
+    { label: '🔢 Scientific Calculator', url: 'https://images.unsplash.com/photo-1587145820266-a5951ee6f620?w=800&auto=format&fit=crop&q=80' },
+    { label: '⌚ Wristwatch', url: 'https://images.unsplash.com/photo-1524805444758-089113d48a6d?w=800&auto=format&fit=crop&q=80' },
+    { label: '🎒 Laptop Backpack', url: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=800&auto=format&fit=crop&q=80' },
+    { label: '💳 Identity Card & Wallet', url: 'https://images.unsplash.com/photo-1627123424574-724758594e93?w=800&auto=format&fit=crop&q=80' }
+  ];
+
   // Live AI Issue Analysis (Auto-Triage, Vision Defect, Semantic Duplicate Matching)
   useEffect(() => {
+    // If lost & found mode, bypass hardware defect analysis
+    if (subScope === 'lost_found') {
+      setIsAnalyzingAI(false);
+      setAiAnalysis(null);
+      return;
+    }
+
     // If no text and no photo is selected, clear analysis
     if (!title.trim() && !description.trim() && !selectedPhoto) {
       setAiAnalysis(null);
@@ -331,6 +358,8 @@ export default function RaiseIssueModal({ onClose }) {
 
   // AI Semantic Duplicate Detection Engine
   const duplicateMatches = useMemo(() => {
+    if (subScope === 'lost_found') return [];
+
     if (aiAnalysis?.duplicates && aiAnalysis.duplicates.length > 0) {
       return aiAnalysis.duplicates;
     }
@@ -359,12 +388,32 @@ export default function RaiseIssueModal({ onClose }) {
       matchedKeywords: keywords.slice(0, 3),
       matchReason: 'Heuristic keyword overlap with active campus report'
     }));
-  }, [aiAnalysis, title, description, category, tickets]);
+  }, [aiAnalysis, title, description, category, tickets, subScope]);
 
   const handleNextStep = () => {
     if (step === 1 && !subScope) return;
-    if (step === 2 && !category) return;
-    if (step === 3 && (!title.trim() || !description.trim())) return;
+    if (step === 2) {
+      if (subScope === 'lost_found') {
+        if (!lostFoundType) return;
+      } else if (!category) {
+        return;
+      }
+    }
+    if (step === 3) {
+      if (!title.trim()) return;
+      if (subScope === 'lost_found') {
+        if (lostFoundType === 'found' && !selectedPhoto) {
+          alert('Please capture or upload an image of the found product so the owner can recognize it.');
+          return;
+        }
+        if (!location.trim()) {
+          alert('Please enter where the item was found or lost.');
+          return;
+        }
+      } else {
+        if (!description.trim()) return;
+      }
+    }
     setStep(Math.min(4, step + 1));
   };
 
@@ -379,14 +428,16 @@ export default function RaiseIssueModal({ onClose }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!title.trim() || !description.trim()) return;
+    if (!title.trim()) return;
+    if (subScope !== 'lost_found' && !description.trim()) return;
 
     stopCamera();
     const matchedCat = CATEGORIES.find(c => c.id === category);
+    const isLostFound = subScope === 'lost_found';
 
     const ticketData = {
       title: title.trim(),
-      description: description.trim(),
+      description: description.trim() || (isLostFound ? `${lostFoundType === 'found' ? 'Found' : 'Lost'} item reported at ${location || 'Campus'}` : ''),
       scope: subScope,
       classSection: subScope === 'class' ? currentUser.classSection : null,
       department: currentUser.department,
@@ -396,25 +447,37 @@ export default function RaiseIssueModal({ onClose }) {
         subScope === 'class' ? `${currentUser.classSection} Classroom (Room 302)` :
         subScope === 'room' ? `${currentUser.hostel} Room ${currentUser.room}` :
         subScope === 'department' ? `${currentUser.department} Department Labs` :
+        subScope === 'lost_found' ? 'Campus Grounds / Facilities' :
         'Amrita Campus Central Area'
       ),
-      category: category,
-      domain: matchedCat ? matchedCat.domain : 'electrical_av',
+      category: isLostFound ? 'lost_found' : category,
+      domain: isLostFound ? 'campus' : (matchedCat ? matchedCat.domain : 'electrical_av'),
+      // Lost & Found Specific Metadata
+      lostFoundType: isLostFound ? lostFoundType : null,
+      itemCategory: isLostFound ? itemCategory : null,
+      timings: isLostFound ? (timings.trim() || 'Today') : null,
+      secretDetails: isLostFound ? secretDetails.trim() : null,
+      safekeepingLocation: isLostFound ? safekeepingLocation.trim() : null,
+      claimedStatus: isLostFound ? 'unclaimed' : null,
       imageUrl: selectedPhoto || 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=800&auto=format&fit=crop&q=80',
-      visibilityPercentage: (aiAnalysis?.vision?.isRelevant && aiAnalysis?.vision?.hasDefect) ? (aiAnalysis.vision.visibilityPercentage || 92) : 0,
-      defectDiagnosis: (aiAnalysis?.vision?.isRelevant && aiAnalysis?.vision?.hasDefect) 
-        ? aiAnalysis.vision.defectType 
-        : (aiAnalysis?.vision?.isRelevant && !aiAnalysis?.vision?.hasDefect ? 'No Fault Found — Asset Working Fine' : null),
-      detectedAsset: aiAnalysis?.vision?.isRelevant ? aiAnalysis.vision.detectedObject : null,
-      boundingBox: (aiAnalysis?.vision?.isRelevant && aiAnalysis?.vision?.hasDefect) ? aiAnalysis.vision.boundingBox : null,
-      predictedSla: aiAnalysis?.slaPrediction?.formattedETA || null,
-      mlModel: aiAnalysis?.mlMetadata?.visionModel || 'CampusOne-Multimodal VLM & YOLOv8-VisionNet',
-      priorityScore: (() => {
-        const isPhotoVerified = (aiAnalysis?.vision?.isRelevant === true && aiAnalysis?.vision?.hasDefect === true);
-        const base = urgency === 'emergency' ? 85 : urgency === 'high' ? 70 : 50;
-        const evidenceBoost = isPhotoVerified ? 15 : 0;
-        return Math.min(base + evidenceBoost, 100);
-      })()
+      visibilityPercentage: isLostFound ? 100 : ((aiAnalysis?.vision?.isRelevant && aiAnalysis?.vision?.hasDefect) ? (aiAnalysis.vision.visibilityPercentage || 92) : 0),
+      defectDiagnosis: isLostFound 
+        ? `${lostFoundType === 'found' ? 'Found Belonging' : 'Lost Belonging'} Registered` 
+        : ((aiAnalysis?.vision?.isRelevant && aiAnalysis?.vision?.hasDefect) 
+          ? aiAnalysis.vision.defectType 
+          : (aiAnalysis?.vision?.isRelevant && !aiAnalysis?.vision?.hasDefect ? 'No Fault Found — Asset Working Fine' : null)),
+      detectedAsset: isLostFound ? 'Personal Belonging / Property' : (aiAnalysis?.vision?.isRelevant ? aiAnalysis.vision.detectedObject : null),
+      boundingBox: isLostFound ? null : ((aiAnalysis?.vision?.isRelevant && aiAnalysis?.vision?.hasDefect) ? aiAnalysis.vision.boundingBox : null),
+      predictedSla: isLostFound ? '24 Hours (Claim Period)' : (aiAnalysis?.slaPrediction?.formattedETA || null),
+      mlModel: isLostFound ? 'CampusOne-Belongings Registration Desk' : (aiAnalysis?.mlMetadata?.visionModel || 'CampusOne-Multimodal VLM & YOLOv8-VisionNet'),
+      priorityScore: isLostFound 
+        ? (lostFoundType === 'lost' ? 75 : 70) 
+        : (() => {
+            const isPhotoVerified = (aiAnalysis?.vision?.isRelevant === true && aiAnalysis?.vision?.hasDefect === true);
+            const base = urgency === 'emergency' ? 85 : urgency === 'high' ? 70 : 50;
+            const evidenceBoost = isPhotoVerified ? 15 : 0;
+            return Math.min(base + evidenceBoost, 100);
+          })()
     };
 
     raiseTicket(ticketData);
@@ -558,6 +621,17 @@ export default function RaiseIssueModal({ onClose }) {
                     badgeStyle: 'bg-rose-50 text-rose-800 border-rose-200',
                     icon: AlertTriangle,
                     iconStyle: 'bg-rose-50 text-rose-700 border-rose-200'
+                  },
+                  {
+                    id: 'lost_found',
+                    domain: 'campus',
+                    title: 'Lost & Found',
+                    tag: 'Campus Belongings',
+                    desc: 'Lost personal items, found gadgets, keys, bags, identity cards',
+                    reviewer: 'Dept Head / Security',
+                    badgeStyle: 'bg-amber-50 text-amber-800 border-amber-200',
+                    icon: PackageSearch,
+                    iconStyle: 'bg-amber-50 text-amber-700 border-amber-200'
                   }
                 ].map((opt) => {
                   const Icon = opt.icon;
@@ -620,8 +694,123 @@ export default function RaiseIssueModal({ onClose }) {
             </div>
           )}
 
-          {/* STEP 2: Issue Category */}
-          {step === 2 && (
+          {/* STEP 2: Lost & Found Product Type */}
+          {step === 2 && subScope === 'lost_found' && (
+            <div className="space-y-4 animate-fade-in">
+              <div className="text-center mb-4">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">
+                  Campus Belongings Desk
+                </span>
+                <h4 className="text-sm sm:text-base font-bold text-forest-950 mt-1">
+                  Step 2: Are you reporting a Lost or Found Product?
+                </h4>
+                <p className="text-xs text-charcoal-500 mt-0.5 max-w-md mx-auto">
+                  Select whether you found an item on campus or are seeking to recover an item you lost.
+                </p>
+              </div>
+
+              {/* Two Big Mode Choice Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div
+                  onClick={() => setLostFoundType('found')}
+                  className={`p-4 rounded-2xl border cursor-pointer transition-all flex flex-col justify-between touch-press ${
+                    lostFoundType === 'found'
+                      ? 'bg-emerald-50/80 border-emerald-600 ring-2 ring-emerald-500/20 shadow-md'
+                      : 'bg-white border-ivory-300 hover:border-emerald-300 hover:bg-ivory-50'
+                  }`}
+                >
+                  <div className="space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <div className="w-10 h-10 rounded-xl bg-emerald-100/80 border border-emerald-200 flex items-center justify-center text-emerald-800">
+                        <Package className="w-5 h-5" />
+                      </div>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                        🔒 Privacy Guarded
+                      </span>
+                    </div>
+                    <div>
+                      <h5 className="text-sm font-extrabold text-forest-950">I Found an Item</h5>
+                      <p className="text-[11px] text-charcoal-600 mt-1 leading-relaxed">
+                        I found someone's personal belongings on campus and want to register or safeguard it.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-3 pt-2.5 border-t border-emerald-200/60 text-[10px] text-emerald-800 flex items-center space-x-1.5 font-semibold">
+                    <Lock className="w-3 h-3 text-emerald-700" />
+                    <span>Secret details & timings hidden from students</span>
+                  </div>
+                </div>
+
+                <div
+                  onClick={() => setLostFoundType('lost')}
+                  className={`p-4 rounded-2xl border cursor-pointer transition-all flex flex-col justify-between touch-press ${
+                    lostFoundType === 'lost'
+                      ? 'bg-amber-50/80 border-amber-600 ring-2 ring-amber-500/20 shadow-md'
+                      : 'bg-white border-ivory-300 hover:border-amber-300 hover:bg-ivory-50'
+                  }`}
+                >
+                  <div className="space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <div className="w-10 h-10 rounded-xl bg-amber-100/80 border border-amber-200 flex items-center justify-center text-amber-800">
+                        <Search className="w-5 h-5" />
+                      </div>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
+                        📢 Public Broadcast
+                      </span>
+                    </div>
+                    <div>
+                      <h5 className="text-sm font-extrabold text-forest-950">I Lost an Item</h5>
+                      <p className="text-[11px] text-charcoal-600 mt-1 leading-relaxed">
+                        I misplaced or lost my personal belonging and need fellow students and staff to help spot it.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-3 pt-2.5 border-t border-amber-200/60 text-[10px] text-amber-800 flex items-center space-x-1.5 font-semibold">
+                    <CheckCircle className="w-3 h-3 text-amber-700" />
+                    <span>Broadcasted to all students in report feed</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Item Classification Selector */}
+              <div className="pt-2">
+                <label className="block text-xs font-bold text-forest-950 mb-2">
+                  Select Item Category
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {[
+                    { id: 'electronics', label: '📱 Electronics', desc: 'Earbuds, Laptop, Phone' },
+                    { id: 'ids_cards', label: '💳 ID & Wallets', desc: 'College ID, Purse, Cards' },
+                    { id: 'books', label: '📚 Books & Notes', desc: 'Notebooks, Folders' },
+                    { id: 'keys_bags', label: '🔑 Keys & Bags', desc: 'Room Keys, Backpacks' },
+                    { id: 'wearables', label: '⌚ Wearables', desc: 'Watches, Glasses, Caps' },
+                    { id: 'stationery', label: '✏️ Stationery', desc: 'Calculator, Pouches' },
+                    { id: 'clothing', label: '🧥 Clothing', desc: 'Jackets, Lab Coats' },
+                    { id: 'other', label: '📦 Other Items', desc: 'Bottles, Umbrellas' }
+                  ].map(cat => (
+                    <div
+                      key={cat.id}
+                      onClick={() => setItemCategory(cat.id)}
+                      className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all touch-press ${
+                        itemCategory === cat.id
+                          ? 'bg-[#092d25] text-white border-[#092d25] shadow-xs'
+                          : 'bg-white border-ivory-300 hover:bg-ivory-100 text-charcoal-800'
+                      }`}
+                      style={itemCategory === cat.id ? { backgroundColor: '#092d25', color: '#ffffff' } : {}}
+                    >
+                      <div className="text-xs font-bold truncate">{cat.label}</div>
+                      <div className={`text-[10px] truncate mt-0.5 ${itemCategory === cat.id ? 'text-ivory-300' : 'text-charcoal-400'}`}>
+                        {cat.desc}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* STEP 2: Standard Maintenance Category */}
+          {step === 2 && subScope !== 'lost_found' && (
             <div className="space-y-4 animate-fade-in">
               <div className="text-center mb-4">
                 <h4 className="text-sm font-bold text-forest-950">Step 2: Select Maintenance Category</h4>
@@ -631,7 +820,7 @@ export default function RaiseIssueModal({ onClose }) {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {CATEGORIES.map(cat => (
+                {CATEGORIES.filter(c => c.id !== 'lost_found').map(cat => (
                   <div
                     key={cat.id}
                     onClick={() => setCategory(cat.id)}
@@ -659,8 +848,295 @@ export default function RaiseIssueModal({ onClose }) {
             </div>
           )}
 
-          {/* STEP 3: Description, Location Landmark & Evidence */}
-          {step === 3 && (
+          {/* STEP 3: Lost & Found Registration Details */}
+          {step === 3 && subScope === 'lost_found' && (
+            <div className="space-y-4 animate-fade-in">
+              {/* Context Notice */}
+              <div className={`p-3.5 rounded-2xl border text-xs flex items-start space-x-2.5 ${
+                lostFoundType === 'found'
+                  ? 'bg-amber-50/90 border-amber-300 text-amber-950'
+                  : 'bg-blue-50/90 border-blue-300 text-blue-950'
+              }`}>
+                {lostFoundType === 'found' ? (
+                  <>
+                    <Lock className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+                    <div>
+                      <div className="font-bold">🔒 Anti-Fraud Privacy Protection Active</div>
+                      <div className="text-[11px] text-amber-900 mt-0.5 leading-relaxed">
+                        To protect the rightful owner, students in the feed will <strong>ONLY see the Item Title and Photo</strong>. Secret distinguishing marks, exact location nuances, and discovery timings are <strong>locked and visible exclusively to Department Heads & Admins</strong> to authenticate claimants.
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <Search className="w-4 h-4 text-blue-700 shrink-0 mt-0.5" />
+                    <div>
+                      <div className="font-bold">📢 Public Student Feed Broadcast</div>
+                      <div className="text-[11px] text-blue-900 mt-0.5 leading-relaxed">
+                        All details (Title, Photo, Where & How lost, Timings) will be visible to all students in the Lost & Found feed to maximize recovery chances.
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Item Title */}
+              <div>
+                <label className="block text-xs font-bold text-forest-950 mb-1">
+                  Product / Item Title <span className="text-rose-600">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder={
+                    lostFoundType === 'found'
+                      ? "e.g. Found: White Boat Airdopes Case or Titan Black Dial Watch"
+                      : "e.g. Lost: Casio FX-991CW Scientific Calculator or Blue Backpack"
+                  }
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  className="input-field text-xs py-2.5"
+                />
+              </div>
+
+              {/* Photo Upload / Camera Viewfinder */}
+              <div className="pt-1">
+                <label className="block text-xs font-bold text-forest-950 mb-1.5 flex items-center justify-between">
+                  <span className="flex items-center space-x-1.5">
+                    <Camera className="w-4 h-4 text-emerald-700" />
+                    <span>
+                      {lostFoundType === 'found' ? 'Photo of Found Product' : 'Reference Photo of Lost Product'}
+                      {lostFoundType === 'found' && <span className="text-rose-600 ml-1">* (Required for identification)</span>}
+                    </span>
+                  </span>
+                  <span className="text-[10px] text-charcoal-500 font-semibold">
+                    {lostFoundType === 'found' ? 'Visible to students' : 'Optional / Recommended'}
+                  </span>
+                </label>
+
+                {/* Native input for mobile camera */}
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  ref={nativeCameraInputRef}
+                  onChange={handleFileChange}
+                  className="hidden"
+                />
+
+                {isCameraActive ? (
+                  <div className="rounded-2xl border-2 border-emerald-500 bg-black overflow-hidden relative p-2 space-y-2 animate-fade-in shadow-xl">
+                    <div className="relative rounded-xl overflow-hidden bg-black flex items-center justify-center min-h-[160px] sm:min-h-[200px]">
+                      <video
+                        ref={videoRef}
+                        autoPlay
+                        playsInline
+                        muted
+                        className="w-full h-44 sm:h-56 object-cover rounded-xl"
+                      />
+                      <div className="absolute top-2 left-2 flex items-center space-x-1.5 bg-black/75 backdrop-blur-md px-2.5 py-1 rounded-full text-[10px] text-rose-400 font-bold border border-rose-500/40">
+                        <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+                        <span>LIVE CAMERA</span>
+                      </div>
+                    </div>
+
+                    {cameraError && (
+                      <div className="p-2 rounded-lg bg-rose-950/80 border border-rose-500/40 text-[11px] text-rose-200">
+                        {cameraError}
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-between pt-1 px-1">
+                      <button
+                        type="button"
+                        onClick={stopCamera}
+                        className="px-3 py-1.5 rounded-xl bg-charcoal-800 hover:bg-charcoal-700 text-ivory-200 text-xs font-semibold"
+                      >
+                        Cancel
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={capturePhotoFromStream}
+                        className="px-5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-forest-950 font-extrabold text-xs shadow-lg flex items-center space-x-1.5"
+                      >
+                        <Camera className="w-4 h-4" />
+                        <span>Snap Photo</span>
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <button
+                      type="button"
+                      onClick={startCamera}
+                      className="w-full flex items-center justify-center space-x-3 p-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-bold text-xs sm:text-sm transition-all shadow-md touch-press border border-emerald-500/30"
+                    >
+                      <Camera className="w-4 h-4 text-mint-300" />
+                      <span>{selectedPhoto ? 'Retake Photo with Camera' : 'Take Photo with Camera'}</span>
+                    </button>
+
+                    {selectedPhoto ? (
+                      <div className="relative rounded-2xl overflow-hidden h-36 sm:h-44 border border-ivory-300 shadow-sm bg-black">
+                        <img
+                          src={selectedPhoto}
+                          alt="Product Preview"
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-forest-950/80 via-transparent to-transparent flex items-end justify-between p-3">
+                          <span className="text-[11px] text-mint-300 font-semibold flex items-center space-x-1">
+                            <Check className="w-3.5 h-3.5" />
+                            <span>Product image attached</span>
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedPhoto(null)}
+                            className="p-1.5 rounded-lg bg-rose-500/80 hover:bg-rose-600 text-white text-[10px] backdrop-blur-sm"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="border border-dashed border-ivory-300 rounded-2xl p-3 text-center bg-ivory-50/50">
+                        <p className="text-xs text-charcoal-500">
+                          No photo selected yet. Click "Take Photo" or pick a sample photo below.
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Lost & Found Demo Photo Presets */}
+                    <div className="pt-0.5">
+                      <span className="text-[10px] font-semibold text-charcoal-500 block mb-1">
+                        Or pick a sample item photo:
+                      </span>
+                      <div className="flex items-center space-x-1.5 overflow-x-auto pb-1">
+                        {LOST_FOUND_PHOTO_PRESETS.map((preset, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => setSelectedPhoto(preset.url)}
+                            className={`text-[10px] px-2.5 py-1 rounded-lg border whitespace-nowrap transition-all touch-press ${
+                              selectedPhoto === preset.url
+                                ? 'bg-[#092d25] text-white border-[#092d25] font-bold shadow-xs'
+                                : 'bg-white text-charcoal-700 border-ivory-300 hover:bg-ivory-100'
+                            }`}
+                            style={
+                              selectedPhoto === preset.url
+                                ? { backgroundColor: '#092d25', color: '#ffffff' }
+                                : { backgroundColor: '#ffffff', color: '#192822' }
+                            }
+                          >
+                            {preset.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Location and Timings in 2 columns */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-forest-950 mb-1">
+                    {lostFoundType === 'found' ? 'Where was it found? (Location)' : 'Where was it lost? (Last Seen)'} <span className="text-rose-600">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. LH-4 3rd row desk, Library 1st Floor..."
+                    value={location}
+                    onChange={(e) => setLocation(e.target.value)}
+                    className="input-field text-xs py-2"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-forest-950 mb-1">
+                    {lostFoundType === 'found' ? 'Discovery Timings' : 'Approximate Time Lost'} <span className="text-rose-600">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Today ~11:30 AM or Oct 11, 2 PM..."
+                    value={timings}
+                    onChange={(e) => setTimings(e.target.value)}
+                    className="input-field text-xs py-2"
+                  />
+                </div>
+              </div>
+
+              {/* Description & Secret Details */}
+              {lostFoundType === 'found' ? (
+                <>
+                  <div>
+                    <label className="block text-xs font-bold text-forest-950 mb-1 flex items-center justify-between">
+                      <span>General Description / Overview</span>
+                      <span className="text-[10px] font-normal text-charcoal-500">Overview for records</span>
+                    </label>
+                    <textarea
+                      rows={2}
+                      placeholder="Brief overview of the item found..."
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      className="input-field text-xs py-2"
+                    />
+                  </div>
+
+                  <div className="p-3.5 rounded-2xl bg-amber-50/80 border border-amber-300 space-y-1.5">
+                    <label className="block text-xs font-bold text-amber-950 flex items-center space-x-1.5">
+                      <Lock className="w-3.5 h-3.5 text-amber-700" />
+                      <span>Secret Distinguishing Details (Hidden from Students • HOD & Admin Only)</span>
+                    </label>
+                    <textarea
+                      rows={2}
+                      placeholder="Enter distinguishing marks, scratches, stickers, internal contents, serial numbers. Students CANNOT see this; Department Heads & Admins will use this to test whoever comes to claim!"
+                      value={secretDetails}
+                      onChange={(e) => setSecretDetails(e.target.value)}
+                      className="input-field text-xs py-2 bg-white"
+                    />
+                    <p className="text-[10px] text-amber-800">
+                      💡 Tip: E.g., "Contains 1 earbud inside, small lime cartoon sticker on lid, serial ends with 84."
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-forest-950 mb-1">
+                      Current Safekeeping / Handover Location
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Deposited with CSE Department Office (Room 102) / Main Gate Security / With Finder"
+                      value={safekeepingLocation}
+                      onChange={(e) => setSafekeepingLocation(e.target.value)}
+                      className="input-field text-xs py-2"
+                    />
+                  </div>
+                </>
+              ) : (
+                <div>
+                  <label className="block text-xs font-bold text-forest-950 mb-1">
+                    How and where did you lose it? (Description & Identifiers) <span className="text-rose-600">*</span>
+                  </label>
+                  <textarea
+                    rows={3}
+                    required
+                    placeholder="Explain when and where you lost it, color, model, stickers or identifying marks so fellow students can recognize and return it..."
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    className="input-field text-xs py-2"
+                  />
+                  <p className="text-[10px] text-charcoal-500 mt-1">
+                    📢 This full description will be visible to all students in the Lost & Found section.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* STEP 3: Standard Maintenance Description, Location Landmark & Evidence */}
+          {step === 3 && subScope !== 'lost_found' && (
             <div className="space-y-4 animate-fade-in">
               
               <div>
@@ -1273,8 +1749,111 @@ export default function RaiseIssueModal({ onClose }) {
             </div>
           )}
 
-          {/* STEP 4: Review, AI Duplicate Check & Submission */}
-          {step === 4 && (
+          {/* STEP 4: Lost & Found Preview & Publishing */}
+          {step === 4 && subScope === 'lost_found' && (
+            <div className="space-y-4 animate-fade-in">
+              <div className="text-center mb-3">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">
+                  Ready to Publish
+                </span>
+                <h4 className="text-base font-extrabold text-forest-950 mt-1">
+                  Review & Confirm Lost / Found Registration
+                </h4>
+                <p className="text-xs text-charcoal-500 mt-0.5">
+                  Confirm registration details before publishing to the campus report feed.
+                </p>
+              </div>
+
+              {/* Preview Card */}
+              <div className="p-4 rounded-2xl bg-white border border-ivory-300 shadow-sm space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <span className={`inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+                      lostFoundType === 'found'
+                        ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                        : 'bg-amber-50 text-amber-800 border-amber-300'
+                    }`}>
+                      {lostFoundType === 'found' ? <Package className="w-3 h-3" /> : <Search className="w-3 h-3" />}
+                      <span>{lostFoundType === 'found' ? 'FOUND PRODUCT • IN CUSTODY' : 'LOST PRODUCT • BROADCAST'}</span>
+                    </span>
+                    <h3 className="text-base font-extrabold text-forest-950 mt-1.5">{title}</h3>
+                    <div className="text-xs text-charcoal-500 mt-0.5 flex flex-wrap gap-2">
+                      <span>📍 {location}</span>
+                      <span>•</span>
+                      <span>🕒 {timings || 'Reported today'}</span>
+                    </div>
+                  </div>
+
+                  {selectedPhoto && (
+                    <div className="w-20 h-20 rounded-xl overflow-hidden border border-ivory-200 shrink-0 bg-black">
+                      <img src={selectedPhoto} alt="Product" className="w-full h-full object-cover" />
+                    </div>
+                  )}
+                </div>
+
+                {/* Audience Visibility Breakdown */}
+                <div className="space-y-2 pt-2 border-t border-ivory-200">
+                  <div className="text-[11px] font-bold text-forest-950 uppercase tracking-wide">
+                    Audience Visibility Breakdown:
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                    <div className="p-3 rounded-xl bg-ivory-100 border border-ivory-200 space-y-1">
+                      <div className="font-bold text-forest-950 flex items-center space-x-1.5">
+                        <School className="w-3.5 h-3.5 text-blue-600" />
+                        <span>Students & Public Feed View:</span>
+                      </div>
+                      <div className="text-[11px] text-charcoal-600 space-y-0.5">
+                        <div>✓ Title: <strong className="text-forest-950">{title}</strong></div>
+                        <div>✓ Image: <strong className="text-forest-950">{selectedPhoto ? 'Visible' : 'No photo'}</strong></div>
+                        {lostFoundType === 'found' ? (
+                          <div className="text-amber-800 font-semibold mt-1">
+                            🔒 Description & Timings: <strong>Concealed from students</strong>
+                          </div>
+                        ) : (
+                          <div className="text-blue-800 font-semibold mt-1">
+                            ✓ Description & Where/How lost: <strong>Visible to all</strong>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="p-3 rounded-xl bg-emerald-50/70 border border-emerald-200 space-y-1">
+                      <div className="font-bold text-emerald-950 flex items-center space-x-1.5">
+                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-700" />
+                        <span>Department Heads & Admins View:</span>
+                      </div>
+                      <div className="text-[11px] text-emerald-950 space-y-0.5">
+                        <div>✓ Full Description: <strong>{description || title}</strong></div>
+                        {secretDetails && <div>✓ Secret Details: <strong>{secretDetails}</strong></div>}
+                        {lostFoundType === 'found' && <div>✓ Custody: <strong>{safekeepingLocation}</strong></div>}
+                        <div className="text-emerald-700 font-semibold mt-1">
+                          ✓ Authorized to verify & release to owner
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Submit Button */}
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={handleSubmit}
+                  className="w-full btn-primary py-3 text-sm font-bold shadow-lg flex items-center justify-center space-x-2"
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  <span>
+                    {lostFoundType === 'found' ? 'Publish Found Product in Feed' : 'Broadcast Lost Item Alert'}
+                  </span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* STEP 4: Standard Maintenance Review, AI Duplicate Check & Submission */}
+          {step === 4 && subScope !== 'lost_found' && (
             <div className="space-y-4 animate-fade-in">
               
               {/* Summary Path Card */}

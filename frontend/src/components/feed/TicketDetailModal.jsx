@@ -15,7 +15,10 @@ import {
   Sparkles,
   AlertCircle,
   Trash2,
-  Zap
+  Zap,
+  PackageSearch,
+  Package,
+  Lock
 } from 'lucide-react';
 
 export default function TicketDetailModal({ ticket, onClose }) {
@@ -26,17 +29,21 @@ export default function TicketDetailModal({ ticket, onClose }) {
     verifyResolution,
     deleteTicket,
     canViewStudentDetails,
+    canViewLostFoundDetails,
     reviewTicketByPanel,
     tickets 
   } = useApp();
 
   const [commentText, setCommentText] = useState('');
+  const [claimSent, setClaimSent] = useState(false);
 
   const currentTicket = tickets.find(t => t.id === ticket.id) || ticket;
+  const isLostFound = currentTicket.scope === 'lost_found' || currentTicket.category === 'lost_found';
   const hasConfirmed = currentTicket.upvotes?.includes(currentUser?.id);
   const isReporter = currentTicket.raisedBy?.id === currentUser?.id;
   const isAwaitingVerification = currentTicket.status === 'awaiting_verification';
   const showPrivateIdentity = canViewStudentDetails(currentTicket.raisedBy) || Boolean(currentTicket.raisedByPanelRole);
+  const canSeeLostFoundSecrets = canViewLostFoundDetails(currentTicket);
 
   const handleSendComment = (e) => {
     e.preventDefault();
@@ -76,6 +83,15 @@ export default function TicketDetailModal({ ticket, onClose }) {
             <span className="text-[11px] sm:text-xs text-charcoal-500">
               Scope: <strong className="text-forest-950 capitalize">{currentTicket.scope?.replace('_', ' ')}</strong>
             </span>
+            {isLostFound && (
+              <span className={`px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-bold border ${
+                currentTicket.lostFoundType === 'found'
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                  : 'bg-amber-50 text-amber-900 border-amber-300'
+              }`}>
+                {currentTicket.lostFoundType === 'found' ? '🎒 Found Item (In Safe Custody)' : '📢 Lost Item Broadcast Alert'}
+              </span>
+            )}
             {(currentTicket.advisorEndorsed || currentTicket.advisorApprovalStatus === 'approved') && (
               <span className="px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
                 ✓ Advisor Approved (+20)
@@ -275,9 +291,123 @@ export default function TicketDetailModal({ ticket, onClose }) {
               )}
             </div>
 
-            <p className="text-xs sm:text-sm text-charcoal-800 leading-relaxed bg-ivory-50 p-4 rounded-2xl border border-ivory-200">
-              {currentTicket.description}
-            </p>
+            {/* Description & Role-Based Lost & Found Verification Section */}
+            {isLostFound ? (
+              currentTicket.lostFoundType === 'found' ? (
+                canSeeLostFoundSecrets ? (
+                  /* Authorized Official Dossier: Dept Head, Advisor, Warden, Admin, or Finder */
+                  <div className="space-y-3">
+                    <div className="p-4 rounded-2xl bg-emerald-50 border-2 border-emerald-300 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2 text-emerald-950 font-bold text-sm">
+                          <ShieldCheck className="w-5 h-5 text-emerald-700" />
+                          <span>Authorized Custody Record (Dept Head / Admin View)</span>
+                        </div>
+                        <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-200 text-emerald-900 border border-emerald-300">
+                          CONFIDENTIAL RECORD
+                        </span>
+                      </div>
+
+                      <div className="text-xs text-emerald-900 leading-relaxed bg-white/70 p-3 rounded-xl border border-emerald-200">
+                        <strong className="block text-emerald-950 mb-1">Finder's Full Description & Location Context:</strong>
+                        {currentTicket.description}
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                        <div className="p-2.5 rounded-xl bg-white border border-emerald-200">
+                          <span className="text-[10px] text-charcoal-500 font-semibold block">Found Timing / When:</span>
+                          <span className="font-bold text-forest-950">{currentTicket.timings || 'Reported during class'}</span>
+                        </div>
+                        <div className="p-2.5 rounded-xl bg-white border border-emerald-200">
+                          <span className="text-[10px] text-charcoal-500 font-semibold block">Current Custody Location:</span>
+                          <span className="font-bold text-emerald-800">{currentTicket.safekeepingLocation || 'Department Office'}</span>
+                        </div>
+                      </div>
+
+                      {currentTicket.secretDetails && (
+                        <div className="p-3 rounded-xl bg-white border-2 border-emerald-400 text-xs">
+                          <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider block mb-1">
+                            Secret Distinguishing Marks (Authenticate Claimant With This):
+                          </span>
+                          <p className="text-forest-950 font-medium leading-relaxed">{currentTicket.secretDetails}</p>
+                        </div>
+                      )}
+
+                      <div className="text-xs text-charcoal-700 bg-white/60 p-2.5 rounded-xl border border-emerald-200 flex items-center justify-between">
+                        <span>Finder: <strong>{currentTicket.raisedBy?.name}</strong> ({currentTicket.raisedBy?.rollNo || 'Roll ID'})</span>
+                        <span className="font-semibold text-emerald-700">Status: {currentTicket.claimedStatus || 'Unclaimed in Safe Custody'}</span>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  /* Student View: Strict Anti-Fraud Redaction */
+                  <div className="p-4 sm:p-5 rounded-2xl bg-amber-50 border-2 border-amber-300 space-y-3.5">
+                    <div className="flex items-center space-x-2 text-amber-950 font-bold text-sm">
+                      <Lock className="w-5 h-5 text-amber-600" />
+                      <span>Anti-Fraud Protected: Description & Private Nuances Hidden</span>
+                    </div>
+
+                    <p className="text-xs text-amber-900 leading-relaxed">
+                      To prevent unauthorized claims and fraud, the finder's specific description, secret markings, exact discovery timestamps, and safe storage spot are <strong>restricted from student view</strong>.
+                    </p>
+
+                    <div className="p-3.5 bg-white rounded-xl border border-amber-200 text-xs text-charcoal-800 space-y-2">
+                      <div className="font-bold text-forest-950 flex items-center space-x-1.5">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                        <span>How to Claim This Item:</span>
+                      </div>
+                      <ol className="list-decimal ml-4 space-y-1 text-[11px] text-charcoal-600">
+                        <li>Verify the photo and item title shown above.</li>
+                        <li>Visit your <strong>Department Head ({currentTicket.department || 'CSE'} Dept Office)</strong> or <strong>Security Control</strong>.</li>
+                        <li>Authenticate ownership by stating the secret markings, contents, or serial numbers.</li>
+                      </ol>
+                    </div>
+
+                    {claimSent ? (
+                      <div className="p-2.5 rounded-xl bg-emerald-100 border border-emerald-300 text-xs text-emerald-800 font-bold text-center">
+                        ✓ Claim Inquiry Logged. Please proceed to the {currentTicket.department || 'CSE'} Department Office with your College ID card.
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setClaimSent(true)}
+                        className="w-full py-2.5 rounded-xl bg-amber-700 hover:bg-amber-800 text-white font-bold text-xs shadow-md transition-colors flex items-center justify-center space-x-1.5"
+                      >
+                        <PackageSearch className="w-4 h-4" />
+                        <span>This Belongs to Me - Request Department Verification</span>
+                      </button>
+                    )}
+                  </div>
+                )
+              ) : (
+                /* Lost Item Broadcast Alert: Visible to All */
+                <div className="p-4 sm:p-5 rounded-2xl bg-amber-50/80 border-2 border-amber-300 space-y-3">
+                  <div className="flex items-center space-x-2 text-amber-950 font-bold text-sm">
+                    <PackageSearch className="w-5 h-5 text-amber-700" />
+                    <span>Campus Lost Item Alert (Broadcast to All Students & Staff)</span>
+                  </div>
+
+                  <div className="bg-white p-3.5 rounded-xl border border-amber-200 text-xs sm:text-sm text-charcoal-800 leading-relaxed">
+                    <strong className="block text-forest-950 mb-1">Where & How Lost:</strong>
+                    {currentTicket.description}
+                  </div>
+
+                  {currentTicket.timings && (
+                    <div className="text-xs text-amber-900 bg-amber-100/70 p-2.5 rounded-xl border border-amber-200 font-medium">
+                      <strong>Lost When / Timing:</strong> {currentTicket.timings}
+                    </div>
+                  )}
+
+                  <div className="text-[11px] text-charcoal-600 bg-white/70 p-2.5 rounded-xl border border-amber-200">
+                    💡 If you found this item, please hand it over to the <strong>{currentTicket.department || 'CSE'} Dept Office</strong> or submit a "Found Item" report on CampusOne.
+                  </div>
+                </div>
+              )
+            ) : (
+              /* Regular Complaint Description */
+              <p className="text-xs sm:text-sm text-charcoal-800 leading-relaxed bg-ivory-50 p-4 rounded-2xl border border-ivory-200">
+                {currentTicket.description}
+              </p>
+            )}
           </div>
 
           {/* Stage-1 Advisor / Warden Remarks & Main Admin Response */}
@@ -309,25 +439,46 @@ export default function TicketDetailModal({ ticket, onClose }) {
             </div>
           )}
 
-          {/* Community Confirmation Count */}
-          <div className="p-4 rounded-2xl bg-white border border-ivory-200 flex items-center justify-between shadow-subtle">
-            <div className="text-xs text-charcoal-700">
-              <span className="font-bold text-forest-950">Peer Confirmation: </span>
-              <span>{currentTicket.upvotes?.length || 0} students confirmed this problem.</span>
+          {/* Community Confirmation Count OR Lost & Found Registry Status */}
+          {isLostFound ? (
+            <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200 flex items-center justify-between shadow-subtle">
+              <div className="text-xs text-charcoal-700 flex items-center space-x-2">
+                <PackageSearch className="w-4 h-4 text-amber-700 shrink-0" />
+                <div>
+                  <span className="font-bold text-amber-950">Campus Lost & Found Registry: </span>
+                  <span className="text-charcoal-800">
+                    {currentTicket.lostFoundType === 'found' ? 'Safe custody item filed by campus member.' : 'Broadcast alert issued across university.'}
+                  </span>
+                </div>
+              </div>
+              <span className={`px-2.5 py-1 rounded-xl text-xs font-bold border shrink-0 ${
+                currentTicket.lostFoundType === 'found'
+                  ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                  : 'bg-amber-100 text-amber-900 border-amber-300'
+              }`}>
+                {currentTicket.lostFoundType === 'found' ? (currentTicket.claimedStatus === 'claimed' ? 'Claimed' : 'In Custody') : 'Active Alert'}
+              </span>
             </div>
+          ) : (
+            <div className="p-4 rounded-2xl bg-white border border-ivory-200 flex items-center justify-between shadow-subtle">
+              <div className="text-xs text-charcoal-700">
+                <span className="font-bold text-forest-950">Peer Confirmation: </span>
+                <span>{currentTicket.upvotes?.length || 0} students confirmed this problem.</span>
+              </div>
 
-            <button
-              onClick={() => voteTicket(currentTicket.id, 'up')}
-              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                hasConfirmed
-                  ? 'bg-emerald-600 text-white'
-                  : 'bg-ivory-100 text-charcoal-700 hover:bg-emerald-50 hover:text-emerald-800 border border-ivory-300'
-              }`}
-            >
-              <ThumbsUp className="w-3.5 h-3.5" />
-              <span>{hasConfirmed ? 'Confirmed' : 'Confirm'} ({currentTicket.upvotes?.length || 0})</span>
-            </button>
-          </div>
+              <button
+                onClick={() => voteTicket(currentTicket.id, 'up')}
+                className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                  hasConfirmed
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-ivory-100 text-charcoal-700 hover:bg-emerald-50 hover:text-emerald-800 border border-ivory-300'
+                }`}
+              >
+                <ThumbsUp className="w-3.5 h-3.5" />
+                <span>{hasConfirmed ? 'Confirmed' : 'Confirm'} ({currentTicket.upvotes?.length || 0})</span>
+              </button>
+            </div>
+          )}
 
           {/* Discussion Thread */}
           <div className="space-y-3">

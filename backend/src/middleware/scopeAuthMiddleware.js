@@ -13,10 +13,24 @@ export function canViewStudentPrivateDetails(studentInfo, viewer) {
   return false;
 }
 
+export function canViewLostFoundPrivateDetails(ticket, viewer) {
+  if (!viewer || !ticket) return false;
+  // If it's a lost item, all details are visible to everyone
+  if (ticket.lostFoundType === 'lost') return true;
+  // If it's a found item, only department heads, advisors, wardens, admins, or the finder can see full details
+  if (viewer.role === 'central_admin' || viewer.role === 'super_admin' || viewer.role === 'domain_admin' || viewer.role === 'dept_admin') return true;
+  if (viewer.role === 'faculty_advisor' || viewer.role === 'hostel_warden') return true;
+  if (ticket.raisedBy?.id === viewer.id) return true;
+  return false;
+}
+
 export function filterTicketsByScope(tickets, user) {
   if (!user) return tickets;
 
   return tickets.filter(ticket => {
+    // Lost & Found items are publicly listed across campus
+    if (ticket.scope === 'lost_found' || ticket.category === 'lost_found') return true;
+
     // Central / Main Admin sees all sections & hostels
     if (user.role === 'central_admin') return true;
 
