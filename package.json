@@ -1,0 +1,16 @@
+{
+  "name": "campus-one-root",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "CampusOne (CMRS) - Unified Campus Service & e-Governance Platform",
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "install:all": "npm install",
+    "build": "npm run build --workspace=frontend",
+    "start": "node backend/src/server.js"
+  }
+}
