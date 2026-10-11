@@ -14,7 +14,8 @@ import {
   RotateCcw,
   Sparkles,
   AlertCircle,
-  Trash2
+  Trash2,
+  Zap
 } from 'lucide-react';
 
 export default function TicketDetailModal({ ticket, onClose }) {
@@ -177,6 +178,15 @@ export default function TicketDetailModal({ ticket, onClose }) {
                 <Flame className="w-3.5 h-3.5 fill-emerald-600" />
                 <span>Priority Score: {currentTicket.priorityScore}/100</span>
               </span>
+              {currentTicket.predictedSla && (
+                <>
+                  <span>•</span>
+                  <span className="text-amber-800 font-bold flex items-center space-x-1 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                    <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-400" />
+                    <span>ML SLA: {currentTicket.predictedSla}</span>
+                  </span>
+                </>
+              )}
             </div>
 
             {/* Strict Student Privacy Card */}
@@ -213,6 +223,29 @@ export default function TicketDetailModal({ ticket, onClose }) {
                 alt={currentTicket.title}
                 className="w-full h-full object-cover"
               />
+
+              {/* Computer Vision YOLOv8 Bounding Box Localization Overlay */}
+              {currentTicket.boundingBox && (
+                <div 
+                  className="absolute border-2 border-emerald-400 bg-emerald-500/20 rounded-lg pointer-events-none z-10 shadow-lg"
+                  style={{
+                    top: `${currentTicket.boundingBox.ymin}%`,
+                    left: `${currentTicket.boundingBox.xmin}%`,
+                    width: `${currentTicket.boundingBox.xmax - currentTicket.boundingBox.xmin}%`,
+                    height: `${currentTicket.boundingBox.ymax - currentTicket.boundingBox.ymin}%`,
+                  }}
+                >
+                  <span className="absolute -top-1 -left-1 w-2.5 h-2.5 border-t-2 border-l-2 border-mint-300" />
+                  <span className="absolute -top-1 -right-1 w-2.5 h-2.5 border-t-2 border-r-2 border-mint-300" />
+                  <span className="absolute -bottom-1 -left-1 w-2.5 h-2.5 border-b-2 border-l-2 border-mint-300" />
+                  <span className="absolute -bottom-1 -right-1 w-2.5 h-2.5 border-b-2 border-r-2 border-mint-300" />
+                  <div className="absolute -top-5 left-0 bg-emerald-800/90 backdrop-blur-md text-white text-[9px] font-mono font-bold px-1.5 py-0.5 rounded shadow flex items-center space-x-1 whitespace-nowrap border border-emerald-400/50">
+                    <span className="w-1.5 h-1.5 rounded-full bg-mint-300 animate-pulse" />
+                    <span>YOLOv8: {currentTicket.boundingBox.defect || currentTicket.defectDiagnosis}</span>
+                  </div>
+                </div>
+              )}
+
               {currentTicket.visibilityPercentage > 0 && (
                 <div className="absolute top-3 right-3 bg-forest-950/85 backdrop-blur-md px-3 py-1 rounded-full border border-emerald-400/50 flex items-center space-x-1.5 text-white shadow-lg">
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />

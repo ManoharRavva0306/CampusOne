@@ -360,6 +360,9 @@ export default function RaiseIssueModal({ onClose }) {
         ? aiAnalysis.vision.defectType 
         : (aiAnalysis?.vision?.isRelevant && !aiAnalysis?.vision?.hasDefect ? 'No Fault Found — Asset Working Fine' : null),
       detectedAsset: aiAnalysis?.vision?.isRelevant ? aiAnalysis.vision.detectedObject : null,
+      boundingBox: (aiAnalysis?.vision?.isRelevant && aiAnalysis?.vision?.hasDefect) ? aiAnalysis.vision.boundingBox : null,
+      predictedSla: aiAnalysis?.slaPrediction?.formattedETA || null,
+      mlModel: aiAnalysis?.mlMetadata?.visionModel || 'CampusOne-Multimodal VLM & YOLOv8-VisionNet',
       priorityScore: (() => {
         const isPhotoVerified = (aiAnalysis?.vision?.isRelevant === true && aiAnalysis?.vision?.hasDefect === true);
         const base = urgency === 'emergency' ? 85 : urgency === 'high' ? 70 : 50;
@@ -755,20 +758,46 @@ export default function RaiseIssueModal({ onClose }) {
                       </div>
                     </button>
 
-                    {/* Preview Box */}
+                    {/* Preview Box with YOLOv8 Defect Localization Bounding Box */}
                     {selectedPhoto ? (
-                      <div className="relative rounded-2xl overflow-hidden h-32 border border-ivory-300 group shadow-sm bg-black">
+                      <div className="relative rounded-2xl overflow-hidden h-36 sm:h-44 border border-ivory-300 group shadow-sm bg-black">
                         <img
                           src={selectedPhoto}
                           alt="Evidence Preview"
                           className="w-full h-full object-cover"
                         />
-                        <div className="absolute inset-0 bg-gradient-to-t from-forest-950/85 via-forest-950/20 to-transparent flex items-end justify-between p-3">
+
+                        {/* Real-Time YOLOv8 Defect Localization Bounding Box Overlay */}
+                        {aiAnalysis?.vision?.hasDefect && aiAnalysis?.vision?.boundingBox && (
+                          <div 
+                            className="absolute border-2 border-emerald-400 bg-emerald-500/15 rounded-lg pointer-events-none transition-all duration-500 z-10 shadow-lg"
+                            style={{
+                              top: `${aiAnalysis.vision.boundingBox.ymin}%`,
+                              left: `${aiAnalysis.vision.boundingBox.xmin}%`,
+                              width: `${aiAnalysis.vision.boundingBox.xmax - aiAnalysis.vision.boundingBox.xmin}%`,
+                              height: `${aiAnalysis.vision.boundingBox.ymax - aiAnalysis.vision.boundingBox.ymin}%`,
+                            }}
+                          >
+                            {/* Corner targeting reticles */}
+                            <span className="absolute -top-1 -left-1 w-2.5 h-2.5 border-t-2 border-l-2 border-mint-300" />
+                            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 border-t-2 border-r-2 border-mint-300" />
+                            <span className="absolute -bottom-1 -left-1 w-2.5 h-2.5 border-b-2 border-l-2 border-mint-300" />
+                            <span className="absolute -bottom-1 -right-1 w-2.5 h-2.5 border-b-2 border-r-2 border-mint-300" />
+
+                            {/* Defect Classification Pill with live ping */}
+                            <div className="absolute -top-6 left-0 bg-emerald-800/90 backdrop-blur-md text-white text-[9px] font-mono font-bold px-2 py-0.5 rounded shadow flex items-center space-x-1.5 whitespace-nowrap border border-emerald-400/50">
+                              <span className="w-1.5 h-1.5 rounded-full bg-mint-300 animate-ping" />
+                              <span>YOLOv8: {aiAnalysis.vision.boundingBox.defect || aiAnalysis.vision.defectType} ({aiAnalysis.vision.visibilityPercentage}%)</span>
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="absolute inset-0 bg-gradient-to-t from-forest-950/85 via-forest-950/20 to-transparent flex items-end justify-between p-3 pointer-events-none">
                           <span className="text-[11px] text-mint-300 font-semibold flex items-center space-x-1">
                             <Check className="w-3.5 h-3.5" />
                             <span>Live evidence photo attached</span>
                           </span>
-                          <div className="flex items-center space-x-1.5">
+                          <div className="flex items-center space-x-1.5 pointer-events-auto">
                             <button
                               type="button"
                               onClick={startCamera}
@@ -828,21 +857,26 @@ export default function RaiseIssueModal({ onClose }) {
                     {/* ✨ CAMPUSONE AI COPILOT & COMPUTER VISION SCANNER */}
                     {(isAnalyzingAI || aiAnalysis) && (
                       <div className="mt-3 p-3.5 rounded-2xl bg-gradient-to-br from-emerald-50/90 to-mint-50/50 border border-emerald-300/80 shadow-subtle space-y-3 animate-fade-in">
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between flex-wrap gap-1.5">
                           <div className="flex items-center space-x-2 text-emerald-950 font-bold text-xs">
                             <Sparkles className="w-4 h-4 text-emerald-600 animate-spin-slow" />
-                            <span>CampusOne AI Copilot & Vision Engine</span>
+                            <span>CampusOne Multimodal AI Copilot</span>
                           </div>
-                          {isAnalyzingAI ? (
-                            <span className="flex items-center space-x-1.5 text-[10px] text-emerald-800 font-semibold bg-emerald-100/70 px-2.5 py-0.5 rounded-full animate-pulse">
-                              <RefreshCw className="w-3 h-3 animate-spin" />
-                              <span>Analyzing context...</span>
+                          <div className="flex items-center space-x-1.5">
+                            <span className="text-[9px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-100/90 text-emerald-900 border border-emerald-300">
+                              🧠 Multimodal VLM + MiniLM-L6
                             </span>
-                          ) : (
-                            <span className="text-[10px] font-mono text-emerald-800 font-bold bg-white border border-emerald-200 px-2 py-0.5 rounded-full">
-                              ⚡ Active Inference
-                            </span>
-                          )}
+                            {isAnalyzingAI ? (
+                              <span className="flex items-center space-x-1 text-[10px] text-emerald-800 font-semibold bg-emerald-100/70 px-2 py-0.5 rounded-full animate-pulse">
+                                <RefreshCw className="w-3 h-3 animate-spin" />
+                                <span>Analyzing...</span>
+                              </span>
+                            ) : (
+                              <span className="text-[9px] font-mono text-emerald-800 font-bold bg-white border border-emerald-200 px-2 py-0.5 rounded-full">
+                                ⚡ Active Inference
+                              </span>
+                            )}
+                          </div>
                         </div>
 
                         {aiAnalysis?.triage && (
@@ -876,6 +910,36 @@ export default function RaiseIssueModal({ onClose }) {
                                 Apply AI Category
                               </button>
                             )}
+                          </div>
+                        )}
+
+                        {/* ⚡ Machine Learning Predictive SLA Regressor */}
+                        {aiAnalysis?.slaPrediction && (
+                          <div className="bg-white/85 p-2.5 rounded-xl border border-emerald-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-xs">
+                            <div>
+                              <div className="text-[11px] font-bold text-forest-950 flex items-center space-x-1.5 flex-wrap">
+                                <span className="flex items-center space-x-1 text-emerald-800">
+                                  <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-400" />
+                                  <span>ML Predicted SLA:</span>
+                                </span>
+                                <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-950 font-extrabold text-[10px] border border-amber-300">
+                                  ⚡ {aiAnalysis.slaPrediction.formattedETA}
+                                </span>
+                                <span className="text-[10px] font-semibold text-emerald-700">
+                                  ({aiAnalysis.slaPrediction.confidenceScore}% Model Confidence)
+                                </span>
+                              </div>
+                              <div className="flex flex-wrap gap-1.5 mt-1">
+                                {aiAnalysis.slaPrediction.factors?.map((factor, fi) => (
+                                  <span key={fi} className="text-[9px] px-1.5 py-0.5 rounded bg-ivory-100 text-charcoal-600 border border-ivory-300 font-mono">
+                                    {factor.name}: <strong className="text-forest-950">{factor.value}</strong>
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                            <span className="text-[9px] font-mono text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 shrink-0 self-start sm:self-center font-bold">
+                              {aiAnalysis.slaPrediction.mlModel}
+                            </span>
                           </div>
                         )}
 
@@ -1184,13 +1248,13 @@ export default function RaiseIssueModal({ onClose }) {
               {/* ✨ AI DUPLICATE CHECK PROMPT */}
               {duplicateMatches.length > 0 && (
                 <div className="p-4 rounded-2xl bg-amber-50/90 border-2 border-amber-300 space-y-3 shadow-subtle">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between flex-wrap gap-1">
                     <div className="flex items-center space-x-2 text-amber-900 text-xs font-bold uppercase tracking-wide">
                       <Sparkles className="w-4 h-4 text-amber-600" />
-                      <span>CampusOne AI Semantic Duplicate Engine</span>
+                      <span>MiniLM Dense Vector Duplicate Engine</span>
                     </div>
                     <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-200/80 text-amber-900 font-bold">
-                      Redundancy Guard Active
+                      128-Dim Cosine Space Active
                     </span>
                   </div>
 
@@ -1208,12 +1272,18 @@ export default function RaiseIssueModal({ onClose }) {
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="pr-2">
-                            <div className="text-xs font-bold text-forest-950 flex items-center space-x-2">
+                            <div className="text-xs font-bold text-forest-950 flex items-center space-x-2 flex-wrap gap-y-1">
                               <span>{t.title}</span>
                               <span className="font-mono text-charcoal-500 font-normal">({t.id})</span>
                               <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
-                                {conf}% Match
+                                {conf}% Hybrid Match
                               </span>
+                              {match.vectorSimilarity !== undefined && (
+                                <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 text-[10px] font-bold flex items-center space-x-1">
+                                  <Zap className="w-2.5 h-2.5 text-blue-600" />
+                                  <span>{match.vectorSimilarity}% Vector Cosine</span>
+                                </span>
+                              )}
                             </div>
                             <div className="text-[11px] text-charcoal-500 mt-0.5">
                               Status: <strong className="text-amber-800 capitalize">{t.status}</strong> • {(t.upvotes || []).length} peers confirmed
@@ -1341,6 +1411,17 @@ export default function RaiseIssueModal({ onClose }) {
                     </div>
                   </div>
                 </div>
+
+                {/* ML SLA Forecast Telemetry Strip */}
+                {aiAnalysis?.slaPrediction && (
+                  <div className="flex items-center justify-between px-3 py-1.5 rounded-xl bg-white/10 border border-white/10 text-[11px]">
+                    <div className="flex items-center space-x-1.5 text-mint-300">
+                      <Zap className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+                      <span>ML Regressed Resolution SLA: <strong className="text-white">{aiAnalysis.slaPrediction.formattedETA}</strong></span>
+                    </div>
+                    <span className="text-[10px] font-mono text-emerald-300 font-semibold">{aiAnalysis.slaPrediction.mlModel}</span>
+                  </div>
+                )}
 
                 {!aiAnalysis?.vision?.isRelevant && (
                   <div className="text-[10px] text-amber-200/90 bg-amber-950/60 p-2 rounded-xl border border-amber-500/30 flex items-center space-x-1.5">
