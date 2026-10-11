@@ -244,6 +244,7 @@ export function analyzeImageDefect({ imageUrl = '', title = '', description = ''
   const irrelevantSignatures = [
     'photo-1518531933', // nature/garden preset
     'photo-1509042239', // coffee cup preset
+    'photo-1534528741775', // selfie portrait preset
     'nature', 'garden', 'flower', 'tree', 'park', 'grass', 'forest', 'sky', 'sunset', 'beach', 'mountain',
     'coffee', 'tea', 'cup', 'food', 'snack', 'burger', 'pizza', 'plate', 'drink', 'beverage',
     'cat', 'dog', 'pet', 'animal', 'bird',
@@ -253,16 +254,18 @@ export function analyzeImageDefect({ imageUrl = '', title = '', description = ''
   ];
 
   const hasIrrelevantKeyword = irrelevantSignatures.some(sig => context.includes(sig));
-  const isMarkedIrrelevantByClient = visualMetrics && visualMetrics.isIrrelevant;
+  const isMarkedIrrelevantByClient = visualMetrics && (visualMetrics.status === 'irrelevant' || visualMetrics.isIrrelevant === false);
 
   if (hasIrrelevantKeyword || isMarkedIrrelevantByClient) {
+    const reason = visualMetrics?.irrelevanceReason || 'Non-campus facility subject (nature, food/drink, portrait/selfie, or unrelated scenery)';
     return {
+      status: 'irrelevant',
       isRelevant: false,
       hasDefect: false,
       visibilityPercentage: 0,
       confidence: 0,
-      clarityRating: '0% — No Facility Problem Recognized',
-      warningMessage: '⚠️ 0% Problem Visibility Detected: CampusOne VisionNet identified this photo as a non-facility subject (nature, food/drink, portrait/selfie, or unrelated scenery). No physical maintenance problem is visible. The AI verification score has been paused. Please upload or capture a photo showing the damaged campus asset to calculate problem visibility.',
+      clarityRating: '0% — Irrelevant / Non-Facility Image',
+      warningMessage: `⚠️ Irrelevant Image Detected: CampusOne VisionNet identified this photo as a ${reason}. No physical campus maintenance problem is visible. The AI verification score has been paused. Please use the live camera to capture a photo of the damaged campus asset.`,
       detectedObject: 'Non-Infrastructure / Irrelevant Subject',
       defectType: 'No visible campus maintenance fault or facility damage in frame',
       defectFeature: 'Irrelevant scene elements detected; zero maintenance fault visibility',
@@ -270,12 +273,44 @@ export function analyzeImageDefect({ imageUrl = '', title = '', description = ''
       recommendedTools: [],
       suggestedTitle: '',
       suggestedCategory: category || 'it_av',
-      visionModel: 'CampusOne-VisionNet v2.4 (Defect Visibility Engine)',
+      visionModel: 'CampusOne-VisionNet v3.0 (Defect Visibility Engine)',
       analyzedAt: new Date().toISOString()
     };
   }
 
-  // 2. Recognized Campus Maintenance Asset & Defect Signatures
+  // 2. Working / Undamaged Asset Check (No Problem Found / Working Fine)
+  const workingSignatures = [
+    'photo-1540575467063', // intact clean conference / working room
+    'photo-1581291518857', // working lab
+    'working_fan', 'working_desk', 'clean_room', 'no_fault',
+    'working fine', 'working properly', 'normal condition', 'no defect', 'undamaged', 'clean and intact'
+  ];
+  const hasWorkingSignature = workingSignatures.some(sig => context.includes(sig));
+  const isMarkedNoFaultByClient = visualMetrics && (visualMetrics.status === 'no_fault_found' || visualMetrics.hasDefect === false);
+
+  if (hasWorkingSignature || isMarkedNoFaultByClient) {
+    return {
+      status: 'no_fault_found',
+      isRelevant: true,
+      hasDefect: false,
+      visibilityPercentage: 0,
+      confidence: 96,
+      clarityRating: 'Asset Verified (100% Intact — No Fault Detected)',
+      warningMessage: '✅ No Problem Found: Campus asset recognized, but optical inspection confirms it is in good working condition with no visible cracks, broken wires, or leaks in frame.',
+      detectedObject: visualMetrics?.detectedAsset || 'Campus Facility Equipment / Furniture',
+      defectType: 'No Problem Found — Asset Working Fine',
+      defectFeature: 'All surface contours, mounts, and structural joints appear intact and undamaged',
+      severity: 'Normal / Operating Fine (0% Defect Visibility)',
+      recommendedTools: ['No Maintenance Required — Routine Inspection Passed'],
+      suggestedTitle: 'Routine Campus Asset Inspection',
+      suggestedDescription: 'Asset was optically inspected by CampusOne VisionNet; no physical damage or breakdown detected.',
+      suggestedCategory: category || 'it_av',
+      visionModel: 'CampusOne-VisionNet v3.0 (Defect Visibility Engine)',
+      analyzedAt: new Date().toISOString()
+    };
+  }
+
+  // 3. Recognized Campus Maintenance Asset & Defect Signatures (Fault Detected)
   const relevantDefectSignatures = [
     {
       keywords: ['projector', 'hdmi', 'screen', 'display', 'vga', 'photo-1517245386807'],
@@ -384,12 +419,12 @@ export function analyzeImageDefect({ imageUrl = '', title = '', description = ''
     }
   }
 
-  // If no keyword matched, but category was provided by user, align with that category!
+  // If no keyword matched, but category was provided by user, align with that category
   if (!matchedDefect && category) {
     matchedDefect = relevantDefectSignatures.find(d => d.category === category || (category === 'civil' && d.category === 'carpentry')) || null;
   }
 
-  // If still not matched, fallback to default high-clarity facility defect for any uploaded facility photo
+  // If still not matched, fallback to general hardware defect
   if (!matchedDefect) {
     matchedDefect = {
       detectedObject: 'Campus Facility Hardware Asset',
@@ -423,6 +458,7 @@ export function analyzeImageDefect({ imageUrl = '', title = '', description = ''
   }
 
   return {
+    status: 'fault_detected',
     isRelevant: true,
     hasDefect: true,
     visibilityPercentage: finalVisibility,
@@ -437,7 +473,7 @@ export function analyzeImageDefect({ imageUrl = '', title = '', description = ''
     suggestedDescription: matchedDefect.suggestedDescription,
     suggestedCategory: matchedDefect.category || category || 'it_av',
     recommendedTools: matchedDefect.recommendedTools,
-    visionModel: 'CampusOne-VisionNet v2.4 (Defect Visibility Engine)',
+    visionModel: 'CampusOne-VisionNet v3.0 (Defect Visibility Engine)',
     analyzedAt: new Date().toISOString()
   };
 }

@@ -231,15 +231,18 @@ export default function RaiseIssueModal({ onClose }) {
     }
   }, [step]);
 
-  // Photo presets for testing/demo (Includes both relevant campus assets and testable irrelevant items)
+  // Photo presets for testing/demo (Includes Defect Faults, Working Intact Assets, and Irrelevant items)
   const PHOTO_PRESETS = [
-    { label: 'Projector (Relevant)', url: 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=800&auto=format&fit=crop&q=80', isRelevant: true },
-    { label: 'Electrical Wire (Relevant)', url: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=800&auto=format&fit=crop&q=80', isRelevant: true },
-    { label: 'Ceiling Fan (Relevant)', url: 'https://images.unsplash.com/photo-1590725140246-20acbe44865e?w=800&auto=format&fit=crop&q=80', isRelevant: true },
-    { label: 'Broken Desk (Relevant)', url: 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=800&auto=format&fit=crop&q=80', isRelevant: true },
-    { label: 'Water Leak (Relevant)', url: 'https://images.unsplash.com/photo-1584771145729-0bd9fda6529b?w=800&auto=format&fit=crop&q=80', isRelevant: true },
-    { label: '⚠️ Nature Garden (Irrelevant)', url: 'https://images.unsplash.com/photo-1518531933037-91b2f5f229cc?w=800&auto=format&fit=crop&q=80', isRelevant: false },
-    { label: '⚠️ Coffee Cup (Irrelevant)', url: 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=800&auto=format&fit=crop&q=80', isRelevant: false },
+    { label: '🚨 Projector (Fault: HDMI & Lens)', url: 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=800&auto=format&fit=crop&q=80' },
+    { label: '🚨 Live Wire (Fault: Exposed 230V)', url: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=800&auto=format&fit=crop&q=80' },
+    { label: '🚨 Ceiling Fan (Fault: Blade Droop)', url: 'https://images.unsplash.com/photo-1590725140246-20acbe44865e?w=800&auto=format&fit=crop&q=80' },
+    { label: '🚨 Water Leak (Fault: Valve Leak)', url: 'https://images.unsplash.com/photo-1584771145729-0bd9fda6529b?w=800&auto=format&fit=crop&q=80' },
+    { label: '🚨 Broken Desk (Fault: Cracked Weld)', url: 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=800&auto=format&fit=crop&q=80' },
+    { label: '✅ Working Room / Fan (No Fault)', url: 'https://images.unsplash.com/photo-1540575467063-d7e7e59b2075?w=800&auto=format&fit=crop&q=80' },
+    { label: '✅ Working Lab Desk (No Fault)', url: 'https://images.unsplash.com/photo-1581291518857-4e27b48ff24e?w=800&auto=format&fit=crop&q=80' },
+    { label: '⚠️ Nature Garden (Irrelevant)', url: 'https://images.unsplash.com/photo-1518531933037-91b2f5f229cc?w=800&auto=format&fit=crop&q=80' },
+    { label: '⚠️ Coffee Cup (Irrelevant)', url: 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=800&auto=format&fit=crop&q=80' },
+    { label: '⚠️ Selfie Portrait (Irrelevant)', url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=800&auto=format&fit=crop&q=80' }
   ];
 
   // Live AI Issue Analysis (Auto-Triage, Vision Defect, Semantic Duplicate Matching)
@@ -352,11 +355,13 @@ export default function RaiseIssueModal({ onClose }) {
       category: category,
       domain: matchedCat ? matchedCat.domain : 'electrical_av',
       imageUrl: selectedPhoto || 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=800&auto=format&fit=crop&q=80',
-      visibilityPercentage: aiAnalysis?.vision?.isRelevant ? (aiAnalysis.vision.visibilityPercentage || 92) : 0,
-      defectDiagnosis: aiAnalysis?.vision?.isRelevant ? aiAnalysis.vision.defectType : null,
+      visibilityPercentage: (aiAnalysis?.vision?.isRelevant && aiAnalysis?.vision?.hasDefect) ? (aiAnalysis.vision.visibilityPercentage || 92) : 0,
+      defectDiagnosis: (aiAnalysis?.vision?.isRelevant && aiAnalysis?.vision?.hasDefect) 
+        ? aiAnalysis.vision.defectType 
+        : (aiAnalysis?.vision?.isRelevant && !aiAnalysis?.vision?.hasDefect ? 'No Fault Found — Asset Working Fine' : null),
       detectedAsset: aiAnalysis?.vision?.isRelevant ? aiAnalysis.vision.detectedObject : null,
       priorityScore: (() => {
-        const isPhotoVerified = aiAnalysis?.vision?.isRelevant === true;
+        const isPhotoVerified = (aiAnalysis?.vision?.isRelevant === true && aiAnalysis?.vision?.hasDefect === true);
         const base = urgency === 'emergency' ? 85 : urgency === 'high' ? 70 : 50;
         const evidenceBoost = isPhotoVerified ? 15 : 0;
         return Math.min(base + evidenceBoost, 100);
@@ -874,20 +879,20 @@ export default function RaiseIssueModal({ onClose }) {
                           </div>
                         )}
 
-                        {/* Computer Vision Defect Scanner & Problem Visibility Output (Gated by Photo Relevance) */}
+                        {/* Computer Vision Defect Scanner & Problem Visibility Output (3 Distinct States) */}
                         {aiAnalysis?.vision && selectedPhoto && (
-                          aiAnalysis.vision.isRelevant ? (
-                            /* ✅ RELEVANT IMAGE: Prominent Problem Visibility Percentage Gauge & Defect Recognition */
+                          aiAnalysis.vision.isRelevant && aiAnalysis.vision.hasDefect ? (
+                            /* 🚨 STATE 1: FAULT DETECTED (Damage Visible) */
                             <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-950 via-forest-950 to-[#07241d] text-white border-2 border-emerald-500/70 shadow-xl space-y-3 animate-fade-in">
                               {/* Header & Problem Visibility Score Badge */}
                               <div className="flex items-center justify-between gap-2">
                                 <div className="flex items-center space-x-2">
                                   <div className="w-8 h-8 rounded-xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center shrink-0">
-                                    <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                                    <ShieldAlert className="w-4 h-4 text-emerald-400" />
                                   </div>
                                   <div>
                                     <div className="text-xs font-bold text-mint-300 flex items-center space-x-1.5">
-                                      <span>VisionNet Defect Recognition</span>
+                                      <span>🚨 Fault Detected: {aiAnalysis.vision.defectType}</span>
                                       <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                                     </div>
                                     <div className="text-[10px] text-emerald-200/80">
@@ -998,8 +1003,86 @@ export default function RaiseIssueModal({ onClose }) {
                                 </div>
                               )}
                             </div>
+                          ) : aiAnalysis.vision.isRelevant && !aiAnalysis.vision.hasDefect ? (
+                            /* ✅ STATE 2: NO PROBLEM FOUND / WORKING FINE */
+                            <div className="p-4 rounded-2xl bg-gradient-to-br from-[#0c2333] via-[#091f2c] to-[#071924] text-white border-2 border-sky-400/80 shadow-xl space-y-3 animate-fade-in">
+                              {/* Header & 0% Defect Badge */}
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center space-x-2">
+                                  <div className="w-8 h-8 rounded-xl bg-sky-400/20 border border-sky-400/40 flex items-center justify-center shrink-0">
+                                    <ShieldCheck className="w-4 h-4 text-sky-400" />
+                                  </div>
+                                  <div>
+                                    <div className="text-xs font-bold text-sky-200 flex items-center space-x-1.5">
+                                      <span>✅ No Problem Found — Working Fine</span>
+                                      <span className="w-2 h-2 rounded-full bg-sky-400 animate-pulse" />
+                                    </div>
+                                    <div className="text-[10px] text-sky-300/80">
+                                      Asset Verified: {aiAnalysis.vision.detectedObject}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="text-right shrink-0">
+                                  <div className="inline-flex items-baseline space-x-1 px-3 py-1 rounded-xl bg-sky-500/20 border border-sky-400/50 shadow-sm">
+                                    <span className="text-xl font-black tracking-tight text-sky-300">
+                                      0%
+                                    </span>
+                                    <span className="text-[10px] font-bold text-sky-300 uppercase">
+                                      Fault
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Progress bar at 0% defect */}
+                              <div className="space-y-1">
+                                <div className="flex justify-between text-[10px] text-sky-200/90 font-medium">
+                                  <span>Defect Visibility in Frame</span>
+                                  <span className="font-mono font-bold text-sky-300">0% Physical Defect (Asset Intact)</span>
+                                </div>
+                                <div className="w-full h-2.5 rounded-full bg-black/60 p-0.5 border border-sky-500/40 overflow-hidden">
+                                  <div 
+                                    className="h-full rounded-full bg-sky-400/50 transition-all duration-700 ease-out"
+                                    style={{ width: '0%' }}
+                                  />
+                                </div>
+                              </div>
+
+                              {/* Inspection Result Box */}
+                              <div className="p-3 rounded-xl bg-black/40 border border-sky-500/30 space-y-2 text-xs">
+                                <div>
+                                  <span className="text-[10px] uppercase font-bold tracking-wider text-sky-300/80 block">
+                                    Optical Inspection Result
+                                  </span>
+                                  <p className="text-sky-100 text-[11px] leading-relaxed mt-0.5">
+                                    {aiAnalysis.vision.warningMessage || "Our optical inspection scanned this asset. No visible physical breakdown, cracks, severed wires, or fluid leaks were detected. The equipment appears to be operating normally and in good condition."}
+                                  </p>
+                                </div>
+
+                                <div className="p-2.5 rounded-lg bg-sky-950/60 border border-sky-400/30 flex items-center justify-between text-[11px]">
+                                  <span className="text-sky-200 font-medium">Physical Evidence Priority:</span>
+                                  <span className="font-bold text-sky-300 uppercase tracking-wide">
+                                    +0 Boost (No Visible Damage)
+                                  </span>
+                                </div>
+                              </div>
+
+                              <p className="text-[10px] text-sky-200/90">
+                                💡 <strong>Internal Fault?</strong> If this asset has an internal or invisible fault (such as power outage, blown internal fuse, or software error), you may still proceed with reporting. If you need to show physical damage, click <strong>Retake</strong> to capture a closer angle.
+                              </p>
+
+                              <button
+                                type="button"
+                                onClick={startCamera}
+                                className="w-full py-2 px-3 rounded-xl bg-sky-500/20 hover:bg-sky-500/30 border border-sky-400/40 text-sky-200 font-bold text-xs flex items-center justify-center space-x-1.5 transition-all touch-press"
+                              >
+                                <Camera className="w-3.5 h-3.5 text-sky-300" />
+                                <span>Retake Photo (Closer Angle of Defect)</span>
+                              </button>
+                            </div>
                           ) : (
-                            /* ⚠️ IRRELEVANT IMAGE: Prominent 0% Problem Visibility & Paused Score Warning */
+                            /* ⚠️ STATE 3: IRRELEVANT / NON-FACILITY IMAGE */
                             <div className="p-4 rounded-2xl bg-amber-950/95 text-white border-2 border-amber-500 shadow-xl space-y-3 animate-fade-in">
                               {/* Header & 0% Visibility Badge */}
                               <div className="flex items-center justify-between gap-2">
@@ -1009,7 +1092,7 @@ export default function RaiseIssueModal({ onClose }) {
                                   </div>
                                   <div>
                                     <div className="text-xs font-bold text-amber-300 flex items-center space-x-1.5">
-                                      <span>Non-Facility Image Detected</span>
+                                      <span>⚠️ Irrelevant Image Detected</span>
                                     </div>
                                     <div className="text-[10px] text-amber-200/80">
                                       Zero campus maintenance problem visible
@@ -1045,7 +1128,7 @@ export default function RaiseIssueModal({ onClose }) {
                               </div>
 
                               <p className="text-xs text-amber-100/90 leading-relaxed bg-black/30 p-2.5 rounded-xl border border-amber-500/30">
-                                {aiAnalysis.vision.warningMessage || "Our AI Vision model identified this photo as non-facility subject matter (nature, food/drink, portrait/selfie, or unrelated scenery). No physical maintenance problem is visible."}
+                                {aiAnalysis.vision.warningMessage || "Our AI Vision model identified this photo as non-facility subject matter (nature foliage, food/drink, portrait/selfie, or unrelated scenery). No physical maintenance problem is visible."}
                               </p>
 
                               <div className="p-2.5 rounded-lg bg-black/40 border border-amber-500/30 flex items-center justify-between text-[11px]">
@@ -1056,9 +1139,14 @@ export default function RaiseIssueModal({ onClose }) {
                                 </span>
                               </div>
 
-                              <p className="text-[10px] text-amber-200/90">
-                                💡 <strong>Action Required:</strong> Use the live camera to capture a clear photo of the damaged campus asset (e.g. projector, fan, switch, leak, or bench) to unlock verified AI scoring.
-                              </p>
+                              <button
+                                type="button"
+                                onClick={startCamera}
+                                className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-amber-600 to-rose-600 hover:from-amber-500 hover:to-rose-500 text-white font-bold text-xs flex items-center justify-center space-x-2 transition-all shadow-md touch-press border border-amber-400/40"
+                              >
+                                <Camera className="w-4 h-4 text-white" />
+                                <span>Retake Photo with Live Camera</span>
+                              </button>
                             </div>
                           )
                         )}

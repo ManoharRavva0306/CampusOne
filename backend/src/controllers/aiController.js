@@ -43,9 +43,17 @@ export function analyzeIssue(req, res) {
     };
     
     const basePriority = calculatePriorityScore(simulatedTicket);
-    // When relevant image is provided, apply +15 Verified Evidence Boost; otherwise withheld
-    const photoBoost = vision.isRelevant ? 15 : 0;
+    // When relevant image with a genuine detected defect is provided, apply +15 Verified Evidence Boost; otherwise 0
+    const hasActiveFault = vision.isRelevant && vision.hasDefect;
+    const photoBoost = hasActiveFault ? 15 : 0;
     const finalScore = Math.min(basePriority + photoBoost, 100);
+
+    let cvEvidenceText = '⚠️ 0% (Irrelevant / Non-Facility Image — Score Paused)';
+    if (hasActiveFault) {
+      cvEvidenceText = `+15 (${vision.visibilityPercentage}% Fault Visibility)`;
+    } else if (vision.isRelevant && !vision.hasDefect) {
+      cvEvidenceText = '✅ 0% (Asset Verified Undamaged / Working Fine)';
+    }
 
     res.json({
       success: true,
@@ -55,7 +63,8 @@ export function analyzeIssue(req, res) {
       predictedPriority: {
         score: finalScore,
         baseScore: basePriority,
-        isEvidenceVerified: vision.isRelevant,
+        isEvidenceVerified: hasActiveFault,
+        status: vision.status,
         visibilityPercentage: vision.visibilityPercentage || 0,
         urgency: triage.suggestedUrgency,
         factors: [
@@ -64,8 +73,8 @@ export function analyzeIssue(req, res) {
           { name: 'Initial Stakeholder Endorsement', value: '+3' },
           { 
             name: 'Computer Vision Evidence', 
-            value: vision.isRelevant ? `+15 (${vision.visibilityPercentage}% Problem Visibility)` : '⚠️ 0% (No Visible Defect / Irrelevant Image)',
-            verified: vision.isRelevant 
+            value: cvEvidenceText,
+            verified: hasActiveFault 
           }
         ]
       }
