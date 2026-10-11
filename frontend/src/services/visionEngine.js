@@ -469,20 +469,25 @@ function inspectCanvasPixels(canvas, categoryHint = '', textContext = '') {
       greenVegPixels++;
     }
 
-    // Human skin tone signature (Dual YCbCr + RGB model covering all skin complexions)
+    // Human skin tone signature (Strict Melanin & Hemoglobin Chromaticity Model)
+    // Rejects beige plastic chairs, tan wooden desks, cardboard, and cream walls
     const cb = -0.168736 * r - 0.331264 * g + 0.5 * b + 128;
     const cr = 0.5 * r - 0.418688 * g - 0.081312 * b + 128;
-    const isSkinYCbCr = cr >= 132 && cr <= 175 && cb >= 77 && cb <= 128;
-    const isSkinRGB = r > 65 && g > 38 && b > 20 && r > g && r > b && (r - g > 8) && (Math.max(r, g, b) - Math.min(r, g, b) > 14);
+    const isSkinStrict = (
+      r > 95 && g > 55 && b > 35 &&
+      r > g && g > b &&
+      (r - g >= 18) &&
+      (r - b >= 30) &&
+      (r / Math.max(g, 1) >= 1.16) &&
+      (r / Math.max(g, 1) <= 1.85) &&
+      cr >= 138 && cr <= 175 &&
+      cb >= 80 && cb <= 124 &&
+      (cr - cb >= 24)
+    );
 
-    const isSkin = isSkinYCbCr || isSkinRGB;
-    if (isSkin) {
+    if (isSkinStrict) {
       skinTonePixels++;
-    }
-
-    if (x >= minFaceX && x <= maxFaceX && y >= minFaceY && y <= maxFaceY) {
-      faceRegionTotalPixels++;
-      if (isSkin) {
+      if (x >= minFaceX && x <= maxFaceX && y >= minFaceY && y <= maxFaceY) {
         faceRegionSkinPixels++;
       }
     }
@@ -563,6 +568,15 @@ function inspectCanvasPixels(canvas, categoryHint = '', textContext = '') {
   ];
   const hasWorkingReport = workingWords.some(w => textLower.includes(w));
 
+  // Explicit defect reporting phrases
+  const defectWords = [
+    'not working', 'not wroking', 'waste', 'wastage', 'litter', 'trash', 'garbage',
+    'dirty', 'broken', 'damage', 'damaged', 'crack', 'cracked', 'leak', 'leaking',
+    'flicker', 'flickering', 'fused', 'not glowing', 'stopped', 'issue', 'problem',
+    'no cleaning', 'cleaning', 'plastic', 'debris', 'spill', 'mess'
+  ];
+  const hasDefectReport = defectWords.some(w => textLower.includes(w));
+
   // Parse Claimed Asset keywords from text & category
   const isLaptopClaimed = ['laptop', 'computer', 'pc', 'workstation', 'monitor', 'keyboard', 'screen', 'hp', 'dell', 'lenovo', 'thinkpad', 'code', 'macbook'].some(k => textLower.includes(k)) || (categoryHint === 'it_av' && !textLower.includes('projector') && !textLower.includes('hdmi'));
   const isProjectorClaimed = ['projector', 'hdmi', 'beamer', 'benq', 'epson', 'lens', 'projection'].some(k => textLower.includes(k));
@@ -577,7 +591,13 @@ function inspectCanvasPixels(canvas, categoryHint = '', textContext = '') {
   if (isLaptopClaimed) claimedAssetName = 'Academic Laptop / Lab Workstation';
   else if (isFanClaimed) claimedAssetName = 'Ceiling Fan Fixture';
   else if (isTubeLightClaimed) claimedAssetName = 'Hostel / Classroom Tube Light';
-  else if (isWasteClaimed) claimedAssetName = 'Campus Roadway / Sanitation Area';
+  else if (isWasteClaimed) {
+    if (isDeskClaimed || textLower.includes('desk') || textLower.includes('bench') || textLower.includes('chair') || textLower.includes('lh') || textLower.includes('room') || textLower.includes('class') || textLower.includes('floor') || textLower.includes('under')) {
+      claimedAssetName = 'Classroom Desk & Floor Sanitation Area';
+    } else {
+      claimedAssetName = 'Campus Roadway / Sanitation Area';
+    }
+  }
   else if (isProjectorClaimed) claimedAssetName = 'Digital Overhead Projector';
   else if (isWaterClaimed) claimedAssetName = 'Water Purifier & Chiller';
   else if (isDeskClaimed) claimedAssetName = 'Lecture Bench & Furniture';
@@ -586,13 +606,27 @@ function inspectCanvasPixels(canvas, categoryHint = '', textContext = '') {
   // -------------------------------------------------------------
   // STATE 3: IRRELEVANT IMAGE CLASSIFICATION & CROSS-MODAL MISMATCH
   // Evaluated INDEPENDENTLY of text keywords!
-  // A selfie or nature photo does NOT become a laptop just because text mentions it!
   // -------------------------------------------------------------
-  const isHumanPortrait = skinRatio > 0.07 || faceSkinRatio > 0.09;
-  const isNature = natureRatio > 0.35 && categoryHint !== 'cleanliness' && !isWasteClaimed;
+  // Check for campus facility structure, furniture edges, or waste clutter in frame
+  const hasFacilityStructureOrClutter = (
+    avgLaplacian > 13 || 
+    highEdgeRatio > 0.02 || 
+    contrast > 25
+  );
+
+  // A photo is a personal selfie / human portrait ONLY IF:
+  // 1) The frame is dominated by a human face/head (face occupies > 32% of center frame, total skin > 26%)
+  //    AND there is NO facility hardware, desks, or waste clutter in frame!
+  // OR 2) Extreme close-up face fills the lens (> 40% center, > 32% total)
+  const isHumanPortrait = (
+    (faceSkinRatio > 0.32 && skinRatio > 0.26 && !hasFacilityStructureOrClutter) ||
+    (faceSkinRatio > 0.40 && skinRatio > 0.32)
+  );
+
+  const isNature = natureRatio > 0.40 && categoryHint !== 'cleanliness' && !isWasteClaimed;
   const isTooDark = meanLuminance < 18; // Pitch black or covered lens
-  const isTooWashedOut = meanLuminance > 245 && contrast < 12; // Pure white blowout
-  const isBlankSurface = contrast < 12 && avgLaplacian < 8; // Plain featureless wall/floor
+  const isTooWashedOut = meanLuminance > 245 && contrast < 10; // Pure white blowout
+  const isBlankSurface = contrast < 10 && avgLaplacian < 6 && !hasFacilityStructureOrClutter; // Plain featureless wall/floor
 
   if (isHumanPortrait || isNature || isTooDark || isTooWashedOut || isBlankSurface) {
     let reason = 'Non-campus facility subject detected';
@@ -661,10 +695,16 @@ function inspectCanvasPixels(canvas, categoryHint = '', textContext = '') {
     assetName = 'Hostel / Classroom Tube Light & LED Batten';
     defaultBbox = { ymin: 10, xmin: 15, ymax: 30, xmax: 85, label: 'Hostel Tube Light Fixture', defect: 'Cathode Ring Burnout' };
   } else if (isWasteClaimed) {
-    // 3. Road / Corridor Waste & Garbage Spill
-    assetType = 'waste';
-    assetName = 'Campus Road & Corridor Sanitation / Litter Area';
-    defaultBbox = { ymin: 35, xmin: 20, ymax: 88, xmax: 80, label: 'Road / Corridor Waste Spill', defect: 'Uncollected Litter & Garbage' };
+    // 3. Road / Corridor Waste Spill OR Classroom Desk Waste
+    if (isDeskClaimed || textLower.includes('desk') || textLower.includes('bench') || textLower.includes('chair') || textLower.includes('lh') || textLower.includes('room') || textLower.includes('class') || textLower.includes('floor') || textLower.includes('under')) {
+      assetType = 'waste_desk';
+      assetName = 'Classroom Desk & Floor Sanitation Area';
+      defaultBbox = { ymin: 24, xmin: 15, ymax: 86, xmax: 85, label: 'Plastic Wastage Under Desk', defect: 'Uncollected Plastic Waste' };
+    } else {
+      assetType = 'waste';
+      assetName = 'Campus Road & Corridor Sanitation / Litter Area';
+      defaultBbox = { ymin: 35, xmin: 20, ymax: 88, xmax: 80, label: 'Road / Corridor Waste Spill', defect: 'Uncollected Litter & Garbage' };
+    }
   } else if (isProjectorClaimed || (categoryHint === 'it_av' && !isScreenOptically)) {
     // 4. Digital Overhead Projector
     assetType = 'projector';
@@ -711,9 +751,6 @@ function inspectCanvasPixels(canvas, categoryHint = '', textContext = '') {
     isPhysicallyDefective = false;
   } else if (assetType === 'laptop') {
     // Laptop screen is defective ONLY IF physical fracture or crash is optical in the image:
-    // a) Blue Screen of Death (dominant blue screen crash)
-    // b) Jagged crack fissures cutting through display panel
-    // c) Powered off / dead black display while workstation base illuminated
     const isBSOD = blueDominantRatio > 0.28;
     const isCracked = jaggedFissureRatio > 0.035 && highEdgeRatio > 0.05;
     const isDeadScreen = centerLuminance < 40 && bottomLuminance > 75;
@@ -723,9 +760,9 @@ function inspectCanvasPixels(canvas, categoryHint = '', textContext = '') {
     const isFusedDark = centerLuminance < 85 && topLuminance > 85;
     const isBurntEnds = contrast > 45 && pureWhiteRatio < 0.01;
     isPhysicallyDefective = isFusedDark || isBurntEnds;
-  } else if (assetType === 'waste') {
-    // Road waste: ground clutter / high texture irregularity
-    isPhysicallyDefective = avgLaplacian > 16 || highEdgeRatio > 0.045;
+  } else if (assetType === 'waste_desk' || assetType === 'waste') {
+    // Waste / plastic clutter / debris irregularity
+    isPhysicallyDefective = !hasWorkingReport && (hasDefectReport || avgLaplacian > 12 || highEdgeRatio > 0.02);
   } else if (assetType === 'fan') {
     // Bent / detached blade: jagged fissure cuts across blades with severe contrast asymmetry
     isPhysicallyDefective = jaggedFissureRatio > 0.045 && contrast > 50;
@@ -762,9 +799,9 @@ function inspectCanvasPixels(canvas, categoryHint = '', textContext = '') {
       diagnosis = 'No Problem Found — Tube Light Illuminating Normally';
       inspectionMessage = 'Tube light fixture recognized. Illuminating normally with uniform daylight glow and no cathode ring burnout. Fixture verified intact.';
       defaultBbox.defect = 'Verified Intact';
-    } else if (assetType === 'waste') {
-      diagnosis = 'No Problem Found — Road & Walkway Surface Clean';
-      inspectionMessage = 'Surface scanned. Pathway and road surface appear clear with no uncollected garbage spill or litter accumulation in frame.';
+    } else if (assetType === 'waste_desk' || assetType === 'waste') {
+      diagnosis = 'No Problem Found — Desk & Pathway Clean';
+      inspectionMessage = 'Surface scanned. Classroom desk, floor, and pathways are swept clean with no uncollected plastic wastage or litter accumulation in frame.';
       defaultBbox.defect = 'Swept & Clean';
     } else if (assetType === 'projector') {
       diagnosis = 'No Problem Found — Digital Projector Mounted & Intact';
@@ -818,6 +855,9 @@ function inspectCanvasPixels(canvas, categoryHint = '', textContext = '') {
   } else if (assetType === 'tube_light') {
     defectDiagnosis = 'Cathode Ring Burnout & Starter Choke Failure (Fused Tube)';
     defaultBbox.defect = 'Cathode Ring Burnout';
+  } else if (assetType === 'waste_desk') {
+    defectDiagnosis = 'Uncollected Plastic Wastage & Scattered Debris Under Desk';
+    defaultBbox.defect = 'Plastic Litter Under Desk';
   } else if (assetType === 'waste') {
     defectDiagnosis = 'Uncollected Garbage Spill & Roadway Litter Accumulation';
     defaultBbox.defect = 'Uncollected Litter & Garbage';

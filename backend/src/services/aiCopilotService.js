@@ -608,6 +608,19 @@ export function analyzeImageDefect({ imageUrl = '', title = '', description = ''
       bbox: { ymin: 10, xmin: 15, ymax: 30, xmax: 85, label: 'Hostel Tube Light Fixture', defect: 'Cathode Ring Burnout' }
     },
     {
+      keywords: ['plastic', 'wastage', 'waste', 'litter', 'desk', 'bench', 'under desk', 'classroom', 'lh', 'floor', 'no cleaning', 'garbage', 'trash', 'paper'],
+      category: 'cleanliness',
+      detectedObject: 'Classroom Desk & Floor Sanitation Area',
+      defectType: 'Uncollected Plastic Wastage & Scattered Debris Under Desk',
+      defectFeature: 'Scattered plastic wrappers, containers, and litter accumulated under classroom desk and floor',
+      baseVisibility: 92,
+      severity: 'Medium (Classroom Hygiene & Sanitation Concern)',
+      suggestedTitle: 'Classroom Desk & Floor Plastic Waste Clearance Request',
+      suggestedDescription: 'Uncollected plastic wrappers, containers, and litter have accumulated underneath classroom desks; janitorial sanitation and sweeping needed.',
+      recommendedTools: ['Heavy Duty Bio-Waste Liners', 'Floor Sanitation Sweeper', 'Disinfectant Spray & Mop', 'Dustpan & Hand Broom'],
+      bbox: { ymin: 24, xmin: 15, ymax: 86, xmax: 85, label: 'Plastic Wastage Under Desk', defect: 'Uncollected Plastic Waste' }
+    },
+    {
       keywords: ['waste', 'wastage', 'road', 'garbage', 'trash', 'litter', 'dirty', 'plastic', 'spill', 'dustbin', 'overflow', 'mess', 'cleanliness', 'sanitation', 'street', 'walkway', 'photo-1605600659908', 'photo-1611284446314'],
       category: 'cleanliness',
       detectedObject: 'Campus Road & Corridor Sanitation / Litter Area',
@@ -767,10 +780,10 @@ export function analyzeImageDefect({ imageUrl = '', title = '', description = ''
     visibilityPercentage: finalVisibility,
     confidence: finalVisibility,
     clarityRating: clarityLabel,
-    detectedObject: matchedDefect.detectedObject,
-    defectType: matchedDefect.defectType,
+    detectedObject: visualMetrics?.detectedAsset || matchedDefect.detectedObject,
+    defectType: visualMetrics?.defectDiagnosis || matchedDefect.defectType,
     defectFeature: matchedDefect.defectFeature,
-    boundingBox: matchedDefect.bbox || { ymin: 20, xmin: 20, ymax: 80, xmax: 80, label: matchedDefect.detectedObject, defect: matchedDefect.defectType },
+    boundingBox: visualMetrics?.boundingBox || matchedDefect.bbox || { ymin: 20, xmin: 20, ymax: 80, xmax: 80, label: matchedDefect.detectedObject, defect: matchedDefect.defectType },
     warningMessage: null,
     severity: matchedDefect.severity,
     suggestedTitle: matchedDefect.suggestedTitle,
