@@ -419,166 +419,149 @@ export default function RaiseIssueModal({ onClose }) {
 
           {/* STEP 1: Scope & Location Selection */}
           {step === 1 && (
-            <div className="space-y-4 animate-fade-in">
-              <div className="text-center mb-3">
-                <h4 className="text-sm font-bold text-forest-950">Step 1: Is this a College-Wise or Hostel-Wise Issue?</h4>
+            <div className="space-y-3.5 animate-fade-in">
+              {/* Clean Editorial Title */}
+              <div className="text-center">
+                <h4 className="text-sm sm:text-base font-bold text-forest-950">
+                  Where is this issue located?
+                </h4>
                 <p className="text-xs text-charcoal-500 mt-0.5">
-                  College-wise issues route to your <strong>Class Advisor</strong> and Hostel-wise issues route to your <strong>Hostel Resident Warden</strong> for Stage-1 verification (+20 Priority Weightage) before reaching the Final Main Admin.
+                  Select location for verified Stage-1 mentor routing to protect privacy & speed up triage.
                 </p>
               </div>
 
-              {/* Student Privacy Guarantee Banner */}
-              <div className="p-3 rounded-2xl bg-emerald-50/80 border border-emerald-200 flex items-center space-x-2.5 text-xs text-emerald-950">
-                <Lock className="w-4 h-4 text-emerald-700 shrink-0" />
-                <div>
-                  <strong>Strict Identity Privacy:</strong> Your details ({currentUser.rollNo} • {currentUser.classSection || 'Section'} • {currentUser.hostel || 'Hostel'} Rm {currentUser.room || '-'}) are shared <strong>ONLY</strong> with your respective Class Advisor & Hostel Warden — never with unrelated sections or hostels in between.
+              {/* Sleek Profile & Privacy Pill */}
+              <div className="flex items-center justify-between px-3.5 py-2 rounded-xl bg-ivory-100/80 border border-ivory-300 text-xs text-forest-950">
+                <div className="flex items-center space-x-2 truncate min-w-0">
+                  <ShieldCheck className="w-4 h-4 text-emerald-700 shrink-0" />
+                  <span className="font-semibold truncate">
+                    {currentUser.rollNo || 'Student'}
+                  </span>
+                  <span className="text-charcoal-400 text-[11px] truncate hidden sm:inline">
+                    • {currentUser.classSection || 'Section'} • {currentUser.hostel || 'Hostel'} Rm {currentUser.room || '-'}
+                  </span>
+                </div>
+                <div className="flex items-center space-x-1 text-[10px] text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 shrink-0 font-medium">
+                  <Lock className="w-3 h-3 text-emerald-700" />
+                  <span>Privacy Protected</span>
                 </div>
               </div>
 
-              <div className="space-y-2.5">
-                
-                {/* College-Wise: Classroom Option */}
-                <div
-                  onClick={() => { setMainDomain('college'); setSubScope('class'); }}
-                  className={`p-3.5 rounded-2xl border cursor-pointer transition-all flex items-start space-x-3.5 ${
-                    subScope === 'class'
-                      ? 'bg-emerald-50/60 border-emerald-500 ring-1 ring-emerald-500/30'
-                      : 'bg-white border-ivory-300 hover:bg-ivory-100'
-                  }`}
-                >
-                  <div className="p-2.5 rounded-xl bg-blue-50 text-blue-700 shrink-0 border border-blue-200">
-                    <School className="w-4 h-4" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h5 className="text-xs font-bold text-forest-950">
-                        College-Wise: My Class Section ({currentUser.classSection || 'CSE-B 3rd Year'})
-                      </h5>
-                      <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-blue-100 text-blue-800">
-                        Stage 1 → Class Advisor
-                      </span>
-                    </div>
-                    <p className="text-xs text-charcoal-600 mt-1">
-                      Projectors, smartboard, classroom AC, benches, or lighting in your section classroom.
-                    </p>
-                    <p className="text-[11px] text-emerald-700 font-semibold mt-1">
-                      ✓ Sent to your {currentUser.classSection || 'Class'} Advisor for Accept/Reject (+20 weightage) before Final Admin.
-                    </p>
-                  </div>
-                </div>
+              {/* Aesthetic Location Cards */}
+              <div className="space-y-2">
+                {[
+                  {
+                    id: 'class',
+                    domain: 'college',
+                    title: 'My Class Section',
+                    tag: currentUser.classSection || 'CSE-B 3rd Year',
+                    desc: 'Projectors, smartboard, classroom AC, benches, lighting',
+                    reviewer: 'Class Advisor',
+                    badgeStyle: 'bg-blue-50 text-blue-800 border-blue-200',
+                    icon: School,
+                    iconStyle: 'bg-blue-50 text-blue-700 border-blue-200'
+                  },
+                  {
+                    id: 'room',
+                    domain: 'hostel',
+                    title: 'My Hostel Room',
+                    tag: `${currentUser.hostel || 'Hostel'} • Rm ${currentUser.room || '129'}`,
+                    desc: 'Ceiling fan, study desk, switchboard, LAN port, door latch',
+                    reviewer: 'Hostel Warden',
+                    badgeStyle: 'bg-amber-50 text-amber-800 border-amber-200',
+                    icon: Home,
+                    iconStyle: 'bg-amber-50 text-amber-700 border-amber-200'
+                  },
+                  {
+                    id: 'hostel_generic',
+                    domain: 'hostel',
+                    title: 'Hostel Common Area & Mess',
+                    tag: `${currentUser.hostel || 'Hostel'} Facilities`,
+                    desc: 'RO water cooler, washroom plumbing, hostel Wi-Fi, mess hygiene',
+                    reviewer: 'Hostel Warden',
+                    badgeStyle: 'bg-teal-50 text-teal-800 border-teal-200',
+                    icon: Building2,
+                    iconStyle: 'bg-teal-50 text-teal-700 border-teal-200'
+                  },
+                  {
+                    id: 'department',
+                    domain: 'college',
+                    title: 'Department Labs & Halls',
+                    tag: `${currentUser.department || 'CSE'} Department`,
+                    desc: 'Lab workstations, seminar halls, corridor dispensers',
+                    reviewer: 'Class Advisor',
+                    badgeStyle: 'bg-purple-50 text-purple-800 border-purple-200',
+                    icon: Building2,
+                    iconStyle: 'bg-purple-50 text-purple-700 border-purple-200'
+                  },
+                  {
+                    id: 'campus',
+                    domain: 'campus',
+                    title: 'Campus Hazard / Emergency',
+                    tag: 'Public Grounds',
+                    desc: 'Live hanging wires, waterlogged pathways, safety hazards',
+                    reviewer: 'Fast-Track',
+                    badgeStyle: 'bg-rose-50 text-rose-800 border-rose-200',
+                    icon: AlertTriangle,
+                    iconStyle: 'bg-rose-50 text-rose-700 border-rose-200'
+                  }
+                ].map((opt) => {
+                  const Icon = opt.icon;
+                  const isSelected = subScope === opt.id;
+                  return (
+                    <div
+                      key={opt.id}
+                      onClick={() => { setMainDomain(opt.domain); setSubScope(opt.id); }}
+                      className={`group relative p-3 sm:p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 touch-press ${
+                        isSelected
+                          ? 'bg-emerald-50/70 border-emerald-600 ring-2 ring-emerald-500/20 shadow-sm'
+                          : 'bg-white border-ivory-300 hover:border-emerald-300 hover:bg-ivory-50/60'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3 min-w-0 flex-1">
+                        <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl shrink-0 flex items-center justify-center border ${opt.iconStyle} transition-transform group-hover:scale-105 shadow-2xs`}>
+                          <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
+                        </div>
 
-                {/* Hostel-Wise: Hostel Room Option */}
-                <div
-                  onClick={() => { setMainDomain('hostel'); setSubScope('room'); }}
-                  className={`p-3.5 rounded-2xl border cursor-pointer transition-all flex items-start space-x-3.5 ${
-                    subScope === 'room'
-                      ? 'bg-emerald-50/60 border-emerald-500 ring-1 ring-emerald-500/30'
-                      : 'bg-white border-ivory-300 hover:bg-ivory-100'
-                  }`}
-                >
-                  <div className="p-2.5 rounded-xl bg-amber-50 text-amber-700 shrink-0 border border-amber-200">
-                    <Home className="w-4 h-4" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h5 className="text-xs font-bold text-forest-950">
-                        Hostel-Wise: My Hostel Room ({currentUser.hostel || 'Agastya Bhavan'} - Rm {currentUser.room || '304'})
-                      </h5>
-                      <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-800">
-                        Stage 1 → Hostel Warden
-                      </span>
-                    </div>
-                    <p className="text-xs text-charcoal-600 mt-1">
-                      Ceiling fan regulator, study desk, personal switchboard, LAN port, door latch.
-                    </p>
-                    <p className="text-[11px] text-amber-800 font-semibold mt-1">
-                      ✓ Sent to {currentUser.hostel || 'Hostel'} Resident Warden for Accept/Reject (+20 weightage) before Final Admin.
-                    </p>
-                  </div>
-                </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center space-x-2">
+                            <h5 className="text-xs sm:text-sm font-bold text-forest-950 truncate">
+                              {opt.title}
+                            </h5>
+                            <span className="text-[10px] sm:text-[11px] text-charcoal-400 font-medium truncate hidden xs:inline">
+                              • {opt.tag}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-charcoal-500 truncate mt-0.5">
+                            {opt.desc}
+                          </p>
+                        </div>
+                      </div>
 
-                {/* Hostel-Wise: Common Area / Mess / Water Option */}
-                <div
-                  onClick={() => { setMainDomain('hostel'); setSubScope('hostel_generic'); }}
-                  className={`p-3.5 rounded-2xl border cursor-pointer transition-all flex items-start space-x-3.5 ${
-                    subScope === 'hostel_generic'
-                      ? 'bg-emerald-50/60 border-emerald-500 ring-1 ring-emerald-500/30'
-                      : 'bg-white border-ivory-300 hover:bg-ivory-100'
-                  }`}
-                >
-                  <div className="p-2.5 rounded-xl bg-teal-50 text-teal-700 shrink-0 border border-teal-200">
-                    <Building2 className="w-4 h-4" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h5 className="text-xs font-bold text-forest-950">
-                        Hostel-Wise: {currentUser.hostel || 'Agastya Bhavan'} Common Area / RO Water / Mess
-                      </h5>
-                      <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-teal-100 text-teal-800">
-                        Stage 1 → Hostel Warden
-                      </span>
-                    </div>
-                    <p className="text-xs text-charcoal-600 mt-1">
-                      Corridor RO water coolers, washroom plumbing, hostel Wi-Fi, or mess hygiene in {currentUser.hostel || 'your Bhavan'}.
-                    </p>
-                    <p className="text-[11px] text-teal-800 font-semibold mt-1">
-                      ✓ Sent to {currentUser.hostel || 'Hostel'} Resident Warden for Accept/Reject (+20 weightage) before Final Admin.
-                    </p>
-                  </div>
-                </div>
+                      <div className="flex items-center space-x-2 shrink-0">
+                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md border ${opt.badgeStyle} hidden sm:inline-flex`}>
+                          Stage 1 → {opt.reviewer}
+                        </span>
 
-                {/* College-Wise: Department Level Option */}
-                <div
-                  onClick={() => { setMainDomain('college'); setSubScope('department'); }}
-                  className={`p-3.5 rounded-2xl border cursor-pointer transition-all flex items-start space-x-3.5 ${
-                    subScope === 'department'
-                      ? 'bg-emerald-50/60 border-emerald-500 ring-1 ring-emerald-500/30'
-                      : 'bg-white border-ivory-300 hover:bg-ivory-100'
-                  }`}
-                >
-                  <div className="p-2.5 rounded-xl bg-purple-50 text-purple-700 shrink-0 border border-purple-200">
-                    <Building2 className="w-4 h-4" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h5 className="text-xs font-bold text-forest-950">
-                        College-Wise: Department Labs & Corridors ({currentUser.department || 'CSE'})
-                      </h5>
-                      <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-purple-100 text-purple-800">
-                        Stage 1 → Class Advisor
-                      </span>
+                        <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition-all ${
+                          isSelected
+                            ? 'border-emerald-600 bg-emerald-600 text-white shadow-xs'
+                            : 'border-ivory-400 bg-white group-hover:border-emerald-400'
+                        }`}>
+                          {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                        </div>
+                      </div>
                     </div>
-                    <p className="text-xs text-charcoal-600 mt-1">
-                      Department lab workstations, corridor water dispensers, seminar halls.
-                    </p>
-                  </div>
-                </div>
+                  );
+                })}
+              </div>
 
-                {/* Campus-Wide Hazard Option */}
-                <div
-                  onClick={() => { setMainDomain('campus'); setSubScope('campus'); }}
-                  className={`p-3.5 rounded-2xl border cursor-pointer transition-all flex items-start space-x-3.5 ${
-                    subScope === 'campus'
-                      ? 'bg-emerald-50/60 border-emerald-500 ring-1 ring-emerald-500/30'
-                      : 'bg-white border-ivory-300 hover:bg-ivory-100'
-                  }`}
-                >
-                  <div className="p-2.5 rounded-xl bg-rose-50 text-rose-700 shrink-0 border border-rose-200">
-                    <AlertTriangle className="w-4 h-4" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h5 className="text-xs font-bold text-forest-950">Campus-Wide Hazard / Emergency</h5>
-                      <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-rose-100 text-rose-800">
-                        Direct Fast-Track
-                      </span>
-                    </div>
-                    <p className="text-xs text-charcoal-600 mt-1">
-                      Live hanging wires, waterlogged pathways, open manholes, emergency safety hazards.
-                    </p>
-                  </div>
-                </div>
-
+              {/* Bottom Stage-1 Weightage Context Note */}
+              <div className="pt-0.5 flex items-center justify-between text-[11px] text-charcoal-500 px-1">
+                <span className="flex items-center space-x-1.5">
+                  <span className="text-emerald-700 font-bold">⚡</span>
+                  <span>Mentor-verified reports receive <strong className="text-forest-950 font-bold">+20 Priority Boost</strong> before admin dispatch.</span>
+                </span>
               </div>
             </div>
           )}
