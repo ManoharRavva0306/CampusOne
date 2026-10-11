@@ -256,9 +256,13 @@ export default function RaiseIssueModal({ onClose }) {
 
   // Photo presets for testing/demo (Includes Defect Faults, Working Intact Assets, and Irrelevant items)
   const PHOTO_PRESETS = [
+    { label: '✅ Working Laptop (Intact / No Fault)', url: 'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=800&auto=format&fit=crop&q=80' },
+    { label: '🚨 Broken Laptop (Fault: Cracked LCD)', url: 'https://images.unsplash.com/photo-1588872657578-7efd1f1555ed?w=800&auto=format&fit=crop&q=80' },
     { label: '🚨 Projector (Fault: HDMI & Lens)', url: 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=800&auto=format&fit=crop&q=80' },
-    { label: '🚨 Live Wire (Fault: Exposed 230V)', url: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=800&auto=format&fit=crop&q=80' },
+    { label: '🚨 Road Wastage (Fault: Garbage Spill)', url: 'https://images.unsplash.com/photo-1605600659908-0ef719419d41?w=800&auto=format&fit=crop&q=80' },
+    { label: '🚨 Hostel Tube Light (Fault: Fused)', url: 'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?w=800&auto=format&fit=crop&q=80' },
     { label: '🚨 Ceiling Fan (Fault: Blade Droop)', url: 'https://images.unsplash.com/photo-1590725140246-20acbe44865e?w=800&auto=format&fit=crop&q=80' },
+    { label: '🚨 Live Wire (Fault: Exposed 230V)', url: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=800&auto=format&fit=crop&q=80' },
     { label: '🚨 Water Leak (Fault: Valve Leak)', url: 'https://images.unsplash.com/photo-1584771145729-0bd9fda6529b?w=800&auto=format&fit=crop&q=80' },
     { label: '🚨 Broken Desk (Fault: Cracked Weld)', url: 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=800&auto=format&fit=crop&q=80' },
     { label: '✅ Working Room / Fan (No Fault)', url: 'https://images.unsplash.com/photo-1540575467063-d7e7e59b2075?w=800&auto=format&fit=crop&q=80' },
@@ -809,10 +813,10 @@ export default function RaiseIssueModal({ onClose }) {
                           className="w-full h-full object-cover"
                         />
 
-                        {/* Real-Time YOLOv8 Defect Localization Bounding Box Overlay */}
-                        {aiAnalysis?.vision?.hasDefect && aiAnalysis?.vision?.boundingBox && (
+                        {/* Real-Time YOLOv8 Defect & Asset Localization Bounding Box Overlay */}
+                        {aiAnalysis?.vision?.isRelevant && aiAnalysis?.vision?.boundingBox && (
                           <div 
-                            className="absolute border-2 border-emerald-400 bg-emerald-500/15 rounded-lg pointer-events-none transition-all duration-500 z-10 shadow-lg"
+                            className={`absolute border-2 ${aiAnalysis.vision.hasDefect ? 'border-emerald-400 bg-emerald-500/15' : 'border-sky-400 bg-sky-500/15'} rounded-lg pointer-events-none transition-all duration-500 z-10 shadow-lg`}
                             style={{
                               top: `${aiAnalysis.vision.boundingBox.ymin}%`,
                               left: `${aiAnalysis.vision.boundingBox.xmin}%`,
@@ -821,15 +825,17 @@ export default function RaiseIssueModal({ onClose }) {
                             }}
                           >
                             {/* Corner targeting reticles */}
-                            <span className="absolute -top-1 -left-1 w-2.5 h-2.5 border-t-2 border-l-2 border-mint-300" />
-                            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 border-t-2 border-r-2 border-mint-300" />
-                            <span className="absolute -bottom-1 -left-1 w-2.5 h-2.5 border-b-2 border-l-2 border-mint-300" />
-                            <span className="absolute -bottom-1 -right-1 w-2.5 h-2.5 border-b-2 border-r-2 border-mint-300" />
+                            <span className={`absolute -top-1 -left-1 w-2.5 h-2.5 border-t-2 border-l-2 ${aiAnalysis.vision.hasDefect ? 'border-mint-300' : 'border-sky-300'}`} />
+                            <span className={`absolute -top-1 -right-1 w-2.5 h-2.5 border-t-2 border-r-2 ${aiAnalysis.vision.hasDefect ? 'border-mint-300' : 'border-sky-300'}`} />
+                            <span className={`absolute -bottom-1 -left-1 w-2.5 h-2.5 border-b-2 border-l-2 ${aiAnalysis.vision.hasDefect ? 'border-mint-300' : 'border-sky-300'}`} />
+                            <span className={`absolute -bottom-1 -right-1 w-2.5 h-2.5 border-b-2 border-r-2 ${aiAnalysis.vision.hasDefect ? 'border-mint-300' : 'border-sky-300'}`} />
 
-                            {/* Defect Classification Pill with live ping */}
-                            <div className="absolute -top-6 left-0 bg-emerald-800/90 backdrop-blur-md text-white text-[9px] font-mono font-bold px-2 py-0.5 rounded shadow flex items-center space-x-1.5 whitespace-nowrap border border-emerald-400/50">
-                              <span className="w-1.5 h-1.5 rounded-full bg-mint-300 animate-ping" />
-                              <span>YOLOv8: {aiAnalysis.vision.boundingBox.defect || aiAnalysis.vision.defectType} ({aiAnalysis.vision.visibilityPercentage}%)</span>
+                            {/* Defect / Asset Classification Pill with live ping */}
+                            <div className={`absolute -top-6 left-0 ${aiAnalysis.vision.hasDefect ? 'bg-emerald-800/90 text-white border-emerald-400/50' : 'bg-sky-900/90 text-sky-100 border-sky-400/50'} backdrop-blur-md text-[9px] font-mono font-bold px-2 py-0.5 rounded shadow flex items-center space-x-1.5 whitespace-nowrap border`}>
+                              <span className={`w-1.5 h-1.5 rounded-full ${aiAnalysis.vision.hasDefect ? 'bg-mint-300 animate-ping' : 'bg-sky-300'}`} />
+                              <span>
+                                YOLOv8: {aiAnalysis.vision.boundingBox.defect || (aiAnalysis.vision.hasDefect ? aiAnalysis.vision.defectType : 'Operating Fine')} {aiAnalysis.vision.hasDefect ? `(${aiAnalysis.vision.visibilityPercentage}%)` : '— Intact'}
+                              </span>
                             </div>
                           </div>
                         )}

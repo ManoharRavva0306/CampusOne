@@ -227,7 +227,7 @@ export default function TicketDetailModal({ ticket, onClose }) {
               {/* Computer Vision YOLOv8 Bounding Box Localization Overlay */}
               {currentTicket.boundingBox && (
                 <div 
-                  className="absolute border-2 border-emerald-400 bg-emerald-500/20 rounded-lg pointer-events-none z-10 shadow-lg"
+                  className={`absolute border-2 ${currentTicket.visibilityPercentage > 0 ? 'border-emerald-400 bg-emerald-500/20' : 'border-sky-400 bg-sky-500/15'} rounded-lg pointer-events-none z-10 shadow-lg`}
                   style={{
                     top: `${currentTicket.boundingBox.ymin}%`,
                     left: `${currentTicket.boundingBox.xmin}%`,
@@ -235,32 +235,41 @@ export default function TicketDetailModal({ ticket, onClose }) {
                     height: `${currentTicket.boundingBox.ymax - currentTicket.boundingBox.ymin}%`,
                   }}
                 >
-                  <span className="absolute -top-1 -left-1 w-2.5 h-2.5 border-t-2 border-l-2 border-mint-300" />
-                  <span className="absolute -top-1 -right-1 w-2.5 h-2.5 border-t-2 border-r-2 border-mint-300" />
-                  <span className="absolute -bottom-1 -left-1 w-2.5 h-2.5 border-b-2 border-l-2 border-mint-300" />
-                  <span className="absolute -bottom-1 -right-1 w-2.5 h-2.5 border-b-2 border-r-2 border-mint-300" />
-                  <div className="absolute -top-5 left-0 bg-emerald-800/90 backdrop-blur-md text-white text-[9px] font-mono font-bold px-1.5 py-0.5 rounded shadow flex items-center space-x-1 whitespace-nowrap border border-emerald-400/50">
-                    <span className="w-1.5 h-1.5 rounded-full bg-mint-300 animate-pulse" />
-                    <span>YOLOv8: {currentTicket.boundingBox.defect || currentTicket.defectDiagnosis}</span>
+                  <span className={`absolute -top-1 -left-1 w-2.5 h-2.5 border-t-2 border-l-2 ${currentTicket.visibilityPercentage > 0 ? 'border-mint-300' : 'border-sky-300'}`} />
+                  <span className={`absolute -top-1 -right-1 w-2.5 h-2.5 border-t-2 border-r-2 ${currentTicket.visibilityPercentage > 0 ? 'border-mint-300' : 'border-sky-300'}`} />
+                  <span className={`absolute -bottom-1 -left-1 w-2.5 h-2.5 border-b-2 border-l-2 ${currentTicket.visibilityPercentage > 0 ? 'border-mint-300' : 'border-sky-300'}`} />
+                  <span className={`absolute -bottom-1 -right-1 w-2.5 h-2.5 border-b-2 border-r-2 ${currentTicket.visibilityPercentage > 0 ? 'border-mint-300' : 'border-sky-300'}`} />
+                  <div className={`absolute -top-5 left-0 ${currentTicket.visibilityPercentage > 0 ? 'bg-emerald-800/90 text-white border-emerald-400/50' : 'bg-sky-900/90 text-sky-100 border-sky-400/50'} backdrop-blur-md text-[9px] font-mono font-bold px-1.5 py-0.5 rounded shadow flex items-center space-x-1 whitespace-nowrap border`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${currentTicket.visibilityPercentage > 0 ? 'bg-mint-300 animate-pulse' : 'bg-sky-300'}`} />
+                    <span>YOLOv8: {currentTicket.boundingBox.defect || currentTicket.defectDiagnosis || 'Operating Fine (Intact)'}</span>
                   </div>
                 </div>
               )}
 
-              {currentTicket.visibilityPercentage > 0 && (
+              {currentTicket.visibilityPercentage > 0 ? (
                 <div className="absolute top-3 right-3 bg-forest-950/85 backdrop-blur-md px-3 py-1 rounded-full border border-emerald-400/50 flex items-center space-x-1.5 text-white shadow-lg">
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
                   <span className="text-xs font-bold text-mint-300">
                     {currentTicket.visibilityPercentage}% Problem Visibility
                   </span>
                 </div>
-              )}
-              {currentTicket.defectDiagnosis && (
-                <div className="absolute bottom-3 left-3 right-3 bg-forest-950/90 backdrop-blur-md px-3 py-1.5 rounded-xl border border-emerald-400/30 text-white text-[11px] flex items-center justify-between">
-                  <span className="text-emerald-200 truncate">
-                    AI Defect: <strong className="text-amber-300">{currentTicket.defectDiagnosis}</strong>
+              ) : currentTicket.detectedAsset ? (
+                <div className="absolute top-3 right-3 bg-[#081e2b]/90 backdrop-blur-md px-3 py-1 rounded-full border border-sky-400/50 flex items-center space-x-1.5 text-white shadow-lg">
+                  <ShieldCheck className="w-3.5 h-3.5 text-sky-400" />
+                  <span className="text-xs font-bold text-sky-300">
+                    0% Fault (Operating Fine)
                   </span>
-                  <span className="text-[10px] text-mint-300 font-mono shrink-0 ml-2">
-                    Verified Asset
+                </div>
+              ) : null}
+
+              {currentTicket.defectDiagnosis && (
+                <div className={`absolute bottom-3 left-3 right-3 ${currentTicket.visibilityPercentage > 0 ? 'bg-forest-950/90 border-emerald-400/30' : 'bg-[#081e2b]/95 border-sky-400/40'} backdrop-blur-md px-3 py-1.5 rounded-xl border text-white text-[11px] flex items-center justify-between`}>
+                  <span className={`${currentTicket.visibilityPercentage > 0 ? 'text-emerald-200' : 'text-sky-200'} truncate`}>
+                    {currentTicket.visibilityPercentage > 0 ? 'AI Defect: ' : 'Optical Status: '}
+                    <strong className={currentTicket.visibilityPercentage > 0 ? 'text-amber-300' : 'text-sky-300'}>{currentTicket.defectDiagnosis}</strong>
+                  </span>
+                  <span className={`text-[10px] ${currentTicket.visibilityPercentage > 0 ? 'text-mint-300' : 'text-sky-300'} font-mono shrink-0 ml-2`}>
+                    {currentTicket.detectedAsset || 'Verified Asset'}
                   </span>
                 </div>
               )}

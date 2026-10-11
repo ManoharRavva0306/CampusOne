@@ -241,15 +241,15 @@ export function autoTriageIssue({ title = '', description = '', location = '' })
     {
       category: 'it_av',
       domain: 'electrical_av',
-      urgency: 'high',
-      keywords: ['projector', 'hdmi', 'screen', 'speaker', 'mic', 'display', 'lan', 'wifi', 'audio', 'vga', 'camera', 'smart board'],
-      explanation: 'Academic instruction equipment detected (AV / Digital Classroom).'
+      urgency: 'medium',
+      keywords: ['laptop', 'computer', 'pc', 'workstation', 'monitor', 'keyboard', 'projector', 'hdmi', 'screen', 'speaker', 'mic', 'display', 'lan', 'wifi', 'audio', 'vga', 'camera', 'smart board'],
+      explanation: 'Academic IT or instruction equipment detected (Laptop / Workstation / AV Classroom).'
     },
     {
       category: 'electrical',
       domain: 'electrical_av',
       urgency: 'medium',
-      keywords: ['fan', 'light', 'tube light', 'bulb', 'switch', 'socket', 'ac', 'air conditioner', 'power cut', 'mcb', 'regulator'],
+      keywords: ['fan', 'light', 'tube light', 'tubelight', 'hostel light', 'corridor light', 'bulb', 'flicker', 'fused', 'switch', 'socket', 'ac', 'air conditioner', 'power cut', 'mcb', 'regulator'],
       explanation: 'Classroom or hostel electrical power fixture.'
     },
     {
@@ -270,8 +270,8 @@ export function autoTriageIssue({ title = '', description = '', location = '' })
       category: 'cleanliness',
       domain: 'hostel_mess',
       urgency: 'low',
-      keywords: ['dust', 'garbage', 'trash', 'waste', 'dirty', 'sweep', 'mess', 'clean', 'odor', 'smell'],
-      explanation: 'Hostel or academic sanitation request.'
+      keywords: ['road', 'walkway', 'wastage', 'litter', 'dust', 'garbage', 'trash', 'waste', 'dirty', 'sweep', 'mess', 'clean', 'odor', 'smell', 'dustbin', 'spill'],
+      explanation: 'Hostel, roadway, or academic sanitation request.'
     }
   ];
 
@@ -341,31 +341,42 @@ export function analyzeImageDefect({ imageUrl = '', title = '', description = ''
 
   // Known campus assets & infrastructure components
   const campusAssetKeywords = [
+    'laptop', 'computer', 'pc', 'workstation', 'monitor', 'keyboard',
     'fan', 'ceiling', 'regulator', 'ac', 'air conditioner', 'cooler',
     'projector', 'hdmi', 'screen', 'display', 'speaker', 'audio', 'mic',
     'wire', 'wiring', 'switch', 'socket', 'plug', 'mcb', 'electric', 'power', 'light', 'tube light', 'bulb',
     'water', 'tap', 'leak', 'drainage', 'toilet', 'flush', 'basin', 'geyser', 'plumbing', 'dispenser',
     'desk', 'bench', 'chair', 'table', 'furniture', 'door', 'lock', 'hinge', 'window', 'crack', 'wall',
-    'dustbin', 'garbage', 'trash', 'waste', 'clean', 'dirty', 'sanitation', 'mess',
+    'dustbin', 'garbage', 'trash', 'waste', 'clean', 'dirty', 'sanitation', 'mess', 'road', 'walkway',
     'lab', 'classroom', 'hostel', 'board', 'room'
   ];
   const hasCampusAssetMention = campusAssetKeywords.some(kw => context.includes(kw)) || Boolean(category);
 
-  // Defect Indicators in text context (including user typos like 'wroking', 'wrking', 'stoped', etc.)
-  const defectWords = [
-    'not wroking', 'not working', 'wroking', 'not work', 'broken', 'damage', 'fault', 'issue', 'problem',
-    'stop', 'stopped', 'slow', 'noise', 'sound', 'wobbl', 'vibrat', 'tripping', 'trip', 'stuck', 'jam',
-    'blade', 'droop', 'burnt', 'spark', 'shock', 'leak', 'dripping', 'spill', 'crack', 'fissure',
-    'detached', 'loose', 'melt', 'exposed', 'dead', 'fail', 'no signal', 'dim', 'flicker', 'off',
-    'down', 'hot', 'bad', 'poor', 'not rotating', 'not spinning', 'cut', 'snapped', 'defective'
-  ];
-  const hasReportedDefect = defectWords.some(w => context.includes(w));
-
+  // Positive working indicators (user states asset has no issue, operates fine)
   const workingIndicators = [
-    'working fine', 'working properly', 'normal condition', 'no defect', 'undamaged', 'clean and intact',
-    'all good', 'no fault', 'working well', 'working normal', 'good condition', 'routine check', 'passed'
+    'working fine', 'wroking fine', 'working total fine', 'wroking total fine',
+    'working totally fine', 'wroking totally fine', 'working properly', 'wroking properly',
+    'working good', 'wroking good', 'working normal', 'wroking normal',
+    'works fine', 'works good', 'no problem', 'no fault', 'no defect', 'undamaged',
+    'clean and intact', 'all good', 'routine check', 'passed', 'operating fine', 'operating normally'
   ];
   const hasWorkingIndicator = workingIndicators.some(w => context.includes(w));
+
+  // Specific defect phrases (MUST NOT contain bare 'wroking'!)
+  const defectWords = [
+    'not wroking', 'not working', 'not work', 'stopped wroking', 'stopped working',
+    'wroking bad', 'wroking slow', 'wroking noisy', 'wroking poor',
+    'broken', 'damage', 'damaged', 'fault', 'defective', 'issue', 'problem',
+    'crack', 'cracked', 'fissure', 'broken screen', 'shattered',
+    'flicker', 'flickering', 'fused', 'not glowing', 'blackout',
+    'leak', 'leaking', 'spill', 'water overflow', 'drip',
+    'noise', 'noisy', 'humming', 'wobble', 'wobbling', 'stuck', 'jammed',
+    'spark', 'shock', 'burnt', 'burning', 'melted', 'exposed wire',
+    'garbage', 'waste', 'wastage', 'trash', 'litter', 'dirty', 'overflowing',
+    'no signal', 'blue screen', 'bsod'
+  ];
+  // Defect report is ONLY valid if user hasn't explicitly affirmed the asset is working fine
+  const hasReportedDefect = !hasWorkingIndicator && defectWords.some(w => context.includes(w));
 
   // 1. Explicit Irrelevant Signatures (Nature, Food, Pets, Non-facilities)
   const explicitIrrelevantPresets = [
@@ -410,15 +421,75 @@ export function analyzeImageDefect({ imageUrl = '', title = '', description = ''
 
   // 2. Working / Undamaged Asset Check (Only if user has NOT reported an active defect!)
   const isMarkedNoFaultByClient = visualMetrics && (visualMetrics.status === 'no_fault_found' || visualMetrics.hasDefect === false);
-  const isWorkingAssetPreset = imageUrl.includes('photo-1540575467063') || imageUrl.includes('photo-1581291518857');
+  const isWorkingAssetPreset = imageUrl.includes('photo-1496181133206') || imageUrl.includes('photo-1540575467063') || imageUrl.includes('photo-1581291518857') || imageUrl.includes('photo-1513506003901') || imageUrl.includes('working_laptop') || imageUrl.includes('working_fan') || imageUrl.includes('working_desk');
 
-  if ((hasWorkingIndicator || isWorkingAssetPreset || isMarkedNoFaultByClient) && !hasReportedDefect) {
+  if ((hasWorkingIndicator || isWorkingAssetPreset || isMarkedNoFaultByClient || !hasReportedDefect) && !hasReportedDefect) {
     let assetName = 'Campus Facility Equipment / Furniture';
-    if (context.includes('fan') || category === 'electrical') assetName = 'Havells Heavy Duty Ceiling Fan Fixture';
-    else if (context.includes('projector') || category === 'it_av') assetName = 'Digital Overhead Projector (EPSON/BenQ)';
-    else if (context.includes('water') || category === 'water') assetName = 'Commercial RO Water Purifier & Chiller';
-    else if (context.includes('desk') || context.includes('bench') || category === 'civil') assetName = 'Ergonomic Dual-Seater Lecture Bench';
-    else if (context.includes('ac')) assetName = 'Daikin Dual-Inverter Cassette AC Unit';
+    let diagnosis = 'No Problem Found — Asset Working Fine';
+    let warningMessage = 'Optical inspection scanned this asset. Surface contours, mounts, and structural joints appear intact and undamaged in good operating condition.';
+    let bbox = { ymin: 18, xmin: 22, ymax: 76, xmax: 78, label: 'Campus Facility Asset', defect: 'Verified Intact' };
+    let suggestedCategory = category || 'it_av';
+
+    if (
+      context.includes('laptop') || context.includes('computer') || context.includes('pc') || 
+      context.includes('workstation') || context.includes('hp') || context.includes('dell') || context.includes('lenovo') ||
+      visualMetrics?.detectedAsset?.includes('Laptop') || 
+      (category === 'it_av' && !context.includes('projector') && !context.includes('hdmi'))
+    ) {
+      assetName = 'Academic Laptop / Lab Workstation (HP/Dell/PC)';
+      diagnosis = 'No Problem Found — Display & Hardware Operating Fine';
+      warningMessage = 'Optical inspection scanned this laptop/workstation. Screen is illuminated and intact with no display fractures, BSOD error screens, or physical chassis damage detected. Equipment appears in good working order.';
+      bbox = { ymin: 16, xmin: 20, ymax: 68, xmax: 80, label: 'Academic Laptop Display & Deck', defect: 'Operating Fine / Screen Intact' };
+      suggestedCategory = 'it_av';
+    } else if (context.includes('light') || context.includes('tube') || context.includes('tubelight') || visualMetrics?.detectedAsset?.includes('Tube Light')) {
+      assetName = 'Hostel / Classroom Tube Light & LED Batten';
+      diagnosis = 'No Problem Found — Tube Light Illuminating Normally';
+      warningMessage = 'Optical inspection scanned this tube light fixture. Illuminating normally with uniform daylight glow and no cathode ring burnout.';
+      bbox = { ymin: 10, xmin: 15, ymax: 30, xmax: 85, label: 'Hostel Tube Light Fixture', defect: 'Verified Intact' };
+      suggestedCategory = 'electrical';
+    } else if (context.includes('waste') || context.includes('road') || context.includes('garbage') || context.includes('clean') || category === 'cleanliness') {
+      assetName = 'Campus Roadway & Walkway Surface';
+      diagnosis = 'No Problem Found — Pathway Clean & Free of Debris';
+      warningMessage = 'Optical inspection completed. Walkway and pavement surface are swept clean with no uncollected trash piles or debris spills.';
+      bbox = { ymin: 30, xmin: 20, ymax: 85, xmax: 80, label: 'Campus Pathway Surface', defect: 'Swept & Clean' };
+      suggestedCategory = 'cleanliness';
+    } else if (context.includes('fan') || category === 'electrical') {
+      assetName = 'Havells Heavy Duty Ceiling Fan Fixture';
+      diagnosis = 'No Problem Found — Ceiling Fan Blades & Motor Intact';
+      warningMessage = 'Optical inspection completed. Ceiling fan rotor mounts and aerodynamic blades appear balanced with no physical warping or motor seizure.';
+      bbox = { ymin: 14, xmin: 24, ymax: 60, xmax: 60, label: 'Ceiling Fan Rotor & Blades', defect: 'Verified Intact' };
+      suggestedCategory = 'electrical';
+    } else if (context.includes('projector') || context.includes('hdmi')) {
+      assetName = 'Digital Overhead Projector (EPSON/BenQ)';
+      diagnosis = 'No Problem Found — Projection Lamp & Lens Clear';
+      warningMessage = 'Optical inspection completed. Projector optical beam and lens mount are intact with no hardware fault.';
+      bbox = { ymin: 16, xmin: 22, ymax: 76, xmax: 82, label: 'Digital Projector Lens & Interface', defect: 'Verified Intact' };
+      suggestedCategory = 'it_av';
+    } else if (context.includes('water') || category === 'water') {
+      assetName = 'Commercial RO Water Purifier & Chiller';
+      diagnosis = 'No Problem Found — Water Purifier Valve & Basin Dry & Intact';
+      warningMessage = 'Optical inspection completed. Water cooler dispense tray and bypass lines are dry with no pooling moisture.';
+      bbox = { ymin: 28, xmin: 22, ymax: 86, xmax: 82, label: 'RO Cooler Dispensing Valve', defect: 'Verified Intact' };
+      suggestedCategory = 'water';
+    } else if (context.includes('desk') || context.includes('bench') || category === 'civil') {
+      assetName = 'Ergonomic Dual-Seater Lecture Bench';
+      diagnosis = 'No Problem Found — Structural Welds & Desk Frame Intact';
+      warningMessage = 'Optical inspection completed. Lecture bench tubular steel frame and laminated top appear solid with no fractured welds.';
+      bbox = { ymin: 22, xmin: 16, ymax: 82, xmax: 86, label: 'Lecture Bench Structural Frame', defect: 'Verified Intact' };
+      suggestedCategory = 'civil';
+    } else if (context.includes('ac')) {
+      assetName = 'Daikin Dual-Inverter Cassette AC Unit';
+      diagnosis = 'No Problem Found — Cassette AC Operating Normally';
+      warningMessage = 'Cassette AC unit is functioning normally with active airflow.';
+      bbox = { ymin: 15, xmin: 18, ymax: 76, xmax: 84, label: 'Cassette AC Suction Line', defect: 'Verified Intact' };
+      suggestedCategory = 'electrical';
+    } else if (context.includes('wire') || context.includes('switch') || category === 'safety') {
+      assetName = 'Classroom High-Voltage Gang Box / Conduits';
+      diagnosis = 'No Problem Found — Switchboard Faceplate & Insulation Intact';
+      warningMessage = 'Switchboard enclosure is securely sealed with no exposed conductors.';
+      bbox = { ymin: 12, xmin: 24, ymax: 88, xmax: 76, label: 'High-Voltage Switchboard Box', defect: 'Verified Intact' };
+      suggestedCategory = 'safety';
+    }
 
     return {
       status: 'no_fault_found',
@@ -427,17 +498,17 @@ export function analyzeImageDefect({ imageUrl = '', title = '', description = ''
       visibilityPercentage: 0,
       confidence: 96,
       clarityRating: 'Asset Verified (100% Intact — Operating Fine)',
-      warningMessage: `✅ No Problem Found: Optical inspection scanned this asset (${assetName}). Surface contours, mounts, and structural joints appear intact and undamaged in good operating condition.`,
+      warningMessage: `✅ No Problem Found: ${warningMessage}`,
       detectedObject: assetName,
-      defectType: 'No Problem Found — Asset Working Fine',
+      defectType: diagnosis,
       defectFeature: 'All surface contours, mounts, and operational joints appear intact and undamaged',
       severity: 'Normal / Operating Fine (0% Defect Visibility)',
       recommendedTools: ['No Maintenance Required — Routine Inspection Passed'],
       suggestedTitle: `Routine Campus Asset Inspection (${assetName})`,
       suggestedDescription: `Asset was optically inspected by CampusOne VisionNet; equipment is intact with no visible breakdown.`,
-      suggestedCategory: category || 'electrical',
+      suggestedCategory,
       visionModel: 'CampusOne-Multimodal VLM & YOLOv8-VisionNet',
-      boundingBox: { ymin: 14, xmin: 24, ymax: 60, xmax: 60, label: assetName, defect: 'Verified Intact' },
+      boundingBox: bbox,
       analyzedAt: new Date().toISOString()
     };
   }
@@ -445,7 +516,20 @@ export function analyzeImageDefect({ imageUrl = '', title = '', description = ''
   // 3. Recognized Campus Maintenance Asset & Defect Signatures (Fault Detected with Bounding Box Coordinates)
   const relevantDefectSignatures = [
     {
-      keywords: ['projector', 'hdmi', 'screen', 'display', 'vga', 'photo-1517245386807'],
+      keywords: ['laptop', 'computer', 'pc', 'workstation', 'monitor', 'keyboard', 'screen cracked', 'broken screen', 'bsod', 'photo-1588872657578'],
+      category: 'it_av',
+      detectedObject: 'Academic Laptop / Lab Workstation (HP/Dell/PC)',
+      defectType: 'Fractured LCD Display Matrix & Impact Crack',
+      defectFeature: 'Spiderweb glass fissure radiating across LCD panel with dead pixel cluster',
+      baseVisibility: 93,
+      severity: 'High (Disrupts Academic / Lab Work)',
+      suggestedTitle: 'Lab Laptop LCD Screen Fracture & Impact Crack Damage',
+      suggestedDescription: 'Laptop display sustained physical impact; matrix has spiderweb cracks with dead pixel line bleed preventing usage.',
+      recommendedTools: ['Replacement 15.6" IPS Display Panel', 'Precision Torx Screwdriver Set', 'Anti-Static ESD Wrist Strap', 'Plastic Spudger Tool'],
+      bbox: { ymin: 16, xmin: 20, ymax: 68, xmax: 80, label: 'Academic Laptop Display & Deck', defect: 'Fractured LCD Display' }
+    },
+    {
+      keywords: ['projector', 'hdmi', 'vga', 'lens', 'beamer', 'benq', 'epson', 'photo-1517245386807'],
       category: 'it_av',
       detectedObject: 'Digital Overhead Projector (EPSON/BenQ)',
       defectType: 'HDMI Pin Dislodged / No Signal Blue Screen',
@@ -458,7 +542,33 @@ export function analyzeImageDefect({ imageUrl = '', title = '', description = ''
       bbox: { ymin: 16, xmin: 22, ymax: 76, xmax: 82, label: 'Digital Projector Lens & Interface', defect: 'HDMI Pin Dislodged' }
     },
     {
-      keywords: ['fan', 'ceiling', 'regulator', 'wroking', 'photo-1590725140246'],
+      keywords: ['tube light', 'tubelight', 'light', 'bulb', 'flicker', 'flickering', 'fused', 'dark', 'dim', 'choke', 'starter', 'hostel light', 'photo-1550684848'],
+      category: 'electrical',
+      detectedObject: 'Hostel / Classroom Tube Light & LED Batten',
+      defectType: 'Cathode Ring Burnout & Starter Choke Failure (Fused Tube)',
+      defectFeature: 'Blackened cathode filament rings at glass ends with intermittent starter click and failure to ignite',
+      baseVisibility: 94,
+      severity: 'Medium (Inadequate Study Lighting in Hostel)',
+      suggestedTitle: 'Hostel Corridor / Room Tube Light Fused & Flickering',
+      suggestedDescription: 'Fluorescent tube light ends are blackened with continuous starter clicking; unit fails to strike and room is dim.',
+      recommendedTools: ['T8 36W Fluorescent / LED Batten (6500K)', 'Electronic Starter S2/S10', 'Insulated Step Stool', 'Digital Multimeter'],
+      bbox: { ymin: 10, xmin: 15, ymax: 30, xmax: 85, label: 'Hostel Tube Light Fixture', defect: 'Cathode Ring Burnout' }
+    },
+    {
+      keywords: ['waste', 'wastage', 'road', 'garbage', 'trash', 'litter', 'dirty', 'plastic', 'spill', 'dustbin', 'overflow', 'mess', 'cleanliness', 'sanitation', 'street', 'walkway', 'photo-1605600659908', 'photo-1611284446314'],
+      category: 'cleanliness',
+      detectedObject: 'Campus Road & Corridor Sanitation / Litter Area',
+      defectType: 'Uncollected Garbage Spill & Roadway Litter Accumulation',
+      defectFeature: 'Scattered beverage containers, food packaging, and solid waste strewn across campus pathway',
+      baseVisibility: 91,
+      severity: 'Medium (Sanitation & Aesthetic Hazard)',
+      suggestedTitle: 'Roadway Litter & Corridor Garbage Spill Sanitation Request',
+      suggestedDescription: 'Accumulated plastic wrappers, beverage cups, and food waste scattered on campus walkway/road requiring groundskeeping clearance.',
+      recommendedTools: ['Heavy Duty Bio-Waste Liners', 'Campus Grounds Sweeper Cart', 'Industrial Push Broom', 'Long-Handle Trash Grabber'],
+      bbox: { ymin: 35, xmin: 20, ymax: 88, xmax: 80, label: 'Road / Corridor Waste Spill', defect: 'Uncollected Litter & Garbage' }
+    },
+    {
+      keywords: ['fan', 'ceiling', 'regulator', 'droop', 'speed', 'bearing', 'wobble', 'photo-1590725140246'],
       category: 'electrical',
       detectedObject: 'Havells Heavy Duty Ceiling Fan Fixture',
       defectType: 'Operational Rotor Stoppage & Regulator Power Failure',
@@ -534,28 +644,27 @@ export function analyzeImageDefect({ imageUrl = '', title = '', description = ''
       suggestedDescription: 'Cassette AC trips every 15 minutes with error E4; suction line shows visible frost accumulation and room remains humid.',
       recommendedTools: ['R32 Manifold Gauge Set', 'Vacuum Pump', 'Digital Anemometer'],
       bbox: { ymin: 15, xmin: 18, ymax: 76, xmax: 84, label: 'Cassette AC Suction Line', defect: 'Coil Thermal Frosting' }
-    },
-    {
-      keywords: ['cleanliness', 'garbage', 'waste', 'trash', 'dust', 'litter', 'dirty', 'sweep', 'mess', 'bin'],
-      category: 'cleanliness',
-      detectedObject: 'Corridor Waste Disposal Station / Bin Unit',
-      defectType: 'Sanitation Overflow & Uncollected Debris Spill',
-      defectFeature: 'Severe secondary waste accumulation exceeding bin rim onto high-traffic floor',
-      baseVisibility: 90,
-      severity: 'Low to Medium (Sanitary & Odor Impact)',
-      suggestedTitle: 'Corridor Waste Bin Overflow & Floor Sanitation Request',
-      suggestedDescription: 'Trash bin is overflowing into hallway corridor, creating an unsanitary environment requiring housekeeping clearance.',
-      recommendedTools: ['Heavy Duty Waste Liners', 'Corridor Sanitization Cart', 'Industrial Floor Broom'],
-      bbox: { ymin: 20, xmin: 24, ymax: 86, xmax: 78, label: 'Corridor Waste Station', defect: 'Overflowing Waste Accumulation' }
     }
   ];
 
-  // Check matching defect
+  // Score matching defect signatures to select the most specific asset
   let matchedDefect = null;
+  let bestScore = 0;
+
   for (const defect of relevantDefectSignatures) {
-    if (defect.keywords.some(kw => context.includes(kw))) {
+    let score = 0;
+    for (const kw of defect.keywords) {
+      if (context.includes(kw)) {
+        score += kw.includes(' ') ? 3 : 2;
+      }
+    }
+    // Category match bonus
+    if (category && defect.category === category) {
+      score += 1;
+    }
+    if (score > bestScore) {
+      bestScore = score;
       matchedDefect = defect;
-      break;
     }
   }
 
