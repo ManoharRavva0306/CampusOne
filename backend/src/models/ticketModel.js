@@ -196,11 +196,16 @@ export function saveUsersToDB(users) {
   writeDB(db);
 }
 
-// Add user to DB
+// Add or update user in DB
 export function addUserToDB(user) {
   const db = readDB();
   db.users = db.users || [];
-  db.users.unshift(user);
+  const existingIdx = db.users.findIndex(u => u.id === user.id || (user.email && u.email && u.email.toLowerCase() === user.email.toLowerCase()));
+  if (existingIdx >= 0) {
+    db.users[existingIdx] = { ...db.users[existingIdx], ...user };
+  } else {
+    db.users.unshift(user);
+  }
   writeDB(db);
   return user;
 }
@@ -209,7 +214,12 @@ export function addUserToDB(user) {
 export function addBulkUsersToDB(newUsers) {
   const db = readDB();
   db.users = db.users || [];
-  db.users = [...newUsers, ...db.users];
+  const userMap = new Map();
+  // Keep existing
+  db.users.forEach(u => userMap.set((u.email || u.id).toLowerCase(), u));
+  // Upsert new
+  newUsers.forEach(u => userMap.set((u.email || u.id).toLowerCase(), u));
+  db.users = Array.from(userMap.values());
   writeDB(db);
   return newUsers;
 }

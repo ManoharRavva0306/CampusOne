@@ -77,7 +77,10 @@ export function login(req, res) {
     (u.name && u.name.toLowerCase() === loginId)
   );
 
-  if (!user || (user.password !== password && password !== 'amrita123')) {
+  const cleanInputPass = (password || '').toString().trim();
+  const storedPass = (user?.password || '').toString().trim();
+
+  if (!user || (storedPass !== cleanInputPass && cleanInputPass !== 'amrita123')) {
     return res.status(401).json({
       success: false,
       message: 'Invalid credentials. Ensure your institutional email/rollNo & password are correct.'
@@ -93,7 +96,8 @@ export function login(req, res) {
     success: true,
     message: `Signed in as ${user.name} (${user.role})`,
     token,
-    user: safeUser
+    user: safeUser,
+    fullUser: user
   });
 }
 
@@ -157,16 +161,31 @@ export function createUser(req, res) {
     return res.status(400).json({ success: false, message: 'Name, email, password, and role are required' });
   }
 
+  const cleanEmail = email.toLowerCase().trim();
   const users = getUsersFromDB();
-  const exists = users.find(u => u.email && u.email.toLowerCase() === email.toLowerCase().trim());
+  const exists = users.find(u =>
+    (u.email && u.email.toLowerCase() === cleanEmail) ||
+    (req.body.id && u.id && u.id.toLowerCase() === req.body.id.toLowerCase().trim()) ||
+    (req.body.rollNo && u.rollNo && u.rollNo.toLowerCase() === req.body.rollNo.toLowerCase().trim())
+  );
+
   if (exists) {
-    return res.status(409).json({ success: false, message: 'A user with this email already exists in the database' });
+    const updated = {
+      ...exists,
+      ...req.body,
+      email: cleanEmail,
+      password: password.trim(),
+      updatedAt: new Date().toISOString()
+    };
+    addUserToDB(updated);
+    const { password: _, ...safeUser } = updated;
+    return res.status(200).json({ success: true, message: 'User updated successfully in registry', user: safeUser, fullUser: updated });
   }
 
-  const newUser = buildUserObject(req.body, 0);
+  const newUser = buildUserObject({ ...req.body, email: cleanEmail, password: password.trim() }, 0);
   addUserToDB(newUser);
   const { password: _, ...safeUser } = newUser;
-  res.status(201).json({ success: true, user: safeUser, fullUser: newUser });
+  res.status(201).json({ success: true, message: 'User registered successfully', user: safeUser, fullUser: newUser });
 }
 
 // POST /api/auth/users/bulk-import (Main Admin imports multiple users from Excel / CSV)

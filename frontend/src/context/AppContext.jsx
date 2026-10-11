@@ -62,8 +62,41 @@ export function AppProvider({ children }) {
     try {
       const savedId = localStorage.getItem(CURRENT_USER_KEY);
       if (savedId === 'LOGGED_OUT') return null;
+
+      // 1. Check cached full profile
+      const savedProfile = localStorage.getItem('campusone_user_profile');
+      if (savedProfile) {
+        try {
+          const profile = JSON.parse(savedProfile);
+          if (profile && (!savedId || profile.id === savedId || (profile.email && profile.email.toLowerCase() === savedId?.toLowerCase()))) {
+            return profile;
+          }
+        } catch (_) {}
+      }
+
+      // 2. Check stored users pool
+      const savedUsersRaw = localStorage.getItem(USERS_STORAGE_KEY);
+      if (savedUsersRaw && savedId) {
+        try {
+          const parsedUsers = JSON.parse(savedUsersRaw);
+          if (Array.isArray(parsedUsers)) {
+            const foundInStored = parsedUsers.find(u =>
+              u.id === savedId ||
+              (u.email && u.email.toLowerCase() === savedId.toLowerCase()) ||
+              (u.rollNo && u.rollNo.toLowerCase() === savedId.toLowerCase())
+            );
+            if (foundInStored) return foundInStored;
+          }
+        } catch (_) {}
+      }
+
+      // 3. Fallback to static mock USERS
       if (savedId) {
-        const found = USERS.find(u => u.id === savedId);
+        const found = USERS.find(u =>
+          u.id === savedId ||
+          (u.email && u.email.toLowerCase() === savedId.toLowerCase()) ||
+          (u.rollNo && u.rollNo.toLowerCase() === savedId.toLowerCase())
+        );
         if (found) return found;
       }
       return null;
@@ -157,8 +190,12 @@ export function AppProvider({ children }) {
   useEffect(() => {
     if (currentUser) {
       localStorage.setItem(CURRENT_USER_KEY, currentUser.id);
+      try {
+        localStorage.setItem('campusone_user_profile', JSON.stringify(currentUser));
+      } catch (_) {}
     } else {
       localStorage.setItem(CURRENT_USER_KEY, 'LOGGED_OUT');
+      localStorage.removeItem('campusone_user_profile');
     }
   }, [currentUser]);
 
@@ -179,45 +216,105 @@ export function AppProvider({ children }) {
     return 'feed';
   };
 
-  // Institutional Login with Roll No / Staff ID or Email
-  const login = (identifier, password) => {
+  // Institutional Login with Roll No / Staff ID or Email (Hybrid: Local Cache + Backend Server)
+  const login = async (identifier, password) => {
     const cleanId = (identifier || '').trim().toLowerCase();
+    const cleanPass = (password || '').trim();
+
+    if (!cleanId) {
+      return {
+        success: false,
+        error: 'Please enter your institutional email or roll number.',
+        message: 'Please enter your institutional email or roll number.'
+      };
+    }
+
+    // 1. Fast check against in-memory user pool
     const pool = userList && userList.length > 0 ? userList : USERS;
-    const user = pool.find(u =>
+    const localUser = pool.find(u =>
       (u.rollNo && u.rollNo.toLowerCase() === cleanId) ||
       (u.email && u.email.toLowerCase() === cleanId) ||
       (u.id && u.id.toLowerCase() === cleanId) ||
       (u.name && u.name.toLowerCase() === cleanId)
     );
 
-    if (!user) {
+    if (localUser) {
+      const storedPass = (localUser.password || '').trim();
+      if (!storedPass || storedPass === cleanPass || cleanPass === 'amrita123') {
+        setCurrentUser(localUser);
+        setShowLoginModal(false);
+        const targetTab = getDefaultTabForRole(localUser.role);
+        setActiveTab(targetTab);
+        appendAuditLog('User Authenticated', `${localUser.name} (${localUser.role})`, '🔑');
+        showNotification(`Signed in as ${localUser.name} (${localUser.role.replace('_', ' ').toUpperCase()})`, 'success');
+        return { success: true, user: localUser };
+      }
+    }
+
+    // 2. Query Server Database /api/auth/login for cross-device/server-synced credentials
+    try {
+      const serverRes = await api.login(cleanId, cleanPass);
+      if (serverRes && serverRes.success && (serverRes.user || serverRes.fullUser)) {
+        const authedUser = serverRes.fullUser || serverRes.user;
+
+        // Upsert into local userList so local cache stays fresh
+        setUserList(prev => {
+          const idx = prev.findIndex(u =>
+            u.id === authedUser.id ||
+            (u.email && u.email.toLowerCase() === authedUser.email?.toLowerCase()) ||
+            (u.rollNo && u.rollNo.toLowerCase() === authedUser.rollNo?.toLowerCase())
+          );
+          let updated;
+          if (idx !== -1) {
+            updated = [...prev];
+            updated[idx] = { ...updated[idx], ...authedUser };
+          } else {
+            updated = [authedUser, ...prev];
+          }
+          try {
+            localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(updated));
+          } catch (_) {}
+          return updated;
+        });
+
+        setCurrentUser(authedUser);
+        setShowLoginModal(false);
+        const targetTab = getDefaultTabForRole(authedUser.role);
+        setActiveTab(targetTab);
+        appendAuditLog('User Authenticated', `${authedUser.name} (${authedUser.role})`, '🔑');
+        showNotification(`Signed in as ${authedUser.name} (${authedUser.role.replace('_', ' ').toUpperCase()})`, 'success');
+        return { success: true, user: authedUser };
+      } else if (serverRes && !serverRes.success) {
+        return {
+          success: false,
+          error: serverRes.message || 'Invalid institutional credentials.',
+          message: serverRes.message || 'Invalid institutional credentials.'
+        };
+      }
+    } catch (err) {
+      console.warn('Backend login attempt failed:', err);
+    }
+
+    if (localUser) {
       return {
         success: false,
-        error: 'University account not found in student/staff registry. Accounts are provisioned by Main Admin.'
+        error: `Incorrect password. (Hint: ${localUser.password || 'student123'})`,
+        message: `Incorrect password. (Hint: ${localUser.password || 'student123'})`
       };
     }
 
-    if (password && user.password && password !== user.password && password !== 'amrita123') {
-      return {
-        success: false,
-        error: `Incorrect password. (Hint for this account: ${user.password})`
-      };
-    }
-
-    setCurrentUser(user);
-    setShowLoginModal(false);
-    const targetTab = getDefaultTabForRole(user.role);
-    setActiveTab(targetTab);
-    appendAuditLog('User Authenticated', `${user.name} (${user.role})`, '🔑');
-    showNotification(`Signed in as ${user.name} (${user.role.replace('_', ' ').toUpperCase()})`, 'success');
-
-    return { success: true, user };
+    return {
+      success: false,
+      error: 'University account not found in student/staff registry. Accounts are provisioned by Main Admin.',
+      message: 'University account not found in student/staff registry. Accounts are provisioned by Main Admin.'
+    };
   };
 
   // Sign out
   const logout = () => {
     setCurrentUser(null);
     localStorage.setItem(CURRENT_USER_KEY, 'LOGGED_OUT');
+    localStorage.removeItem('campusone_user_profile');
     showNotification('You have signed out from CampusOne.', 'info');
   };
 
@@ -635,12 +732,39 @@ export function AppProvider({ children }) {
         : `${role.replace('_', ' ').toUpperCase()} — ${department}`
     };
 
-    const res = await api.createUser(localUser);
-    const savedUser = (res && res.success && (res.fullUser || res.user)) ? { ...localUser, ...(res.fullUser || res.user) } : localUser;
+    let serverSaved = null;
+    try {
+      const res = await api.createUser(localUser);
+      if (res && res.success) {
+        serverSaved = res.fullUser || res.user;
+      }
+    } catch (e) {
+      console.warn('Backend user creation error:', e);
+    }
 
-    setUserList(prev => [savedUser, ...prev]);
+    const savedUser = serverSaved ? { ...localUser, ...serverSaved } : localUser;
+
+    setUserList(prev => {
+      const existingIdx = prev.findIndex(u =>
+        u.id === savedUser.id ||
+        (u.email && u.email.toLowerCase() === savedUser.email?.toLowerCase()) ||
+        (u.rollNo && u.rollNo.toLowerCase() === savedUser.rollNo?.toLowerCase())
+      );
+      let updatedList;
+      if (existingIdx !== -1) {
+        updatedList = [...prev];
+        updatedList[existingIdx] = { ...updatedList[existingIdx], ...savedUser };
+      } else {
+        updatedList = [savedUser, ...prev];
+      }
+      try {
+        localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(updatedList));
+      } catch (_) {}
+      return updatedList;
+    });
+
     appendAuditLog(`Created User (${savedUser.role})`, savedUser.name, '👤');
-    showNotification(`User "${savedUser.name}" (${savedUser.role}) provisioned with role-based credentials!`, 'success');
+    showNotification(`User "${savedUser.name}" (${savedUser.role}) provisioned! Credentials: ${savedUser.rollNo} / ${savedUser.email}`, 'success');
     return { success: true, user: savedUser };
   };
 
@@ -715,8 +839,25 @@ export function AppProvider({ children }) {
       return { success: false, count: 0 };
     }
 
-    await api.bulkImportUsers(preparedUsers).catch(() => {});
-    setUserList(prev => [...preparedUsers, ...prev]);
+    try {
+      await api.bulkImportUsers(preparedUsers);
+    } catch (_) {}
+
+    setUserList(prev => {
+      const mergedMap = new Map();
+      [...preparedUsers, ...prev].forEach(u => {
+        const key = (u.email || u.rollNo || u.id).toLowerCase();
+        if (!mergedMap.has(key)) {
+          mergedMap.set(key, u);
+        }
+      });
+      const updatedList = Array.from(mergedMap.values());
+      try {
+        localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(updatedList));
+      } catch (_) {}
+      return updatedList;
+    });
+
     appendAuditLog(`Excel Multi-User Import (${preparedUsers.length} users)`, currentUser?.name || 'Main Admin', '📊');
     showNotification(`Successfully imported ${preparedUsers.length} users from Excel data!`, 'success');
     return { success: true, count: preparedUsers.length, users: preparedUsers };

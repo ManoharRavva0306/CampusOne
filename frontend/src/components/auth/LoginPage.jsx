@@ -113,18 +113,21 @@ export default function LoginPage() {
     }
   ];
 
-  const handleFormSubmit = (e) => {
+  const handleFormSubmit = async (e) => {
     e.preventDefault();
     setErrorMessage('');
     setIsLoading(true);
 
-    setTimeout(() => {
-      const result = login(email, password);
+    try {
+      const result = await login(email, password);
       setIsLoading(false);
-      if (!result.success) {
-        setErrorMessage(result.message);
+      if (!result || !result.success) {
+        setErrorMessage(result?.error || result?.message || 'Invalid institutional credentials.');
       }
-    }, 350);
+    } catch (err) {
+      setIsLoading(false);
+      setErrorMessage(err.message || 'Login failed. Please try again.');
+    }
   };
 
   const handleQuickLogin = (persona) => {

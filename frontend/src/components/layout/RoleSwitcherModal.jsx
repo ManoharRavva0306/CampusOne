@@ -34,16 +34,16 @@ export default function RoleSwitcherModal({ onClose, onAuthSuccess }) {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState(null);
 
-  const handleLoginSubmit = (e) => {
+  const handleLoginSubmit = async (e) => {
     e.preventDefault();
     setError(null);
 
-    const result = login(identifier, password);
-    if (result.success) {
+    const result = await login(identifier, password);
+    if (result && result.success) {
       if (onAuthSuccess) onAuthSuccess();
       onClose();
     } else {
-      setError(result.error);
+      setError(result?.error || result?.message || 'Login failed. Please check your credentials.');
     }
   };
 

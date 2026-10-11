@@ -51,7 +51,7 @@ export function writeDB(data) {
   try {
     fs.writeFileSync(
       path.join(DATA_DIR, 'postgres_cache.json'),
-      JSON.stringify({ users: inMemoryUsers, tickets: inMemoryTickets, USERS: inMemoryUsers, INITIAL_TICKETS: inMemoryTickets }, null, 2),
+      JSON.stringify({ users: inMemoryUsers, tickets: inMemoryTickets }, null, 2),
       'utf8'
     );
 
