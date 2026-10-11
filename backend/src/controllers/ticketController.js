@@ -9,15 +9,19 @@ import { calculatePriorityScore } from '../services/priorityService.js';
 import { findDuplicateTickets } from '../services/aiDuplicateService.js';
 import { filterTicketsByScope } from '../middleware/scopeAuthMiddleware.js';
 
-// Get tickets with scope privacy applied
+// Get tickets (returns live tickets from database; supports optional scope filtering)
 export function getTickets(req, res) {
   const users = getUsersFromDB();
   const tickets = getTicketsFromDB();
-  const userId = req.headers['x-user-id'] || 'user_arjun';
-  const user = users.find(u => u.id === userId) || users[0];
+  const userId = req.headers['x-user-id'] || req.query.userId;
+  const user = userId ? users.find(u => u.id === userId) : null;
 
-  const visibleTickets = filterTicketsByScope(tickets, user);
-  res.json({ success: true, user, count: visibleTickets.length, tickets: visibleTickets });
+  if (req.query.scope === 'filtered' && user && user.role !== 'central_admin' && user.role !== 'super_admin') {
+    const visibleTickets = filterTicketsByScope(tickets, user);
+    return res.json({ success: true, count: visibleTickets.length, tickets: visibleTickets });
+  }
+
+  res.json({ success: true, count: tickets.length, tickets });
 }
 
 // Check duplicates via AI keyword similarity
@@ -31,64 +35,62 @@ export function checkDuplicates(req, res) {
 // Create new ticket via Decision Tree or Panel Member (Advisor / Warden)
 export function createTicket(req, res) {
   const users = getUsersFromDB();
-  const userId = req.headers['x-user-id'] || 'user_arjun';
-  const user = users.find(u => u.id === userId) || users[0];
-  const data = req.body;
+  const data = req.body || {};
+  const userId = req.headers['x-user-id'] || data.raisedBy?.id || 'user_arjun';
+  const user = users.find(u => u.id === userId) || data.raisedBy || users[0];
 
-  const isAdvisor = user.role === 'faculty_advisor';
-  const isWarden = user.role === 'hostel_warden';
+  const isAdvisor = (data.raisedBy?.role || user?.role) === 'faculty_advisor';
+  const isWarden = (data.raisedBy?.role || user?.role) === 'hostel_warden';
   const scope = data.scope || (isWarden ? 'hostel_generic' : 'class');
   const isHostelIssue = scope === 'room' || scope === 'hostel_generic';
   const isCollegeIssue = scope === 'class' || scope === 'department';
 
   const newTicket = {
     id: data.id || `TICK-${Math.floor(100 + Math.random() * 900)}`,
-    title: data.title,
-    description: data.description,
+    title: data.title || 'Untitled Campus Issue',
+    description: data.description || '',
     scope,
-    classSection: data.classSection || user.classSection || null,
-    department: data.department || user.department || 'CSE',
-    hostel: data.hostel || user.hostel || null,
-    room: data.room || user.room || null,
+    classSection: data.classSection || user?.classSection || null,
+    department: data.department || user?.department || 'CSE',
+    hostel: data.hostel || user?.hostel || null,
+    room: data.room || user?.room || null,
     location: data.location || 'Campus Academic Area',
     category: data.category || 'electrical',
     domain: data.domain || 'electrical_av',
-    raisedBy: {
-      id: user.id,
-      name: user.name,
-      role: user.role,
-      rollNo: user.rollNo || 'STAFF',
-      classSection: user.classSection || null,
-      hostel: user.hostel || null,
-      room: user.room || null,
-      avatar: user.avatar
+    raisedBy: data.raisedBy || {
+      id: user?.id || userId,
+      name: user?.name || 'Campus Member',
+      role: user?.role || 'student',
+      rollNo: user?.rollNo || 'CB.EN.U4CSE23101',
+      classSection: user?.classSection || null,
+      hostel: user?.hostel || null,
+      room: user?.room || null,
+      avatar: user?.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'
     },
-    raisedByPanel: isAdvisor ? 'advisor' : isWarden ? 'warden' : null,
-    createdAt: new Date().toISOString(),
-    status: 'reported',
-    priorityScore: data.urgency === 'emergency' ? 95 : 65,
-    upvotes: [user.id],
-    downvotes: [],
+    raisedByPanel: data.raisedByPanel || (isAdvisor ? 'advisor' : isWarden ? 'warden' : null),
+    createdAt: data.createdAt || new Date().toISOString(),
+    status: data.status || 'reported',
+    priorityScore: data.priorityScore || (data.urgency === 'emergency' ? 95 : 65),
+    upvotes: Array.isArray(data.upvotes) && data.upvotes.length > 0 ? data.upvotes : [user?.id || userId],
+    downvotes: Array.isArray(data.downvotes) ? data.downvotes : [],
     // Routing & Stage-1 Approval Metadata
-    advisorNotified: isCollegeIssue || isAdvisor,
-    advisorEndorsed: isAdvisor ? true : false,
-    advisorApprovalStatus: isAdvisor ? 'approved' : (isCollegeIssue ? 'pending' : 'not_applicable'),
-    advisorNote: isAdvisor ? 'Directly filed by Class Advisor for section priority resolution.' : '',
-    wardenNotified: isHostelIssue || isWarden,
-    wardenEndorsed: isWarden ? true : false,
-    wardenApprovalStatus: isWarden ? 'approved' : (isHostelIssue ? 'pending' : 'not_applicable'),
-    wardenNote: isWarden ? 'Directly filed by Hostel Resident Warden for Bhavan resolution.' : '',
-    forwardedToAdmin: isAdvisor || isWarden || scope === 'campus',
-    assignedTo: 'Pending Assignment',
-    eta: 'Awaiting triage',
-    adminNote: '',
+    advisorNotified: data.advisorNotified !== undefined ? data.advisorNotified : (isCollegeIssue || isAdvisor),
+    advisorEndorsed: data.advisorEndorsed !== undefined ? data.advisorEndorsed : Boolean(isAdvisor),
+    advisorApprovalStatus: data.advisorApprovalStatus || (isAdvisor ? 'approved' : (isCollegeIssue ? 'pending' : 'not_applicable')),
+    advisorNote: data.advisorNote || (isAdvisor ? 'Directly filed by Class Advisor for section priority resolution.' : ''),
+    wardenNotified: data.wardenNotified !== undefined ? data.wardenNotified : (isHostelIssue || isWarden),
+    wardenEndorsed: data.wardenEndorsed !== undefined ? data.wardenEndorsed : Boolean(isWarden),
+    wardenApprovalStatus: data.wardenApprovalStatus || (isWarden ? 'approved' : (isHostelIssue ? 'pending' : 'not_applicable')),
+    wardenNote: data.wardenNote || (isWarden ? 'Directly filed by Hostel Resident Warden for Bhavan resolution.' : ''),
+    forwardedToAdmin: data.forwardedToAdmin !== undefined ? data.forwardedToAdmin : (isAdvisor || isWarden || scope === 'campus'),
+    assignedTo: data.assignedTo || (isAdvisor || isWarden ? 'Forwarded to Main Admin' : (isHostelIssue ? `Awaiting Warden (${user?.hostel || 'Hostel'})` : `Awaiting Advisor (${user?.classSection || 'Section'})`)),
+    eta: data.eta || (isAdvisor || isWarden ? 'Priority Admin Review' : 'Pending Stage-1 Approval'),
+    adminNote: data.adminNote || '',
     imageUrl: data.imageUrl || 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=800&auto=format&fit=crop&q=80',
-    comments: []
+    comments: Array.isArray(data.comments) ? data.comments : []
   };
 
-  newTicket.priorityScore = calculatePriorityScore(newTicket, users);
   addTicketToDB(newTicket);
-
   res.status(201).json({ success: true, ticket: newTicket });
 }
 

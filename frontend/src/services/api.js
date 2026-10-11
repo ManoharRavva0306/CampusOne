@@ -1,282 +1,219 @@
-const API_BASE = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' && window.location.hostname !== 'localhost' ? '/api' : 'http://localhost:5000/api');
+// CampusOne API Service with Multi-Host Fallback (Supports Localhost, LAN Mobile, and Render Cloud)
+
+function getCandidateBases() {
+  const envUrl = import.meta.env.VITE_API_URL;
+  if (envUrl) return [envUrl];
+
+  if (typeof window !== 'undefined') {
+    const list = ['/api'];
+    if (window.location.hostname && window.location.hostname !== 'localhost') {
+      list.push(`http://${window.location.hostname}:5000/api`);
+    }
+    list.push('http://localhost:5000/api');
+    return Array.from(new Set(list));
+  }
+  return ['http://localhost:5000/api'];
+}
+
+async function requestWithFallback(path, options = {}) {
+  const candidates = getCandidateBases();
+  let lastError = null;
+
+  for (const base of candidates) {
+    try {
+      const cleanPath = path.startsWith('/') ? path : `/${path}`;
+      const url = `${base}${cleanPath}`;
+      const res = await fetch(url, options);
+
+      // Successful HTTP response
+      if (res.ok) {
+        return await res.json();
+      }
+
+      // If server returned a formatted JSON error response (e.g. 400 or 401), parse and return it
+      const jsonErr = await res.json().catch(() => null);
+      if (jsonErr) return jsonErr;
+
+      lastError = new Error(`HTTP ${res.status}: ${res.statusText}`);
+    } catch (err) {
+      lastError = err;
+      // Continue to next candidate URL
+    }
+  }
+
+  console.warn(`[CampusOne API] All endpoints failed for ${path}:`, lastError?.message);
+  return null;
+}
 
 export const api = {
-  // Fetch tickets with user scope isolation
+  // Fetch tickets with live sync support
   async getTickets(userId) {
-    try {
-      const res = await fetch(`${API_BASE}/tickets`, {
-        headers: { 'x-user-id': userId || 'user_arjun' }
-      });
-      if (!res.ok) throw new Error('API fetch failed');
-      return await res.json();
-    } catch (err) {
-      console.warn('API getTickets offline, using fallback:', err.message);
-      return null;
-    }
+    return await requestWithFallback('/tickets', {
+      headers: userId ? { 'x-user-id': userId } : {}
+    });
   },
 
-  // Create new ticket
+  // Create new ticket (persists across mobile and laptop to backend database)
   async createTicket(ticketData, userId) {
-    try {
-      const res = await fetch(`${API_BASE}/tickets`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-user-id': userId || 'user_arjun'
-        },
-        body: JSON.stringify(ticketData)
-      });
-      if (!res.ok) throw new Error('Failed to create ticket on server');
-      return await res.json();
-    } catch (err) {
-      console.warn('API createTicket offline:', err.message);
-      return null;
-    }
+    return await requestWithFallback('/tickets', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-user-id': userId || 'user_arjun'
+      },
+      body: JSON.stringify(ticketData)
+    });
   },
 
   // Vote (Swipe right/left)
   async voteTicket(ticketId, voteType, userId) {
-    try {
-      const res = await fetch(`${API_BASE}/tickets/${ticketId}/vote`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-user-id': userId || 'user_arjun'
-        },
-        body: JSON.stringify({ voteType })
-      });
-      return await res.json();
-    } catch (err) {
-      console.warn('API voteTicket offline:', err.message);
-      return null;
-    }
+    return await requestWithFallback(`/tickets/${ticketId}/vote`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-user-id': userId || 'user_arjun'
+      },
+      body: JSON.stringify({ voteType })
+    });
   },
 
   // Add Comment
   async addComment(ticketId, text, userId) {
-    try {
-      const res = await fetch(`${API_BASE}/tickets/${ticketId}/comments`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-user-id': userId || 'user_arjun'
-        },
-        body: JSON.stringify({ text })
-      });
-      return await res.json();
-    } catch (err) {
-      console.warn('API addComment offline:', err.message);
-      return null;
-    }
+    return await requestWithFallback(`/tickets/${ticketId}/comments`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-user-id': userId || 'user_arjun'
+      },
+      body: JSON.stringify({ text })
+    });
   },
 
   // Admin Update
   async updateTicketAdmin(ticketId, payload) {
-    try {
-      const res = await fetch(`${API_BASE}/tickets/${ticketId}/admin`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      return await res.json();
-    } catch (err) {
-      console.warn('API updateTicketAdmin offline:', err.message);
-      return null;
-    }
+    return await requestWithFallback(`/tickets/${ticketId}/admin`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
   },
 
   // Student Two-Way Verification
   async verifyResolution(ticketId, isApproved, feedback) {
-    try {
-      const res = await fetch(`${API_BASE}/tickets/${ticketId}/verify`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isApproved, feedback })
-      });
-      return await res.json();
-    } catch (err) {
-      console.warn('API verifyResolution offline:', err.message);
-      return null;
-    }
+    return await requestWithFallback(`/tickets/${ticketId}/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ isApproved, feedback })
+    });
   },
 
   // Faculty Advisor or Hostel Resident Warden Review (Approve / Reject)
   async reviewTicketByPanel(ticketId, payload) {
-    try {
-      const res = await fetch(`${API_BASE}/tickets/${ticketId}/review`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      return await res.json();
-    } catch (err) {
-      console.warn('API reviewTicketByPanel offline:', err.message);
-      return null;
-    }
+    return await requestWithFallback(`/tickets/${ticketId}/review`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
   },
 
   // Faculty Advisor Endorsement (compatibility helper)
   async endorseTicket(ticketId) {
-    try {
-      const res = await fetch(`${API_BASE}/tickets/${ticketId}/endorse`, {
-        method: 'POST'
-      });
-      return await res.json();
-    } catch (err) {
-      console.warn('API endorseTicket offline:', err.message);
-      return null;
-    }
+    return await requestWithFallback(`/tickets/${ticketId}/endorse`, {
+      method: 'POST'
+    });
   },
 
   // Delete Ticket (Student removes own request or Admin deletes)
   async deleteTicket(ticketId, userId) {
-    try {
-      const res = await fetch(`${API_BASE}/tickets/${ticketId}`, {
-        method: 'DELETE',
-        headers: {
-          'x-user-id': userId || 'user_arjun'
-        }
-      });
-      return await res.json();
-    } catch (err) {
-      console.warn('API deleteTicket offline:', err.message);
-      return null;
-    }
+    return await requestWithFallback(`/tickets/${ticketId}`, {
+      method: 'DELETE',
+      headers: { 'x-user-id': userId || 'user_arjun' }
+    });
+  },
+
+  // Fetch all users
+  async getUsers(userId) {
+    return await requestWithFallback('/auth/users', {
+      headers: userId ? { 'x-user-id': userId } : {}
+    });
   },
 
   // Authentication Login
   async login(identifier, password) {
-    try {
-      const res = await fetch(`${API_BASE}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: identifier, identifier, password })
-      });
-      return await res.json();
-    } catch (err) {
-      console.warn('API login offline:', err.message);
-      return null;
-    }
+    return await requestWithFallback('/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: identifier, identifier, password })
+    });
   },
 
   // Overall Admin Provisions / Adds Single User to Database
   async createUser(userData) {
-    try {
-      const res = await fetch(`${API_BASE}/auth/users`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(userData)
-      });
-      return await res.json();
-    } catch (err) {
-      console.warn('API createUser offline:', err.message);
-      return null;
-    }
+    return await requestWithFallback('/auth/users', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(userData)
+    });
   },
 
   // Multi-User Import from Excel / CSV
   async bulkImportUsers(users) {
-    try {
-      const res = await fetch(`${API_BASE}/auth/users/bulk-import`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ users })
-      });
-      return await res.json();
-    } catch (err) {
-      console.warn('API bulkImportUsers offline:', err.message);
-      return null;
-    }
+    return await requestWithFallback('/auth/users/bulk-import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ users })
+    });
   },
 
   // Update Single User Details / Credentials
   async updateUser(userId, updates) {
-    try {
-      const res = await fetch(`${API_BASE}/auth/users/${userId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updates)
-      });
-      return await res.json();
-    } catch (err) {
-      console.warn('API updateUser offline:', err.message);
-      return null;
-    }
+    return await requestWithFallback(`/auth/users/${userId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates)
+    });
   },
 
-  // Bulk Update Multiple Users (e.g. Change Hostel / Section / Dept / Role for a group of students)
+  // Bulk Update Multiple Users
   async bulkUpdateUsers(userIds, updates) {
-    try {
-      const res = await fetch(`${API_BASE}/auth/users/bulk-update`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userIds, updates })
-      });
-      return await res.json();
-    } catch (err) {
-      console.warn('API bulkUpdateUsers offline:', err.message);
-      return null;
-    }
+    return await requestWithFallback('/auth/users/bulk-update', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userIds, updates })
+    });
   },
 
   // Delete Single User
   async deleteUser(userId) {
-    try {
-      const res = await fetch(`${API_BASE}/auth/users/${userId}`, {
-        method: 'DELETE'
-      });
-      return await res.json();
-    } catch (err) {
-      console.warn('API deleteUser offline:', err.message);
-      return null;
-    }
+    return await requestWithFallback(`/auth/users/${userId}`, {
+      method: 'DELETE'
+    });
   },
 
   // Bulk Delete Multiple Users
   async bulkDeleteUsers(userIds) {
-    try {
-      const res = await fetch(`${API_BASE}/auth/users/bulk-delete`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userIds })
-      });
-      return await res.json();
-    } catch (err) {
-      console.warn('API bulkDeleteUsers offline:', err.message);
-      return null;
-    }
+    return await requestWithFallback('/auth/users/bulk-delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userIds })
+    });
   },
 
   // AI Semantic Issue Analysis (Auto-Triage, Duplicates, Vision Defect)
   async analyzeIssueAI(issueData) {
-    try {
-      const res = await fetch(`${API_BASE}/ai/analyze-issue`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(issueData)
-      });
-      if (!res.ok) throw new Error('AI service error');
-      return await res.json();
-    } catch (err) {
-      console.warn('API analyzeIssueAI offline, using fallback:', err.message);
-      return null;
-    }
+    return await requestWithFallback('/ai/analyze-issue', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(issueData)
+    });
   },
 
   // AI Maintenance Dispatch & SLA Copilot
   async getAdminCopilotAI(ticketData) {
-    try {
-      const res = await fetch(`${API_BASE}/ai/admin-copilot`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(ticketData)
-      });
-      if (!res.ok) throw new Error('AI Copilot service error');
-      return await res.json();
-    } catch (err) {
-      console.warn('API getAdminCopilotAI offline:', err.message);
-      return null;
-    }
+    return await requestWithFallback('/ai/admin-copilot', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(ticketData)
+    });
   }
 };
-

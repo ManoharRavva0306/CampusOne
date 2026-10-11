@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { USERS, INITIAL_TICKETS } from '../data/mockData';
 import { api } from '../services/api';
 import confetti from 'canvas-confetti';
@@ -155,22 +155,73 @@ export function AppProvider({ children }) {
     showNotification('Campus-wide announcement broadcasted!', 'success');
   };
 
-  // Sync users & tickets with backend database on mount
-  useEffect(() => {
-    async function loadFromDB() {
-      try {
-        const apiUrl = import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/auth/users` : (typeof window !== 'undefined' && window.location.hostname !== 'localhost' ? '/api/auth/users' : 'http://localhost:5000/api/auth/users');
-        const uRes = await fetch(apiUrl);
-        const uData = await uRes.json();
-        if (uData && uData.success && Array.isArray(uData.users) && uData.users.length > 0) {
-          setUserList(uData.users);
-        }
-      } catch (err) {
-        // Fallback to local state
+  // Live Server Synchronization for Tickets & Users (Real-Time Polling across Devices)
+  const syncServerData = useCallback(async () => {
+    try {
+      // 1. Fetch live tickets from backend
+      const tData = await api.getTickets(currentUser?.id);
+      if (tData && tData.success && Array.isArray(tData.tickets)) {
+        setTickets(prev => {
+          const map = new Map();
+          // Server tickets are the authoritative source of truth
+          tData.tickets.forEach(t => map.set(t.id, sanitizeTicket(t)));
+          // Preserve any locally created tickets that might still be in-flight
+          prev.forEach(t => {
+            if (!map.has(t.id)) {
+              map.set(t.id, t);
+            }
+          });
+          const merged = Array.from(map.values());
+          merged.sort((a, b) => (b.priorityScore || 0) - (a.priorityScore || 0));
+          try {
+            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(merged));
+          } catch (_) {}
+          return merged;
+        });
       }
+
+      // 2. Fetch live users from backend
+      const uData = await api.getUsers(currentUser?.id);
+      if (uData && uData.success && Array.isArray(uData.users) && uData.users.length > 0) {
+        setUserList(prev => {
+          const uMap = new Map();
+          uData.users.forEach(u => uMap.set((u.email || u.id).toLowerCase(), u));
+          prev.forEach(u => {
+            const k = (u.email || u.id).toLowerCase();
+            if (!uMap.has(k)) uMap.set(k, u);
+          });
+          const uMerged = Array.from(uMap.values());
+          try {
+            localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(uMerged));
+          } catch (_) {}
+          return uMerged;
+        });
+      }
+    } catch (err) {
+      console.warn('Sync server data error:', err);
     }
-    loadFromDB();
-  }, []);
+  }, [currentUser?.id]);
+
+  // Initial load and periodic polling every 4 seconds
+  useEffect(() => {
+    syncServerData();
+
+    // Live background polling so laptop and mobile are always in sync in real time
+    const pollInterval = setInterval(() => {
+      syncServerData();
+    }, 4000);
+
+    // Sync immediately when tab regains focus or visibility
+    const handleFocus = () => syncServerData();
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleFocus);
+
+    return () => {
+      clearInterval(pollInterval);
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleFocus);
+    };
+  }, [syncServerData]);
 
   // Persist tickets and users to localStorage
   useEffect(() => {
@@ -402,7 +453,7 @@ export function AppProvider({ children }) {
   };
 
   // Raise new problem ticket (by Student, Class Advisor, or Hostel Resident Warden)
-  const raiseTicket = (ticketData, customUser = null) => {
+  const raiseTicket = async (ticketData, customUser = null) => {
     const actor = customUser || currentUser;
     if (!actor) {
       setShowLoginModal(true);
@@ -416,7 +467,7 @@ export function AppProvider({ children }) {
     const isHostelIssue = scope === 'room' || scope === 'hostel_generic';
     const isCollegeIssue = scope === 'class' || scope === 'department';
 
-    const newId = `TICK-${Math.floor(100 + Math.random() * 900)}`;
+    const newId = ticketData.id || `TICK-${Math.floor(100 + Math.random() * 900)}`;
     const newTicket = {
       id: newId,
       ...ticketData,
@@ -458,6 +509,7 @@ export function AppProvider({ children }) {
 
     newTicket.priorityScore = recalculatePriority(newTicket);
 
+    // Optimistically update local state immediately so UI reacts instantly
     setTickets(prev => [newTicket, ...prev]);
 
     if (isAdvisor) {
@@ -476,7 +528,29 @@ export function AppProvider({ children }) {
       showNotification(`Emergency Hazard #${newId} logged and escalated!`, 'success');
     }
 
-    api.createTicket(newTicket, actor.id).catch(() => {});
+    try {
+      const serverRes = await api.createTicket(newTicket, actor.id);
+      if (serverRes && serverRes.success && serverRes.ticket) {
+        const validated = sanitizeTicket(serverRes.ticket);
+        setTickets(prev => {
+          const idx = prev.findIndex(t => t.id === newTicket.id || t.id === validated.id);
+          let updated;
+          if (idx !== -1) {
+            updated = [...prev];
+            updated[idx] = validated;
+          } else {
+            updated = [validated, ...prev];
+          }
+          try {
+            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
+          } catch (_) {}
+          return updated;
+        });
+      }
+    } catch (err) {
+      console.warn('Backend ticket creation error:', err);
+    }
+
     return newTicket;
   };
 
